@@ -126,6 +126,11 @@ float gravity = 9.81f; // 중력 가속도
 float thrust = 0.0f;   // 상승력
 bool thrustUp = false; // 상승력 증가 여부
 
+// 헬기 로컬 좌표계 기저 벡터
+glm::vec3 heliRight = glm::vec3(1.0f, 0.0f, 0.0f);   // 로컬 X축 (우측)
+glm::vec3 heliUp = glm::vec3(0.0f, 1.0f, 0.0f);      // 로컬 Y축 (상향)
+glm::vec3 heliForward = glm::vec3(0.0f, 0.0f, 1.0f); // 로컬 Z축 (전방)
+
 // FBX 모델들 
 FBXModel mHeliBody;
 FBXModel mHeliBlade;
@@ -802,22 +807,34 @@ void Timer(int value) {
 	Input::Update();
 	KeyBoard();
     
+    // 헬기의 로컬 좌표계 기저벡터 업데이트 (회전 매트릭스로부터 추출)
+    glm::mat4 rotationMat = glm::mat4(1.0f);
+    rotationMat = glm::rotate(rotationMat, glm::radians(yModelRotation), glm::vec3(0.0f, 1.0f, 0.0f));
+    rotationMat = glm::rotate(rotationMat, glm::radians(xModelRotation), glm::vec3(1.0f, 0.0f, 0.0f));
+    rotationMat = glm::rotate(rotationMat, glm::radians(zModelRotation), glm::vec3(0.0f, 0.0f, 1.0f));
+    
+    // 회전 매트릭스에서 기저벡터 추출
+    heliRight = glm::vec3(rotationMat[0]);    // 로컬 X축
+    heliUp = glm::vec3(rotationMat[1]);       // 로컬 Y축
+    heliForward = glm::vec3(rotationMat[2]);  // 로컬 Z축
+    
     // X 각도 보간
     cameraAngle = glm::mix(cameraAngle, targetCameraXAngle, interpSpeed * Time::DeltaTime());
 
     // Y 각도 보간 추가
     cameraYAngle = glm::mix(cameraYAngle, targetCameraYAngle, interpSpeed * Time::DeltaTime());
 
-	
+	// 추력이 헬기의 로컬 Y축 방향으로 작용
     if(thrustUp)
     {
-        modelPosition.y += thrust * 0.01f * Time::DeltaTime();
+        modelPosition += heliUp * thrust * 0.01f * Time::DeltaTime();
     }
     else
     {
-        modelPosition.y -= (gravity/2)  * Time::DeltaTime();
+        // 중력은 월드 Y축 방향으로 작용 (아래 방향)
+        modelPosition.y -= (gravity/2) * Time::DeltaTime();
 		if (mainBladeSpeed > 0.0f)
-		mainBladeSpeed -= 5.0f;
+			mainBladeSpeed -= 5.0f;
         if(modelPosition.y < 0.0f)
             modelPosition.y = 0.0f;
 	}   
