@@ -35,12 +35,13 @@ GLvoid DrawScene();
 GLvoid Reshape(int w, int h);
 
 //glut 콜백 함함수
-void Keyboard(unsigned char key, int x, int y);
+
 void SpecialKeyboard(int key, int x, int y);
 void Mouse(int button, int state, int x, int y);
 void WhellFunc(int whell, int dir, int x, int y);
 void Motion(int x, int y);
 void Timer(int value);
+void KeyBoard();
 void UpdateModelBuffers(FBXModel* model, GLuint vao, GLuint vbo, GLuint ebo); //해당 모델을 버퍼에 업데이트 (버퍼 ID 매개변수 추가)
 bool LoadFBX(const char* filename, FBXModel* model); // FBX 로드 함수 
 glm::vec3 CalculateModelCenter(const std::vector<glm::vec3>& vertices); // 센터 계산 
@@ -56,7 +57,7 @@ GLuint loadCubemap(std::vector<std::string> faces);
 GLint width = 1280, height = 720;
 GLuint shaderProgramID, vertexShader, fragmentShader;
 
-// 모델별 VAO/VBO/EBO (변경: 각 모델별로 분리)
+// 모델별 VAO/VBO/EBO 
 GLuint VAO_Body, VBO_Body, EBO_Body;
 GLuint VAO_Blade, VBO_Blade, EBO_Blade;
 GLuint VAO_Tail, VBO_Tail, EBO_Tail;
@@ -98,13 +99,12 @@ bool wireframeMode = false;
 float glassAlpha = 0.5f;  // 유리 투명도 추가
 
 //전체 모델 회전 
-float ModelRotation = 0.0f;
+float xModelRotation = 0.0f;
+float yModelRotation = 0.0f;
+float zModelRotation = 0.0f;
 
-
-//회전 축 설정
-float xAxis = 1.0f;
-float yAxis = 0.0f;
-float zAxis = 0.0f;
+//전체 모델 이동
+glm::vec3 modelPosition = glm::vec3(0.0f, 0.0f, 0.0f);
 
 
 
@@ -120,7 +120,13 @@ float tailBladeX = 0.0f;
 float tailBladeY = 0.0f;
 float tailBladeZ = 0.0f;
 
-// FBX 모델들
+
+//물리에 필요한거
+float gravity = 9.81f; // 중력 가속도
+float thrust = 0.0f;   // 상승력
+bool thrustUp = false; // 상승력 증가 여부
+
+// FBX 모델들 
 FBXModel mHeliBody;
 FBXModel mHeliBlade;
 FBXModel mHeliTail;
@@ -138,6 +144,7 @@ int main(int argc, char** argv) {
         return -1;
     }
 
+	Input::Initialize();
     // ImGui 초기화
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
@@ -208,7 +215,7 @@ int main(int argc, char** argv) {
 
     glutDisplayFunc(DrawScene);
     glutReshapeFunc(Reshape);
-    glutKeyboardFunc(Keyboard);
+  
     glutTimerFunc(targetFrameDelay, Timer, 0); // ~60 FPS
     glutMouseFunc(Mouse);
     glutMotionFunc(Motion);
@@ -527,8 +534,10 @@ void DrawScene()
 
     //헬기 전체 모델 매트릭스 
 	glm::mat4 worldModelMat = glm::mat4(1.0f);
-
-    worldModelMat = glm::rotate(worldModelMat, glm::radians(ModelRotation), glm::vec3(xAxis, yAxis, zAxis));
+	worldModelMat = glm::translate(worldModelMat, modelPosition);
+    worldModelMat = glm::rotate(worldModelMat, glm::radians(yModelRotation), glm::vec3(0.0f, 1.0f, 0.0f));
+	worldModelMat = glm::rotate(worldModelMat, glm::radians(xModelRotation), glm::vec3(1.0f, 0.0f, 0.0f));
+	worldModelMat = glm::rotate(worldModelMat, glm::radians(zModelRotation), glm::vec3(0.0f, 0.0f, 1.0f));
 
 
     // 5. 모델 그리기
@@ -724,7 +733,7 @@ void DrawScene()
     time += Time::DeltaTime();
     float fps = 1.0f / Time::DeltaTime();
     ImGui::Text("FPS: %.1f", fps);
-
+     
     // === 갱신 주기 제어 슬라이더 ===
     ImGui::SliderInt("Frame Delay ", &targetFrameDelay, 1, 16);
     ImGui::Separator();
@@ -735,11 +744,11 @@ void DrawScene()
     ImGui::SliderFloat("Glass Alpha", &glassAlpha, 0.0f, 1.0f);  // 유리 투명도 슬라이더 추가
     ImGui::Separator();
 
-	ImGui::SliderFloat("Model ModelRotationX", &ModelRotation, -180.0f, 180.0f);
-	ImGui::SliderFloat("Model xAxis", &xAxis, 0.0f, 1.0f);
-	ImGui::SliderFloat("Model yAxis", &yAxis, 0.0f, 1.0f);
-	ImGui::SliderFloat("Model zAxis", &zAxis, 0.0f, 1.0f);
+	ImGui::SliderFloat("Model ModelRotationX", &xModelRotation, -180.0f, 180.0f);
+	ImGui::SliderFloat("Model ModelRotationY", &yModelRotation, -180.0f, 180.0f);
+	ImGui::SliderFloat("Model ModelRotationZ", &zModelRotation, -180.0f, 180.0f);
     ImGui::Separator();
+
 
 
 
@@ -768,47 +777,112 @@ void Reshape(int w, int h) {
     ImGui_ImplGLUT_ReshapeFunc(w, h);  // ImGui 리셰이프
 }
 
-void Keyboard(unsigned char key, int x, int y) {
-    switch (key)
-    {
-    case 'w': mainBladeSpeed += 10.0f; break;
-    case 's': mainBladeSpeed -= 10.0f; break;
-    case 'a': tailBladeSpeed += 10.0f; break;
-    case 'd': tailBladeSpeed -= 10.0f; break;
-    case 'q': exit(0); break;
-    }
-    glutPostRedisplay();
-}
 
 void SpecialKeyboard(int key, int x, int y)
 {
     switch (key)
     {
     case GLUT_KEY_RIGHT:
-        targetCameraXAngle -= glm::radians(5.0f); // 카메라 각도 5도 감소
+		modelPosition.x += 10.0f; 
         break;
     case GLUT_KEY_LEFT:
-        targetCameraXAngle += glm::radians(5.0f); // 카메라 각도 5도 증가
+		modelPosition.x -= 10.0f;
         break;
     case GLUT_KEY_UP:
-        targetCameraYAngle += glm::radians(5.0f); // 카메라 각도 5도 감소
+		modelPosition.z += 1.0f;
         break;
     case GLUT_KEY_DOWN:
-        targetCameraYAngle -= glm::radians(5.0f); // 카메라 각도 5도 증가
+		modelPosition.z -= 1.0f;
         break;
+   
     }
 }
 
 void Timer(int value) {
-
+	Input::Update();
+	KeyBoard();
+    
     // X 각도 보간
     cameraAngle = glm::mix(cameraAngle, targetCameraXAngle, interpSpeed * Time::DeltaTime());
 
     // Y 각도 보간 추가
     cameraYAngle = glm::mix(cameraYAngle, targetCameraYAngle, interpSpeed * Time::DeltaTime());
 
+	
+    if(thrustUp)
+    {
+        modelPosition.y += thrust * 0.01f * Time::DeltaTime();
+    }
+    else
+    {
+        modelPosition.y -= (gravity/2)  * Time::DeltaTime();
+		if (mainBladeSpeed > 0.0f)
+		mainBladeSpeed -= 5.0f;
+        if(modelPosition.y < 0.0f)
+            modelPosition.y = 0.0f;
+	}   
     glutPostRedisplay();
     glutTimerFunc(targetFrameDelay, Timer, 0);
+}
+
+void KeyBoard()
+{
+
+    // W 키: 메인 블레이드 속도 증가 및 추력 증가
+    if (Input::GetKey(eKeyCode::W))
+    {
+        mainBladeSpeed += 10.0f;
+        thrust += 10.0f;
+        thrustUp = true;    
+    }
+    if (Input::GetKeyUp(eKeyCode::W))
+    {
+        thrust = 0.0f;
+		thrustUp = false;
+	}
+
+    // S 키: 메인 블레이드 속도 감소 및 추력 감소
+    if (Input::GetKey(eKeyCode::S))
+    {
+        mainBladeSpeed -= 10.0f;
+        thrust -= 10.0f;
+    }
+    if (Input::GetKeyUp(eKeyCode::S))
+    {
+        
+    }
+
+    // A 키: 테일 블레이드 속도 증가 및 Y축 회전 증가
+    if (Input::GetKey(eKeyCode::A))
+    {
+        tailBladeSpeed += 10.0f;
+        yModelRotation += 5.0f;
+    }
+
+    // D 키: 테일 블레이드 속도 감소 및 Y축 회전 감소
+    if (Input::GetKey(eKeyCode::D))
+    {
+        tailBladeSpeed -= 10.0f;
+        yModelRotation -= 5.0f;
+    }
+
+    // Q 키: X축 회전 감소
+    if (Input::GetKey(eKeyCode::Q))
+    {
+        xModelRotation -= 5.0f;
+    }
+
+    // E 키: X축 회전 증가
+    if (Input::GetKey(eKeyCode::E))
+    {
+        xModelRotation += 5.0f;
+    }
+
+    // ESC 키: 프로그램 종료
+    if (Input::GetKey(eKeyCode::ESC))
+    {
+        exit(0);
+    }
 }
 
 void Mouse(int button, int state, int x, int y) {

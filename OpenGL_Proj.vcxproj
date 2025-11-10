@@ -152,6 +152,7 @@
     <ClInclude Include="imgui_local\imgui_impl_glut.h" />
     <ClInclude Include="imgui_local\imgui_impl_opengl3.h" />
     <ClInclude Include="imgui_local\imgui_impl_opengl3_loader.h" />
+    <ClInclude Include="Input.h" />
     <ClInclude Include="ObjRead.h" />
     <ClInclude Include="Texture.h" />
     <ClInclude Include="Time.h" />
@@ -165,6 +166,7 @@
     <ClCompile Include="imgui\imgui_widgets.cpp" />
     <ClCompile Include="imgui_local\imgui_impl_glut.cpp" />
     <ClCompile Include="imgui_local\imgui_impl_opengl3.cpp" />
+    <ClCompile Include="Input.cpp" />
     <ClCompile Include="Texture.cpp" />
     <ClCompile Include="Time.cpp" />
   </ItemGroup>
