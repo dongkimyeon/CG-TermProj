@@ -97,6 +97,17 @@ int targetFrameDelay = 1;
 bool wireframeMode = false;
 float glassAlpha = 0.5f;  // 유리 투명도 추가
 
+//전체 모델 회전 
+float ModelRotation = 0.0f;
+
+
+//회전 축 설정
+float xAxis = 1.0f;
+float yAxis = 0.0f;
+float zAxis = 0.0f;
+
+
+
 float mainBladeRotation = 0.0f;
 float mainBladeSpeed = 100.0f;
 float mainBladeX = 0.0f;
@@ -514,13 +525,19 @@ void DrawScene()
 
     GLint modelLoc = glGetUniformLocation(shaderProgramID, "model");
 
+    //헬기 전체 모델 매트릭스 
+	glm::mat4 worldModelMat = glm::mat4(1.0f);
+
+    worldModelMat = glm::rotate(worldModelMat, glm::radians(ModelRotation), glm::vec3(xAxis, yAxis, zAxis));
+
+
     // 5. 모델 그리기
     //몸체 (변경: VAO_Body 바인딩, 메시별로 다른 텍스처 적용)
     if (mHeliBody.loaded && !mHeliBody.indices.empty())
     {
         glUniform1i(useVertexColorLoc, 0);
         // 5-1. 모델 매트릭스 설정
-        glm::mat4 modelMat = glm::mat4(1.0f);
+        glm::mat4 modelMat = worldModelMat;
         modelMat = glm::scale(modelMat, glm::vec3(modelScale));
         glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(modelMat));
 
@@ -555,7 +572,7 @@ void DrawScene()
                 glUniform1i(textureLoc, 0);
             }
 
-            // 해당 메시만 그리기 (인덱스 오ф셋 사용)
+            // 해당 메시만 그리기 (인덱스 오프셋 사용)
             glDrawElements(GL_TRIANGLES, meshInfo.indexCount, GL_UNSIGNED_INT, 
                           (void*)(meshInfo.indexStart * sizeof(GLuint)));
         }
@@ -574,7 +591,7 @@ void DrawScene()
         glUniform1f(alphaValueLoc, 1.0f);  // 불투명
         
         // 5-1. 모델 매트릭스 설정
-        glm::mat4 modelMat = glm::mat4(1.0f);
+        glm::mat4 modelMat = worldModelMat;
         modelMat = glm::translate(modelMat, glm::vec3(2.5f, 18.0f, 0.0f));
         modelMat = glm::rotate(modelMat, glm::radians(mainBladeRotation), glm::vec3(0.0f, 1.0f, 0.0f));
         modelMat = glm::scale(modelMat, glm::vec3(modelScale));
@@ -613,7 +630,7 @@ void DrawScene()
         glUniform1f(alphaValueLoc, 1.0f);  // 불투명
         
         // 5-1. 모델 매트릭스 설정
-        glm::mat4 modelMat = glm::mat4(1.0f);
+        glm::mat4 modelMat = worldModelMat;
         modelMat = glm::translate(modelMat, glm::vec3(-88.0f, 17.0f, -7.0f));
         modelMat = glm::rotate(modelMat, glm::radians(tailBladeRotation), glm::vec3(0.0f, 0.0f, 1.0f));
         modelMat = glm::scale(modelMat, glm::vec3(modelScale));
@@ -658,9 +675,10 @@ void DrawScene()
         glBindVertexArray(0);
     }
 
-    // --- 스카이박스 그리기 (모델 그린 후, ImGui 그리기 전) ---
 
-    // 깊이 테스트 함수를 GL_LEQUAL로 변경합니다. (스카이박스 셰이더의 pos.xyww 트릭 때문)
+
+    // --- 스카이박스 그리기 ---
+    // 깊이 테스트 함수를 GL_LEQUAL로 변경합니다. 
     glDepthFunc(GL_LEQUAL);
 
     glUseProgram(skyboxShaderProgramID); // 스카이박스 전용 셰이더 사용
@@ -716,6 +734,15 @@ void DrawScene()
     ImGui::Separator();
     ImGui::SliderFloat("Glass Alpha", &glassAlpha, 0.0f, 1.0f);  // 유리 투명도 슬라이더 추가
     ImGui::Separator();
+
+	ImGui::SliderFloat("Model ModelRotationX", &ModelRotation, -180.0f, 180.0f);
+	ImGui::SliderFloat("Model xAxis", &xAxis, 0.0f, 1.0f);
+	ImGui::SliderFloat("Model yAxis", &yAxis, 0.0f, 1.0f);
+	ImGui::SliderFloat("Model zAxis", &zAxis, 0.0f, 1.0f);
+    ImGui::Separator();
+
+
+
 
     if (ImGui::Button("wired frame"))
     {
