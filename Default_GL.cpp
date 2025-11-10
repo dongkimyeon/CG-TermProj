@@ -13,6 +13,15 @@ struct FBXModel
     std::vector<glm::vec2> uvs; // UV 좌표
     std::vector<GLuint> indices;      // 인덱스
     std::vector<Texture*> textureList; // 텍스처 리스트
+    
+    // 메시별 정보 추가
+    struct MeshInfo {
+        GLuint indexStart;  // 이 메시의 인덱스 시작 위치
+        GLuint indexCount;  // 이 메시의 인덱스 개수
+        GLuint materialIndex; // 이 메시가 사용하는 머티리얼 인덱스
+    };
+    std::vector<MeshInfo> meshes; // 메시별 정보
+    
     glm::vec3 center;
     bool loaded = false;
 };
@@ -86,6 +95,7 @@ bool showAxis = true;  // 축 표시 토글
 float modelScale = 0.1f;       // ImGui로 제어할 스케일
 int targetFrameDelay = 1;
 bool wireframeMode = false;
+float glassAlpha = 0.5f;  // 유리 투명도 추가
 
 float mainBladeRotation = 0.0f;
 float mainBladeSpeed = 100.0f;
@@ -109,7 +119,7 @@ int main(int argc, char** argv) {
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA | GLUT_DEPTH);
     glutInitWindowPosition(100, 100);
     glutInitWindowSize(width, height);
-    glutCreateWindow("Default_GL_imgui_assimp");
+    glutCreateWindow("HeliProj");
 
     glewExperimental = GL_TRUE;
     if (glewInit() != GLEW_OK) {
@@ -261,7 +271,45 @@ bool LoadFBX(const char* filename, FBXModel* fbxModel)
     fbxModel->colors.clear();
     fbxModel->uvs.clear();
     fbxModel->indices.clear();
+    fbxModel->meshes.clear();  // 메시 정보 초기화
     fbxModel->loaded = false;
+
+    // *** 머티리얼 슬롯 정보 출력 추가 ***
+    std::cout << "\n=== 파일: " << filename << " ===" << std::endl;
+    std::cout << "머티리얼 개수: " << scene->mNumMaterials << std::endl;
+    
+    for (unsigned int i = 0; i < scene->mNumMaterials; i++) {
+        aiMaterial* material = scene->mMaterials[i];
+        aiString matName;
+        material->Get(AI_MATKEY_NAME, matName);
+        
+        std::cout << "\n[Material " << i << "]" << std::endl;
+        std::cout << "  이름: " << matName.C_Str() << std::endl;
+        
+        // Diffuse 텍스처 확인
+        unsigned int diffuseCount = material->GetTextureCount(aiTextureType_DIFFUSE);
+        std::cout << "  Diffuse 텍스처 개수: " << diffuseCount << std::endl;
+        
+        for (unsigned int j = 0; j < diffuseCount; j++) {
+            aiString texPath;
+            if (material->GetTexture(aiTextureType_DIFFUSE, j, &texPath) == AI_SUCCESS) {
+                std::cout << "    - Diffuse[" << j << "]: " << texPath.C_Str() << std::endl;
+            }
+        }
+        
+        // Specular 텍스처 확인
+        unsigned int specularCount = material->GetTextureCount(aiTextureType_SPECULAR);
+        if (specularCount > 0) {
+            std::cout << "  Specular 텍스처 개수: " << specularCount << std::endl;
+        }
+        
+        // Normal 텍스처 확인
+        unsigned int normalCount = material->GetTextureCount(aiTextureType_NORMALS);
+        if (normalCount > 0) {
+            std::cout << "  Normal 텍스처 개수: " << normalCount << std::endl;
+        }
+    }
+    std::cout << "====================\n" << std::endl;
 
     // 메쉬
     // 모든 메쉬를 순회하며 데이터를 병합합니다.
@@ -269,8 +317,9 @@ bool LoadFBX(const char* filename, FBXModel* fbxModel)
         aiMesh* mesh = scene->mMeshes[m];
 
         // 이 메쉬의 정점이 시작되기 전, fbxModel에 이미 저장된 정점의 개수.
-        // 이것이 이 메쉬의 인덱스 오프셋(offset)이 됩니다.
+        // 그것이 이 메쉬의 인덱스 오프셋(offset)이 됩니다.
         GLuint vertexOffset = static_cast<GLuint>(fbxModel->vertices.size());
+        GLuint indexStart = static_cast<GLuint>(fbxModel->indices.size());
 
         // 1. 정점(Vertices), UV, 색상(Colors) 데이터 추가
         for (unsigned int i = 0; i < mesh->mNumVertices; i++) {
@@ -306,6 +355,17 @@ bool LoadFBX(const char* filename, FBXModel* fbxModel)
                 fbxModel->indices.push_back(face.mIndices[j] + vertexOffset);
             }
         }
+
+        // 메시 정보 저장
+        FBXModel::MeshInfo meshInfo;
+        meshInfo.indexStart = indexStart;
+        meshInfo.indexCount = static_cast<GLuint>(fbxModel->indices.size() - indexStart);
+        meshInfo.materialIndex = mesh->mMaterialIndex;
+        fbxModel->meshes.push_back(meshInfo);
+        
+        std::cout << "Mesh " << m << ": Material Index = " << mesh->mMaterialIndex 
+                  << ", Indices = " << meshInfo.indexCount << std::endl;
+
     } // 다음 메쉬로 이동
 
 
@@ -323,23 +383,73 @@ bool LoadFBX(const char* filename, FBXModel* fbxModel)
         aiMaterial* material = scene->mMaterials[i];
         fbxModel->textureList[i] = nullptr;
 
-        fbxModel->textureList[i] = new Texture("HeliTexture.png");
+        // 머티리얼 이름 가져오기
+        aiString matName;
+        material->Get(AI_MATKEY_NAME, matName);
+        std::string materialName = matName.C_Str();
+
+        // Diffuse 텍스처 경로 확인
+        aiString texPath;
+        bool hasTexture = false;
+        std::string textureFile;
+
+        if (material->GetTexture(aiTextureType_DIFFUSE, 0, &texPath) == AI_SUCCESS) {
+            // FBX에서 지정한 텍스처 경로가 있는 경우
+            std::string fullPath = texPath.C_Str();
+            
+            // 경로에서 파일 이름만 추출 (역슬래시와 슬래시 모두 고려)
+            size_t lastSlash = fullPath.find_last_of("/\\");
+            if (lastSlash != std::string::npos) {
+                textureFile = fullPath.substr(lastSlash + 1);
+            } else {
+                textureFile = fullPath;
+            }
+            
+            // .TGA를 .png로 변경 (확장자 변환)
+            size_t extPos = textureFile.find_last_of(".");
+            if (extPos != std::string::npos) {
+                std::string ext = textureFile.substr(extPos);
+                // TGA를 PNG로 변환
+                if (ext == ".TGA" || ext == ".tga") {
+                    textureFile = textureFile.substr(0, extPos) + ".png";
+                }
+            }
+            
+            hasTexture = true;
+        }
+
+        // 머티리얼 이름 또는 인덱스에 따라 텍스처 할당
+        if (materialName == "MI_West_Heli_AH64D_Main") {
+            // Material 0: HeliTexture.png 사용 (FBX에 텍스처 정보가 없으므로 직접 지정)
+            fbxModel->textureList[i] = new Texture("HeliTexture.png");
+            std::cout << "Material " << i << " (" << materialName << ")에 HeliTexture.png 할당" << std::endl;
+        }
+        else if (materialName == "MI_West_Heli_AH64D_Glass_" && hasTexture) {
+            // Material 1: FBX에서 지정한 텍스처 사용
+            fbxModel->textureList[i] = new Texture(textureFile.c_str());
+            std::cout << "Material " << i << " (" << materialName << ")에 " << textureFile << " 할당" << std::endl;
+        }
+        else {
+            // 기본값: HeliTexture.png 사용
+            fbxModel->textureList[i] = new Texture("HeliTexture.png");
+            std::cout << "Material " << i << " (" << materialName << ")에 HeliTexture.png 할당 (기본값)" << std::endl;
+        }
+
+        // 텍스처 로드 시도
         if (!fbxModel->textureList[i]->LoadTexture()) {  
-			std::cerr << "텍스처 로드 실패: HeliTexture.png" << std::endl;  // *** 로그 ***
+            std::cerr << "텍스처 로드 실패: Material " << i << std::endl;
             delete fbxModel->textureList[i];
             fbxModel->textureList[i] = nullptr;
         }
         else {
-            std::cout << "텍스처 로드 성공: HeliTexture.png" << std::endl;  // *** 로그 ***
+            std::cout << "텍스처 로드 성공: Material " << i << std::endl;
         }
-        
-        
     }
 
-    // *** 추가: 모든 textureList 유효성 로그 ***
+    
     for (size_t i = 0; i < fbxModel->textureList.size(); ++i) {
         if (fbxModel->textureList[i]) {
-            std::cout << "Material " << i << " Texture ID: " << fbxModel->textureList[i] << std::endl;  // Texture.h에 public GLuint textureID; 가정
+            std::cout << "Material " << i << " Texture ID: " << fbxModel->textureList[i] << std::endl;
         }
         else {
             std::cout << "Material " << i << ": No Texture" << std::endl;
@@ -379,6 +489,10 @@ void DrawScene()
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glEnable(GL_CULL_FACE);
     glCullFace(GL_BACK);
+    
+    // 알파 블렌딩 활성화
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     // --- 기본 깊이 테스트 함수 설정 ---
     glDepthFunc(GL_LESS);
@@ -390,6 +504,7 @@ void DrawScene()
     GLint projLoc = glGetUniformLocation(shaderProgramID, "proj");
     GLint textureLoc = glGetUniformLocation(shaderProgramID, "textureSampler");
     GLint useVertexColorLoc = glGetUniformLocation(shaderProgramID, "useVertexColor");
+    GLint alphaValueLoc = glGetUniformLocation(shaderProgramID, "alphaValue");  // 알파값 유니폼 위치
 
     glm::mat4 view = glm::lookAt(cameraPos, glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f)); // 뷰 매트릭스
 
@@ -400,7 +515,7 @@ void DrawScene()
     GLint modelLoc = glGetUniformLocation(shaderProgramID, "model");
 
     // 5. 모델 그리기
-    //몸체 (변경: VAO_Body 바인딩)
+    //몸체 (변경: VAO_Body 바인딩, 메시별로 다른 텍스처 적용)
     if (mHeliBody.loaded && !mHeliBody.indices.empty())
     {
         glUniform1i(useVertexColorLoc, 0);
@@ -409,13 +524,6 @@ void DrawScene()
         modelMat = glm::scale(modelMat, glm::vec3(modelScale));
         glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(modelMat));
 
-        // *** 텍스처 바인딩 추가 ***
-        if (mHeliBody.textureList.size() > 0 && mHeliBody.textureList[0]) {
-            mHeliBody.textureList[0]->UseTexture();
-            glUniform1i(textureLoc, 0);
-        }
-
-        // 5-2. 그리기
         glBindVertexArray(VAO_Body);
         if (wireframeMode) {
             glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
@@ -423,7 +531,38 @@ void DrawScene()
         else {
             glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
         }
-        glDrawElements(GL_TRIANGLES, mHeliBody.indices.size(), GL_UNSIGNED_INT, 0);
+
+        // 메시별로 다른 텍스처를 적용하여 그리기
+        for (size_t i = 0; i < mHeliBody.meshes.size(); ++i) {
+            const auto& meshInfo = mHeliBody.meshes[i];
+            
+            // 머티리얼 인덱스에 따라 알파값 설정
+            if (meshInfo.materialIndex == 1) {
+                // Material 1 (유리): 투명도 적용
+                glUniform1f(alphaValueLoc, glassAlpha);
+                // 투명 객체는 깊이 쓰기 비활성화 (선택적)
+                glDepthMask(GL_FALSE);
+            } else {
+                // 다른 Material: 불투명
+                glUniform1f(alphaValueLoc, 1.0f);
+                glDepthMask(GL_TRUE);
+            }
+            
+            // 해당 메시의 머티리얼 인덱스로 텍스처 바인딩
+            if (meshInfo.materialIndex < mHeliBody.textureList.size() && 
+                mHeliBody.textureList[meshInfo.materialIndex]) {
+                mHeliBody.textureList[meshInfo.materialIndex]->UseTexture();
+                glUniform1i(textureLoc, 0);
+            }
+
+            // 해당 메시만 그리기 (인덱스 오ф셋 사용)
+            glDrawElements(GL_TRIANGLES, meshInfo.indexCount, GL_UNSIGNED_INT, 
+                          (void*)(meshInfo.indexStart * sizeof(GLuint)));
+        }
+        
+        // 깊이 쓰기 다시 활성화
+        glDepthMask(GL_TRUE);
+
         glBindVertexArray(0);
         glBindTexture(GL_TEXTURE_2D, 0);
     }
@@ -432,6 +571,8 @@ void DrawScene()
     if (mHeliBlade.loaded && !mHeliBlade.indices.empty())
     {
         glUniform1i(useVertexColorLoc, 0);
+        glUniform1f(alphaValueLoc, 1.0f);  // 불투명
+        
         // 5-1. 모델 매트릭스 설정
         glm::mat4 modelMat = glm::mat4(1.0f);
         modelMat = glm::translate(modelMat, glm::vec3(2.5f, 18.0f, 0.0f));
@@ -439,13 +580,6 @@ void DrawScene()
         modelMat = glm::scale(modelMat, glm::vec3(modelScale));
         glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(modelMat));
 
-        // *** 텍스처 바인딩 추가 ***
-        if (mHeliBlade.textureList.size() > 0 && mHeliBlade.textureList[0]) {
-            mHeliBlade.textureList[0]->UseTexture();
-            glUniform1i(textureLoc, 1);
-        }
-
-        // 5-2. 그리기
         glBindVertexArray(VAO_Blade);
         if (wireframeMode) {
             glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
@@ -453,7 +587,21 @@ void DrawScene()
         else {
             glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
         }
-        glDrawElements(GL_TRIANGLES, mHeliBlade.indices.size(), GL_UNSIGNED_INT, 0);
+
+        // 메시별로 다른 텍스처를 적용하여 그리기
+        for (size_t i = 0; i < mHeliBlade.meshes.size(); ++i) {
+            const auto& meshInfo = mHeliBlade.meshes[i];
+            
+            if (meshInfo.materialIndex < mHeliBlade.textureList.size() && 
+                mHeliBlade.textureList[meshInfo.materialIndex]) {
+                mHeliBlade.textureList[meshInfo.materialIndex]->UseTexture();
+                glUniform1i(textureLoc, 0);
+            }
+
+            glDrawElements(GL_TRIANGLES, meshInfo.indexCount, GL_UNSIGNED_INT, 
+                          (void*)(meshInfo.indexStart * sizeof(GLuint)));
+        }
+
         glBindVertexArray(0);
         glBindTexture(GL_TEXTURE_2D, 0);
     }
@@ -462,6 +610,8 @@ void DrawScene()
     if (mHeliTail.loaded && !mHeliTail.indices.empty())
     {
         glUniform1i(useVertexColorLoc, 0);
+        glUniform1f(alphaValueLoc, 1.0f);  // 불투명
+        
         // 5-1. 모델 매트릭스 설정
         glm::mat4 modelMat = glm::mat4(1.0f);
         modelMat = glm::translate(modelMat, glm::vec3(-88.0f, 17.0f, -7.0f));
@@ -469,13 +619,6 @@ void DrawScene()
         modelMat = glm::scale(modelMat, glm::vec3(modelScale));
         glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(modelMat));
 
-        // *** 텍스처 바인딩 추가 ***
-        if (mHeliTail.textureList.size() > 0 && mHeliTail.textureList[0]) {
-            mHeliTail.textureList[0]->UseTexture();
-            glUniform1i(textureLoc, 0);
-        }
-
-        // 5-2. 그리기
         glBindVertexArray(VAO_Tail);
         if (wireframeMode) {
             glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
@@ -483,7 +626,21 @@ void DrawScene()
         else {
             glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
         }
-        glDrawElements(GL_TRIANGLES, mHeliTail.indices.size(), GL_UNSIGNED_INT, 0);
+
+        // 메시별로 다른 텍스처를 적용하여 그리기
+        for (size_t i = 0; i < mHeliTail.meshes.size(); ++i) {
+            const auto& meshInfo = mHeliTail.meshes[i];
+            
+            if (meshInfo.materialIndex < mHeliTail.textureList.size() && 
+                mHeliTail.textureList[meshInfo.materialIndex]) {
+                mHeliTail.textureList[meshInfo.materialIndex]->UseTexture();
+                glUniform1i(textureLoc, 0);
+            }
+
+            glDrawElements(GL_TRIANGLES, meshInfo.indexCount, GL_UNSIGNED_INT, 
+                          (void*)(meshInfo.indexStart * sizeof(GLuint)));
+        }
+
         glBindVertexArray(0);
         glBindTexture(GL_TEXTURE_2D, 0);
     }
@@ -557,8 +714,8 @@ void DrawScene()
     ImGui::Separator();
     ImGui::SliderFloat("Tail Speed", &tailBladeSpeed, 100, 1000);
     ImGui::Separator();
-
-
+    ImGui::SliderFloat("Glass Alpha", &glassAlpha, 0.0f, 1.0f);  // 유리 투명도 슬라이더 추가
+    ImGui::Separator();
 
     if (ImGui::Button("wired frame"))
     {
@@ -782,7 +939,7 @@ GLuint loadCubemap(std::vector<std::string> faces)
         }
         else
         {
-            std::cerr << "큐브맵 텍스처 로드 실패: " << faces[i] << std::endl;
+            std::cerr << "큐브막 텍스처 로드 실패: " << faces[i] << std::endl;
             stbi_image_free(data);
             glDeleteTextures(1, &textureID); // 실패 시 생성된 텍스처 삭제
             return 0; // 0 반환하여 실패 알림

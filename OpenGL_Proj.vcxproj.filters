@@ -122,4 +122,12 @@
       <Filter>소스 파일\Shders</Filter>
     </None>
   </ItemGroup>
+  <ItemGroup>
+    <Image Include="MI_West_Heli_AH64D_Main.png">
+      <Filter>리소스 파일</Filter>
+    </Image>
+    <Image Include="T_West_Heli_AH64D_Glass_D.png">
+      <Filter>리소스 파일</Filter>
+    </Image>
+  </ItemGroup>
 </Project>
