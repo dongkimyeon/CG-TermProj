@@ -85,6 +85,9 @@ int lastMouseX = 0;          // 마지막 마우스 X 위치
 int lastMouseY = 0;          // 마지막 마우스 Y 위치
 float rotationSpeed = 0.005f; // 카메라 회전 속도 (조정 가능)
 
+float cameraDistance = 150.0f;  // 헬기로부터의 거리
+float cameraHeight = 50.0f;     // 헬기 위쪽으로의 높이
+
 //선형보간 속도
 float interpSpeed = 10.0f;
 
@@ -109,13 +112,13 @@ glm::vec3 modelPosition = glm::vec3(0.0f, 0.0f, 0.0f);
 
 
 float mainBladeRotation = 0.0f;
-float mainBladeSpeed = 100.0f;
+float mainBladeSpeed = 2000.0f;
 float mainBladeX = 0.0f;
 float mainBladeY = 0.0f;
 float mainBladeZ = 0.0f;
 
 float tailBladeRotation = 0.0f;
-float tailBladeSpeed = 100.0f;
+float tailBladeSpeed = 2000.0f;
 float tailBladeX = 0.0f;
 float tailBladeY = 0.0f;
 float tailBladeZ = 0.0f;
@@ -125,6 +128,20 @@ float tailBladeZ = 0.0f;
 float gravity = 9.81f; // 중력 가속도
 float thrust = 0.0f;   // 상승력
 bool thrustUp = false; // 상승력 증가 여부
+
+// *** 가속도 기반 물리 시스템 변수 ***
+glm::vec3 velocity = glm::vec3(0.0f);           // 헬기 속도
+glm::vec3 acceleration = glm::vec3(0.0f);       // 헬기 가속도
+glm::vec3 angularVelocity = glm::vec3(0.0f);    // 각속도 (roll, pitch, yaw)
+glm::vec3 angularAcceleration = glm::vec3(0.0f); // 각가속도
+
+// 물리 상수
+float heliMass = 1.0f;              // 헬기 질량 (상대값)
+float thrustAcceleration = 30.0f;   // 추력 가속도
+float airDrag = 0.5f;               // 공기 저항 계수
+float angularDrag = 5.0f;           // 회전 저항 계수
+float maxVelocity = 100.0f;         // 최대 속도
+float maxAngularVelocity = 180.0f;  // 최대 각속도 (도/초)
 
 // 헬기 로컬 좌표계 기저 벡터
 glm::vec3 heliRight = glm::vec3(1.0f, 0.0f, 0.0f);   // 로컬 X축 (우측)
@@ -224,6 +241,7 @@ int main(int argc, char** argv) {
     glutTimerFunc(targetFrameDelay, Timer, 0); // ~60 FPS
     glutMouseFunc(Mouse);
     glutMotionFunc(Motion);
+	glutPassiveMotionFunc(Motion);
     glutSpecialFunc(SpecialKeyboard);
 	glutMouseWheelFunc(WhellFunc);
 
@@ -498,13 +516,14 @@ void DrawScene()
 
     mainBladeRotation += mainBladeSpeed * Time::DeltaTime();
     tailBladeRotation += tailBladeSpeed * Time::DeltaTime();
-    // 카메라 위치 업데이트 (구면 좌표계 사용)
-    float theta = cameraAngle;
-    float beta = cameraYAngle; // 고도각 
-    float r_xz = cameraRadius * glm::cos(beta);
-    cameraPos.x = r_xz * glm::cos(theta);
-    cameraPos.z = r_xz * glm::sin(theta);
-    cameraPos.y = cameraRadius * glm::sin(beta);
+    // 카메라가 헬기를 뒤에서 쫓아가도록 위치 계산
+  // 헬기의 로컬 좌표계 기준 (회전 반영)
+    glm::vec3 cameraOffset = -heliForward * cameraDistance + heliUp * cameraHeight;
+    cameraPos = modelPosition + cameraOffset;
+
+    // 카메라 목표 지점 (헬기 위치보다 약간 위)
+    glm::vec3 cameraTarget = modelPosition + heliUp * 10.0f;
+
 
     // 씬 클리어
     glEnable(GL_DEPTH_TEST);
@@ -529,7 +548,9 @@ void DrawScene()
     GLint useVertexColorLoc = glGetUniformLocation(shaderProgramID, "useVertexColor");
     GLint alphaValueLoc = glGetUniformLocation(shaderProgramID, "alphaValue");  // 알파값 유니폼 위치
 
-    glm::mat4 view = glm::lookAt(cameraPos, glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f)); // 뷰 매트릭스
+    glm::mat4 view = glm::lookAt(cameraPos, cameraTarget, heliUp);
+
+
 
     glm::mat4 proj = glm::perspective(glm::radians(100.0f), (float)width / (float)height, 0.1f, 1000.0f);
     glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
@@ -738,7 +759,25 @@ void DrawScene()
     time += Time::DeltaTime();
     float fps = 1.0f / Time::DeltaTime();
     ImGui::Text("FPS: %.1f", fps);
+    
+    // *** 물리 정보 표시 ***
+    ImGui::Separator();
+    ImGui::Text("Physics Info:");
+    ImGui::Text("Velocity: (%.1f, %.1f, %.1f)", velocity.x, velocity.y, velocity.z);
+    ImGui::Text("Speed: %.1f", glm::length(velocity));
+    ImGui::Text("Thrust: %.1f", thrust);
+    ImGui::Text("Position: (%.1f, %.1f, %.1f)", modelPosition.x, modelPosition.y, modelPosition.z);
+    ImGui::Separator();
+    ImGui::Text("Angular Velocity: (%.1f, %.1f, %.1f)", angularVelocity.x, angularVelocity.y, angularVelocity.z);
+    ImGui::Separator();
      
+    // === 물리 파라미터 조정 ===
+    ImGui::SliderFloat("Thrust Accel", &thrustAcceleration, 10.0f, 100.0f);
+    ImGui::SliderFloat("Air Drag", &airDrag, 0.0f, 2.0f);
+    ImGui::SliderFloat("Angular Drag", &angularDrag, 0.0f, 10.0f);
+    ImGui::SliderFloat("Gravity", &gravity, 0.0f, 20.0f);
+    ImGui::Separator();
+    
     // === 갱신 주기 제어 슬라이더 ===
     ImGui::SliderInt("Frame Delay ", &targetFrameDelay, 1, 16);
     ImGui::Separator();
@@ -753,7 +792,8 @@ void DrawScene()
 	ImGui::SliderFloat("Model ModelRotationY", &yModelRotation, -180.0f, 180.0f);
 	ImGui::SliderFloat("Model ModelRotationZ", &zModelRotation, -180.0f, 180.0f);
     ImGui::Separator();
-
+    ImGui::SliderFloat("Camera Distance", &cameraDistance, 10.0f, 200.0f);
+    ImGui::SliderFloat("Camera Height", &cameraHeight, 0.0f, 100.0f);
 
 
 
@@ -766,6 +806,20 @@ void DrawScene()
     if (ImGui::Button("XYZ"))
     {
         showAxis = !showAxis;
+    }
+    
+    // 물리 초기화 버튼
+    if (ImGui::Button("Reset Physics"))
+    {
+        velocity = glm::vec3(0.0f);
+        angularVelocity = glm::vec3(0.0f);
+        acceleration = glm::vec3(0.0f);
+        angularAcceleration = glm::vec3(0.0f);
+        thrust = 0.0f;
+        modelPosition = glm::vec3(0.0f, 0.0f, 0.0f);
+        xModelRotation = 0.0f;
+        yModelRotation = 0.0f;
+        zModelRotation = 0.0f;
     }
 
     ImGui::End();
@@ -804,95 +858,172 @@ void SpecialKeyboard(int key, int x, int y)
 }
 
 void Timer(int value) {
-	Input::Update();
-	KeyBoard();
-    
-    // 헬기의 로컬 좌표계 기저벡터 업데이트 (회전 매트릭스로부터 추출)
-    glm::mat4 rotationMat = glm::mat4(1.0f);
-    rotationMat = glm::rotate(rotationMat, glm::radians(yModelRotation), glm::vec3(0.0f, 1.0f, 0.0f));
-    rotationMat = glm::rotate(rotationMat, glm::radians(xModelRotation), glm::vec3(1.0f, 0.0f, 0.0f));
-    rotationMat = glm::rotate(rotationMat, glm::radians(zModelRotation), glm::vec3(0.0f, 0.0f, 1.0f));
-    
-    // 회전 매트릭스에서 기저벡터 추출
-    heliRight = glm::vec3(rotationMat[0]);    // 로컬 X축
-    heliUp = glm::vec3(rotationMat[1]);       // 로컬 Y축
-    heliForward = glm::vec3(rotationMat[2]);  // 로컬 Z축
-    
-    // X 각도 보간
-    cameraAngle = glm::mix(cameraAngle, targetCameraXAngle, interpSpeed * Time::DeltaTime());
+    Input::Update();
+    KeyBoard();
 
-    // Y 각도 보간 추가
-    cameraYAngle = glm::mix(cameraYAngle, targetCameraYAngle, interpSpeed * Time::DeltaTime());
+    float deltaTime = Time::DeltaTime();
 
-	// 추력이 헬기의 로컬 Y축 방향으로 작용
-    if(thrustUp)
-    {
-        modelPosition += heliUp * thrust * 0.01f * Time::DeltaTime();
+    // 카메라용 회전 매트릭스: Y축 회전(yaw)만 적용
+    glm::mat4 cameraRotationMat = glm::mat4(1.0f);
+    cameraRotationMat = glm::rotate(cameraRotationMat, glm::radians(yModelRotation), glm::vec3(0.0f, 1.0f, 0.0f));
+
+    // 헬기의 기본 방향 벡터
+    glm::vec3 baseForward = glm::vec3(-1.0f, 0.0f, 0.0f);
+    glm::vec3 baseUp = glm::vec3(0.0f, 1.0f, 0.0f);
+
+    // 카메라용 기저벡터 (Y축 회전만 반영)
+    heliForward = glm::vec3(cameraRotationMat * glm::vec4(baseForward, 0.0f));
+    heliUp = glm::vec3(cameraRotationMat * glm::vec4(baseUp, 0.0f));
+
+    // 헬기 물리용 회전 매트릭스: 모든 회전 적용
+    glm::mat4 heliRotationMat = glm::mat4(1.0f);
+    heliRotationMat = glm::rotate(heliRotationMat, glm::radians(yModelRotation), glm::vec3(0.0f, 1.0f, 0.0f));
+    heliRotationMat = glm::rotate(heliRotationMat, glm::radians(xModelRotation), glm::vec3(1.0f, 0.0f, 0.0f));
+    heliRotationMat = glm::rotate(heliRotationMat, glm::radians(zModelRotation), glm::vec3(0.0f, 0.0f, 1.0f));
+
+    // 헬기의 실제 로컬 좌표계 (물리 계산용)
+    glm::vec3 heliActualUp = glm::vec3(heliRotationMat[1]);
+
+    // *** 가속도 기반 물리 시스템 ***
+    
+    // 1. 중력 가속도 (항상 아래 방향)
+    glm::vec3 gravityAccel = glm::vec3(0.0f, -gravity, 0.0f);
+    
+    // 2. 추력 가속도 (헬기의 실제 상향 벡터 방향)
+    glm::vec3 thrustAccel = glm::vec3(0.0f);
+    if (thrustUp) {
+        thrustAccel = heliActualUp * (thrust * thrustAcceleration * 0.01f);
     }
-    else
-    {
-        // 중력은 월드 Y축 방향으로 작용 (아래 방향)
-        modelPosition.y -= (gravity/2) * Time::DeltaTime();
-		if (mainBladeSpeed > 0.0f)
-			mainBladeSpeed -= 5.0f;
-        if(modelPosition.y < 0.0f)
-            modelPosition.y = 0.0f;
-	}   
+    
+    // 3. 공기 저항 (속도에 비례, 반대 방향)
+    glm::vec3 dragAccel = -velocity * airDrag;
+    
+    // 4. 총 가속도 계산
+    acceleration = gravityAccel + thrustAccel + dragAccel;
+    
+    // 5. 속도 업데이트 (v = v0 + a * dt)
+    velocity += acceleration * deltaTime;
+    
+    // 6. 최대 속도 제한
+    float speed = glm::length(velocity);
+    if (speed > maxVelocity) {
+        velocity = glm::normalize(velocity) * maxVelocity;
+    }
+    
+    // 7. 위치 업데이트 (p = p0 + v * dt)
+    modelPosition += velocity * deltaTime;
+    
+    // 8. 지면 충돌 처리
+    if (modelPosition.y < 0.0f) {
+        modelPosition.y = 0.0f;
+        // 지면에 닿으면 Y방향 속도를 감쇠
+        if (velocity.y < 0.0f) {
+            velocity.y = -velocity.y * 0.3f; // 30% 반발
+        }
+        // 지면 마찰
+        velocity.x *= 0.95f;
+        velocity.z *= 0.95f;
+    }
+    
+    // *** 회전 가속도 시스템 ***
+    
+    // 회전 저항 (각속도에 비례)
+    glm::vec3 angularDragAccel = -angularVelocity * angularDrag;
+    
+    // 총 각가속도
+    angularAcceleration = angularDragAccel;
+    
+    // 각속도 업데이트
+    angularVelocity += angularAcceleration * deltaTime;
+    
+    // 최대 각속도 제한
+    angularVelocity.x = glm::clamp(angularVelocity.x, -maxAngularVelocity, maxAngularVelocity);
+    angularVelocity.y = glm::clamp(angularVelocity.y, -maxAngularVelocity, maxAngularVelocity);
+    angularVelocity.z = glm::clamp(angularVelocity.z, -maxAngularVelocity, maxAngularVelocity);
+    
+    // 회전 각도 업데이트 (부드러운 회전)
+    xModelRotation += angularVelocity.x * deltaTime;
+    yModelRotation += angularVelocity.y * deltaTime;
+    zModelRotation += angularVelocity.z * deltaTime;
+    
+    // 각도 정규화 (-180 ~ 180)
+    while (xModelRotation > 180.0f) xModelRotation -= 360.0f;
+    while (xModelRotation < -180.0f) xModelRotation += 360.0f;
+    while (yModelRotation > 180.0f) yModelRotation -= 360.0f;
+    while (yModelRotation < -180.0f) yModelRotation += 360.0f;
+    while (zModelRotation > 180.0f) zModelRotation -= 360.0f;
+    while (zModelRotation < -180.0f) zModelRotation += 360.0f;
+
+    // 각도 보간 (기존 코드 유지 - 부드러운 카메라 전환용)
+    cameraAngle = glm::mix(cameraAngle, targetCameraXAngle, interpSpeed * deltaTime);
+    cameraYAngle = glm::mix(cameraYAngle, targetCameraYAngle, interpSpeed * deltaTime);
+
     glutPostRedisplay();
     glutTimerFunc(targetFrameDelay, Timer, 0);
 }
-
 void KeyBoard()
 {
-
-    // W 키: 메인 블레이드 속도 증가 및 추력 증가
+    // *** 가속도 기반 입력 시스템 ***
+    
+    // W 키: 추력 증가 (가속)
     if (Input::GetKey(eKeyCode::W))
     {
-        mainBladeSpeed += 10.0f;
-        thrust += 10.0f;
+        thrust += 0.5f;
+        if (thrust > 100.0f) thrust = 100.0f;  // 최대 추력 제한
         thrustUp = true;    
     }
     if (Input::GetKeyUp(eKeyCode::W))
     {
-        thrust = 0.0f;
-		thrustUp = false;
-	}
+        // 키를 떼면 추력 서서히 감소 (관성)
+        // thrust는 Timer에서 처리되도록 유지
+    }
 
-    // S 키: 메인 블레이드 속도 감소 및 추력 감소
+    // S 키: 추력 감소 (하강)
     if (Input::GetKey(eKeyCode::S))
     {
-        mainBladeSpeed -= 10.0f;
-        thrust -= 10.0f;
+        thrust -= 0.5f;
+        if (thrust < 0.0f) thrust = 0.0f;
+        thrustUp = (thrust > 0.0f);
     }
     if (Input::GetKeyUp(eKeyCode::S))
     {
-        
+        // 키를 떼면 현재 추력 유지
     }
 
-    // A 키: 테일 블레이드 속도 증가 및 Y축 회전 증가
+    // A 키: 좌회전 (각가속도 적용)
     if (Input::GetKey(eKeyCode::A))
     {
-        tailBladeSpeed += 10.0f;
-        yModelRotation += 5.0f;
+        // Y축 회전 각속도 증가 (왼쪽 회전)
+        angularVelocity.y += 100.0f * Time::DeltaTime();
+        if (angularVelocity.y > maxAngularVelocity) 
+            angularVelocity.y = maxAngularVelocity;
     }
 
-    // D 키: 테일 블레이드 속도 감소 및 Y축 회전 감소
+    // D 키: 우회전 (각가속도 적용)
     if (Input::GetKey(eKeyCode::D))
     {
-        tailBladeSpeed -= 10.0f;
-        yModelRotation -= 5.0f;
+        // Y축 회전 각속도 감소 (오른쪽 회전)
+        angularVelocity.y -= 100.0f * Time::DeltaTime();
+        if (angularVelocity.y < -maxAngularVelocity) 
+            angularVelocity.y = -maxAngularVelocity;
     }
 
-    // Q 키: X축 회전 감소
+    // Q 키: 좌측 롤 (각가속도 적용)
     if (Input::GetKey(eKeyCode::Q))
     {
-        xModelRotation -= 5.0f;
+        // X축 회전 각속도 감소 (왼쪽 기울임)
+        angularVelocity.x -= 50.0f * Time::DeltaTime();
+        if (angularVelocity.x < -maxAngularVelocity) 
+            angularVelocity.x = -maxAngularVelocity;
     }
 
-    // E 키: X축 회전 증가
+    // E 키: 우측 롤 (각가속도 적용)
     if (Input::GetKey(eKeyCode::E))
     {
-        xModelRotation += 5.0f;
+        // X축 회전 각속도 증가 (오른쪽 기울임)
+        angularVelocity.x += 50.0f * Time::DeltaTime();
+        if (angularVelocity.x > maxAngularVelocity) 
+            angularVelocity.x = maxAngularVelocity;
     }
 
     // ESC 키: 프로그램 종료
@@ -901,7 +1032,6 @@ void KeyBoard()
         exit(0);
     }
 }
-
 void Mouse(int button, int state, int x, int y) {
     ImGui_ImplGLUT_MouseFunc(button, state, x, y);
 
@@ -909,56 +1039,40 @@ void Mouse(int button, int state, int x, int y) {
     ImGuiIO& io = ImGui::GetIO();
     if (!io.WantCaptureMouse)
     {
-        if (button == GLUT_RIGHT_BUTTON) // 우클릭
-        {
-            if (state == GLUT_DOWN) // 눌림
-            {
-                rightClickDown = true;
-                lastMouseX = x; // 현재 위치 저장
-                lastMouseY = y;
-            }
-            else if (state == GLUT_UP) // 떼짐
-            {
-                rightClickDown = false;
-            }
-        }
+     
     }
 }
 
 void Motion(int x, int y) {
     ImGui_ImplGLUT_MotionFunc(x, y);
-
     // ImGui가 마우스를 사용하지 않을 때만 사용자의 마우스 로직 처리
     ImGuiIO& io = ImGui::GetIO();
     if (!io.WantCaptureMouse)
     {
-        // 우클릭 드래그 중인 경우
-        if (rightClickDown)
-        {
-            // 마우스 이동량 계산
-            int deltaX = x - lastMouseX;
-            int deltaY = y - lastMouseY;
+        // 화면 중앙 좌표 계산
+        int centerX = width / 2;
+        int centerY = height / 2;
 
-            // X 이동량으로 X-Z 평면 각도 업데이트 (Y축 기준 회전)
-            // 화면 우측 이동 -> targetCameraXAngle 감소 (시계 방향 회전)
-            targetCameraXAngle += (float)deltaX * rotationSpeed;
+        // 중앙으로부터의 마우스 이동량 계산
+        int deltaX = x - centerX;
+        int deltaY = y - centerY;
 
-            // Y 이동량으로 고도 각도 업데이트
-            // 화면 위로 이동 -> targetCameraYAngle 증가 (카메라 상승)
-            targetCameraYAngle += (float)deltaY * rotationSpeed;
+        // *** 가속도 기반 회전 입력 ***
+        // 마우스 좌우 움직임 -> Y축 각속도 변경 (헬기가 좌우로 회전)
+        float yawInput = (float)deltaX * rotationSpeed * 10.0f;
+        angularVelocity.y += yawInput;
+        angularVelocity.y = glm::clamp(angularVelocity.y, -maxAngularVelocity, maxAngularVelocity);
 
-            // 고도각 (Y) 제한 (예: 수직에서 너무 가까워지는 것 방지)
-            // GLM_PI/2는 90도 라디안. 89도로 제한
-            float limit = glm::radians(89.0f);
-            targetCameraYAngle = glm::clamp(targetCameraYAngle, -limit, limit);
+        // 마우스 앞뒤 움직임 -> Z축 각속도 변경 (헬기가 앞뒤로 기울어짐)
+        float pitchInput = (float)deltaY * rotationSpeed * 10.0f;
+        angularVelocity.z += pitchInput;
+        angularVelocity.z = glm::clamp(angularVelocity.z, -maxAngularVelocity, maxAngularVelocity);
 
-            // 다음 프레임을 위해 현재 위치 저장
-            lastMouseX = x;
-            lastMouseY = y;
+        // 마우스를 화면 중앙으로 다시 이동
+        glutWarpPointer(centerX, centerY);
 
-            // 변경 사항을 반영하기 위해 화면 다시 그리기 요청
-            glutPostRedisplay();
-        }
+        // 변경 사항을 반영하기 위해 화면 다시 그리기 요청
+        glutPostRedisplay();
     }
 }
 
@@ -1164,7 +1278,7 @@ void InitBuffers() {  // 변경: 모델별 버퍼 초기화
          1.0f, -1.0f, -1.0f,
          1.0f, -1.0f,  1.0f,
          1.0f,  1.0f,  1.0f,
-         1.0f,  1.0f,  1.0f,
+         1.0f,  1.0f,   1.0f,
          1.0f,  1.0f, -1.0f,
          1.0f, -1.0f, -1.0f,
 
