@@ -92,7 +92,8 @@ float cameraHeight = 50.0f;     // 헬기 위쪽으로의 높이
 float interpSpeed = 10.0f;
 
 
-
+bool wUpFlag = false;
+bool sUpFlag = false;
 //imgui 관련 변수
 bool showAxis = true;  // 축 표시 토글
 
@@ -142,6 +143,8 @@ float airDrag = 0.5f;               // 공기 저항 계수
 float angularDrag = 5.0f;           // 회전 저항 계수
 float maxVelocity = 100.0f;         // 최대 속도
 float maxAngularVelocity = 180.0f;  // 최대 각속도 (도/초)
+float hoverThrust = 9.8;         // 호버링을 위한 기본 추력 (중력 상쇄)
+float forwardThrustMultiplier = 1.5f; // 전방 이동 추력 배율
 
 // 헬기 로컬 좌표계 기저 벡터
 glm::vec3 heliRight = glm::vec3(1.0f, 0.0f, 0.0f);   // 로컬 X축 (우측)
@@ -241,7 +244,7 @@ int main(int argc, char** argv) {
     glutTimerFunc(targetFrameDelay, Timer, 0); // ~60 FPS
     glutMouseFunc(Mouse);
     glutMotionFunc(Motion);
-	glutPassiveMotionFunc(Motion);
+	// glutPassiveMotionFunc(Motion);
     glutSpecialFunc(SpecialKeyboard);
 	glutMouseWheelFunc(WhellFunc);
 
@@ -516,12 +519,11 @@ void DrawScene()
 
     mainBladeRotation += mainBladeSpeed * Time::DeltaTime();
     tailBladeRotation += tailBladeSpeed * Time::DeltaTime();
-    // 카메라가 헬기를 뒤에서 쫓아가도록 위치 계산
-  // 헬기의 로컬 좌표계 기준 (회전 반영)
-    glm::vec3 cameraOffset = -heliForward * cameraDistance + heliUp * cameraHeight;
+
+    glm::vec3 cameraOffset = heliForward * cameraDistance + heliUp * cameraHeight;
     cameraPos = modelPosition + cameraOffset;
 
-    // 카메라 목표 지점 (헬기 위치보다 약간 위)
+    // 카메라 목표 지점
     glm::vec3 cameraTarget = modelPosition + heliUp * 10.0f;
 
 
@@ -766,13 +768,17 @@ void DrawScene()
     ImGui::Text("Velocity: (%.1f, %.1f, %.1f)", velocity.x, velocity.y, velocity.z);
     ImGui::Text("Speed: %.1f", glm::length(velocity));
     ImGui::Text("Thrust: %.1f", thrust);
+    ImGui::Text("Hover Thrust: %.1f", hoverThrust);
     ImGui::Text("Position: (%.1f, %.1f, %.1f)", modelPosition.x, modelPosition.y, modelPosition.z);
     ImGui::Separator();
     ImGui::Text("Angular Velocity: (%.1f, %.1f, %.1f)", angularVelocity.x, angularVelocity.y, angularVelocity.z);
+    ImGui::Text("Rotation: (%.1f, %.1f, %.1f)", xModelRotation, yModelRotation, zModelRotation);
     ImGui::Separator();
      
     // === 물리 파라미터 조정 ===
+    ImGui::SliderFloat("Hover Thrust", &hoverThrust, 50.0f, 150.0f);
     ImGui::SliderFloat("Thrust Accel", &thrustAcceleration, 10.0f, 100.0f);
+    ImGui::SliderFloat("Forward Thrust", &forwardThrustMultiplier, 0.5f, 3.0f);
     ImGui::SliderFloat("Air Drag", &airDrag, 0.0f, 2.0f);
     ImGui::SliderFloat("Angular Drag", &angularDrag, 0.0f, 10.0f);
     ImGui::SliderFloat("Gravity", &gravity, 0.0f, 20.0f);
@@ -795,9 +801,6 @@ void DrawScene()
     ImGui::SliderFloat("Camera Distance", &cameraDistance, 10.0f, 200.0f);
     ImGui::SliderFloat("Camera Height", &cameraHeight, 0.0f, 100.0f);
 
-
-
-
     if (ImGui::Button("wired frame"))
     {
         wireframeMode = !wireframeMode;
@@ -815,7 +818,8 @@ void DrawScene()
         angularVelocity = glm::vec3(0.0f);
         acceleration = glm::vec3(0.0f);
         angularAcceleration = glm::vec3(0.0f);
-        thrust = 0.0f;
+        thrust = hoverThrust;  // 호버링 추력으로 초기화
+        thrustUp = true;
         modelPosition = glm::vec3(0.0f, 0.0f, 0.0f);
         xModelRotation = 0.0f;
         yModelRotation = 0.0f;
@@ -870,6 +874,7 @@ void Timer(int value) {
     // 헬기의 기본 방향 벡터
     glm::vec3 baseForward = glm::vec3(-1.0f, 0.0f, 0.0f);
     glm::vec3 baseUp = glm::vec3(0.0f, 1.0f, 0.0f);
+    glm::vec3 baseRight = glm::vec3(0.0f, 0.0f, 1.0f);
 
     // 카메라용 기저벡터 (Y축 회전만 반영)
     heliForward = glm::vec3(cameraRotationMat * glm::vec4(baseForward, 0.0f));
@@ -883,9 +888,21 @@ void Timer(int value) {
 
     // 헬기의 실제 로컬 좌표계 (물리 계산용)
     glm::vec3 heliActualUp = glm::vec3(heliRotationMat[1]);
+    glm::vec3 heliActualForward = glm::vec3(heliRotationMat[0]);
+    glm::vec3 heliActualRight = glm::vec3(heliRotationMat[2]);
 
     // *** 가속도 기반 물리 시스템 ***
     
+    // W 키를 뗐을 때 추력 감소 처리
+    if (wUpFlag && sUpFlag)
+    {
+        thrust -= 50.0f * deltaTime;
+        if (thrust < hoverThrust) thrust = hoverThrust;  // 호버링 추력까지만 감소
+        thrustUp = true;
+	}
+
+   
+
     // 1. 중력 가속도 (항상 아래 방향)
     glm::vec3 gravityAccel = glm::vec3(0.0f, -gravity, 0.0f);
     
@@ -895,25 +912,40 @@ void Timer(int value) {
         thrustAccel = heliActualUp * (thrust * thrustAcceleration * 0.01f);
     }
     
-    // 3. 공기 저항 (속도에 비례, 반대 방향)
+    // 3. 기울기에 따른 전방 이동력 (기체가 기울어지면 그 방향으로 이동)
+    glm::vec3 tiltAccel = glm::vec3(0.0f);
+    
+    // X축 기울기 (Roll) - 좌우 이동
+    float rollAngle = glm::radians(xModelRotation);
+    if (abs(xModelRotation) > 5.0f) {  // 5도 이상 기울어졌을 때만
+        tiltAccel += heliActualRight * sin(rollAngle) * forwardThrustMultiplier * 5.0f;
+    }
+    
+    // Z축 기울기 (Pitch) - 전후 이동
+    float pitchAngle = glm::radians(zModelRotation);
+    tiltAccel += heliActualForward * sin(pitchAngle) * forwardThrustMultiplier * 5.0f;
+
+        
+    
+    // 4. 공기 저항 (속도에 비례, 반대 방향)
     glm::vec3 dragAccel = -velocity * airDrag;
     
-    // 4. 총 가속도 계산
-    acceleration = gravityAccel + thrustAccel + dragAccel;
+    // 5. 총 가속도 계산
+    acceleration = gravityAccel + thrustAccel + tiltAccel + dragAccel;
     
-    // 5. 속도 업데이트 (v = v0 + a * dt)
+    // 6. 속도 업데이트 (v = v0 + a * dt)
     velocity += acceleration * deltaTime;
     
-    // 6. 최대 속도 제한
+    // 7. 최대 속도 제한
     float speed = glm::length(velocity);
     if (speed > maxVelocity) {
         velocity = glm::normalize(velocity) * maxVelocity;
     }
     
-    // 7. 위치 업데이트 (p = p0 + v * dt)
+    // 8. 위치 업데이트 (p = p0 + v * dt)
     modelPosition += velocity * deltaTime;
     
-    // 8. 지면 충돌 처리
+    // 9. 지면 충돌 처리
     if (modelPosition.y < 0.0f) {
         modelPosition.y = 0.0f;
         // 지면에 닿으면 Y방향 속도를 감쇠
@@ -961,40 +993,47 @@ void Timer(int value) {
     glutPostRedisplay();
     glutTimerFunc(targetFrameDelay, Timer, 0);
 }
+
+
 void KeyBoard()
 {
     // *** 가속도 기반 입력 시스템 ***
     
-    // W 키: 추력 증가 (가속)
+    // W 키: 추력 증가 (상승)
     if (Input::GetKey(eKeyCode::W))
     {
-        thrust += 0.5f;
-        if (thrust > 100.0f) thrust = 100.0f;  // 최대 추력 제한
+        thrust += 3.0f;
+        if (thrust > 200.0f) thrust = 200.0f;  // 최대 추력 제한
         thrustUp = true;    
+		wUpFlag = false;
     }
     if (Input::GetKeyUp(eKeyCode::W))
     {
-        // 키를 떼면 추력 서서히 감소 (관성)
-        // thrust는 Timer에서 처리되도록 유지
+		wUpFlag = true;  // 키를 떼면 점진적으로 호버링 추력으로 감소
     }
 
     // S 키: 추력 감소 (하강)
     if (Input::GetKey(eKeyCode::S))
     {
-        thrust -= 0.5f;
-        if (thrust < 0.0f) thrust = 0.0f;
-        thrustUp = (thrust > 0.0f);
+        thrust -= 3.0f;
+		sUpFlag = false;
+      
     }
     if (Input::GetKeyUp(eKeyCode::S))
     {
-        // 키를 떼면 현재 추력 유지
+        // S 키를 떼면 호버링 추력으로 복귀
+		sUpFlag = true;
+        if (thrust < hoverThrust) {
+            thrust = hoverThrust;
+            thrustUp = true;
+        }
     }
 
     // A 키: 좌회전 (각가속도 적용)
     if (Input::GetKey(eKeyCode::A))
     {
         // Y축 회전 각속도 증가 (왼쪽 회전)
-        angularVelocity.y += 100.0f * Time::DeltaTime();
+        angularVelocity.y += 200.0f * Time::DeltaTime();
         if (angularVelocity.y > maxAngularVelocity) 
             angularVelocity.y = maxAngularVelocity;
     }
@@ -1003,25 +1042,25 @@ void KeyBoard()
     if (Input::GetKey(eKeyCode::D))
     {
         // Y축 회전 각속도 감소 (오른쪽 회전)
-        angularVelocity.y -= 100.0f * Time::DeltaTime();
+        angularVelocity.y -= 200.0f * Time::DeltaTime();
         if (angularVelocity.y < -maxAngularVelocity) 
             angularVelocity.y = -maxAngularVelocity;
     }
 
-    // Q 키: 좌측 롤 (각가속도 적용)
+    // Q 키: 좌측 롤 (각가속도 적용) - 왼쪽으로 이동
     if (Input::GetKey(eKeyCode::Q))
     {
         // X축 회전 각속도 감소 (왼쪽 기울임)
-        angularVelocity.x -= 50.0f * Time::DeltaTime();
+        angularVelocity.x -= 200.0f * Time::DeltaTime();
         if (angularVelocity.x < -maxAngularVelocity) 
             angularVelocity.x = -maxAngularVelocity;
     }
 
-    // E 키: 우측 롤 (각가속도 적용)
+    // E 키: 우측 롤 (각가속도 적용) - 오른쪽으로 이동
     if (Input::GetKey(eKeyCode::E))
     {
         // X축 회전 각속도 증가 (오른쪽 기울임)
-        angularVelocity.x += 50.0f * Time::DeltaTime();
+        angularVelocity.x += 200.0f * Time::DeltaTime();
         if (angularVelocity.x > maxAngularVelocity) 
             angularVelocity.x = maxAngularVelocity;
     }
