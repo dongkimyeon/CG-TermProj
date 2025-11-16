@@ -13,7 +13,7 @@ struct FBXModel
     std::vector<glm::vec2> uvs; // UV 좌표
     std::vector<GLuint> indices;      // 인덱스
     std::vector<Texture*> textureList; // 텍스처 리스트
-    
+
     // 메시별 정보 추가
     struct MeshInfo {
         GLuint indexStart;  // 이 메시의 인덱스 시작 위치
@@ -21,7 +21,7 @@ struct FBXModel
         GLuint materialIndex; // 이 메시가 사용하는 머티리얼 인덱스
     };
     std::vector<MeshInfo> meshes; // 메시별 정보
-    
+
     glm::vec3 center;
     bool loaded = false;
 };
@@ -92,8 +92,7 @@ float cameraHeight = 50.0f;     // 헬기 위쪽으로의 높이
 float interpSpeed = 10.0f;
 
 
-bool wUpFlag = false;
-bool sUpFlag = false;
+
 //imgui 관련 변수
 bool showAxis = true;  // 축 표시 토글
 
@@ -124,33 +123,6 @@ float tailBladeX = 0.0f;
 float tailBladeY = 0.0f;
 float tailBladeZ = 0.0f;
 
-
-//물리에 필요한거
-float gravity = 9.81f; // 중력 가속도
-float thrust = 0.0f;   // 상승력
-bool thrustUp = false; // 상승력 증가 여부
-
-// *** 가속도 기반 물리 시스템 변수 ***
-glm::vec3 velocity = glm::vec3(0.0f);           // 헬기 속도
-glm::vec3 acceleration = glm::vec3(0.0f);       // 헬기 가속도
-glm::vec3 angularVelocity = glm::vec3(0.0f);    // 각속도 (roll, pitch, yaw)
-glm::vec3 angularAcceleration = glm::vec3(0.0f); // 각가속도
-
-// 물리 상수
-float heliMass = 1.0f;              // 헬기 질량 (상대값)
-float thrustAcceleration = 30.0f;   // 추력 가속도
-float airDrag = 0.5f;               // 공기 저항 계수
-float angularDrag = 5.0f;           // 회전 저항 계수
-float maxVelocity = 100.0f;         // 최대 속도
-float maxAngularVelocity = 180.0f;  // 최대 각속도 (도/초)
-float hoverThrust = 9.8;         // 호버링을 위한 기본 추력 (중력 상쇄)
-float forwardThrustMultiplier = 1.5f; // 전방 이동 추력 배율
-
-// 헬기 로컬 좌표계 기저 벡터
-glm::vec3 heliRight = glm::vec3(1.0f, 0.0f, 0.0f);   // 로컬 X축 (우측)
-glm::vec3 heliUp = glm::vec3(0.0f, 1.0f, 0.0f);      // 로컬 Y축 (상향)
-glm::vec3 heliForward = glm::vec3(0.0f, 0.0f, 1.0f); // 로컬 Z축 (전방)
-
 // FBX 모델들 
 FBXModel mHeliBody;
 FBXModel mHeliBlade;
@@ -169,7 +141,7 @@ int main(int argc, char** argv) {
         return -1;
     }
 
-	Input::Initialize();
+    Input::Initialize();
     // ImGui 초기화
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
@@ -240,13 +212,13 @@ int main(int argc, char** argv) {
 
     glutDisplayFunc(DrawScene);
     glutReshapeFunc(Reshape);
-  
+
     glutTimerFunc(targetFrameDelay, Timer, 0); // ~60 FPS
     glutMouseFunc(Mouse);
     glutMotionFunc(Motion);
-	// glutPassiveMotionFunc(Motion);
+    glutPassiveMotionFunc(Motion);
     glutSpecialFunc(SpecialKeyboard);
-	glutMouseWheelFunc(WhellFunc);
+    glutMouseWheelFunc(WhellFunc);
 
     glutMainLoop();
 
@@ -255,10 +227,11 @@ int main(int argc, char** argv) {
     ImGui::DestroyContext();
     return 0;
 }
+
 void WhellFunc(int whell, int dir, int x, int y)
 {
-	float zoomSpeed = 5.0f;
-    if(dir > 0)
+    float zoomSpeed = 5.0f;
+    if (dir > 0)
     {
         cameraRadius -= zoomSpeed;
         if (cameraRadius < 2.0f)
@@ -267,8 +240,9 @@ void WhellFunc(int whell, int dir, int x, int y)
     else
     {
         cameraRadius += zoomSpeed;
-	}
+    }
 }
+
 void UpdateModelBuffers(FBXModel* model, GLuint vao, GLuint vbo, GLuint ebo)  // 변경: 버퍼 ID 매개변수 추가
 {
     if (!model->loaded || model->vertices.empty() || model->indices.empty()) {
@@ -300,6 +274,7 @@ void UpdateModelBuffers(FBXModel* model, GLuint vao, GLuint vbo, GLuint ebo)  //
 
     std::cout << "모델 버퍼가 GPU에 업로드되었습니다. (정점 " << model->vertices.size() << "개)" << std::endl;  // 변경: model 이름 출력 위해 간단히
 }
+
 bool LoadFBX(const char* filename, FBXModel* fbxModel)
 {
     Assimp::Importer importer;
@@ -321,32 +296,32 @@ bool LoadFBX(const char* filename, FBXModel* fbxModel)
     // *** 머티리얼 슬롯 정보 출력 추가 ***
     std::cout << "\n=== 파일: " << filename << " ===" << std::endl;
     std::cout << "머티리얼 개수: " << scene->mNumMaterials << std::endl;
-    
+
     for (unsigned int i = 0; i < scene->mNumMaterials; i++) {
         aiMaterial* material = scene->mMaterials[i];
         aiString matName;
         material->Get(AI_MATKEY_NAME, matName);
-        
+
         std::cout << "\n[Material " << i << "]" << std::endl;
         std::cout << "  이름: " << matName.C_Str() << std::endl;
-        
+
         // Diffuse 텍스처 확인
         unsigned int diffuseCount = material->GetTextureCount(aiTextureType_DIFFUSE);
         std::cout << "  Diffuse 텍스처 개수: " << diffuseCount << std::endl;
-        
+
         for (unsigned int j = 0; j < diffuseCount; j++) {
             aiString texPath;
             if (material->GetTexture(aiTextureType_DIFFUSE, j, &texPath) == AI_SUCCESS) {
                 std::cout << "    - Diffuse[" << j << "]: " << texPath.C_Str() << std::endl;
             }
         }
-        
+
         // Specular 텍스처 확인
         unsigned int specularCount = material->GetTextureCount(aiTextureType_SPECULAR);
         if (specularCount > 0) {
             std::cout << "  Specular 텍스처 개수: " << specularCount << std::endl;
         }
-        
+
         // Normal 텍스처 확인
         unsigned int normalCount = material->GetTextureCount(aiTextureType_NORMALS);
         if (normalCount > 0) {
@@ -406,9 +381,9 @@ bool LoadFBX(const char* filename, FBXModel* fbxModel)
         meshInfo.indexCount = static_cast<GLuint>(fbxModel->indices.size() - indexStart);
         meshInfo.materialIndex = mesh->mMaterialIndex;
         fbxModel->meshes.push_back(meshInfo);
-        
-        std::cout << "Mesh " << m << ": Material Index = " << mesh->mMaterialIndex 
-                  << ", Indices = " << meshInfo.indexCount << std::endl;
+
+        std::cout << "Mesh " << m << ": Material Index = " << mesh->mMaterialIndex
+            << ", Indices = " << meshInfo.indexCount << std::endl;
 
     } // 다음 메쉬로 이동
 
@@ -440,15 +415,16 @@ bool LoadFBX(const char* filename, FBXModel* fbxModel)
         if (material->GetTexture(aiTextureType_DIFFUSE, 0, &texPath) == AI_SUCCESS) {
             // FBX에서 지정한 텍스처 경로가 있는 경우
             std::string fullPath = texPath.C_Str();
-            
+
             // 경로에서 파일 이름만 추출 (역슬래시와 슬래시 모두 고려)
             size_t lastSlash = fullPath.find_last_of("/\\");
             if (lastSlash != std::string::npos) {
                 textureFile = fullPath.substr(lastSlash + 1);
-            } else {
+            }
+            else {
                 textureFile = fullPath;
             }
-            
+
             // .TGA를 .png로 변경 (확장자 변환)
             size_t extPos = textureFile.find_last_of(".");
             if (extPos != std::string::npos) {
@@ -458,7 +434,7 @@ bool LoadFBX(const char* filename, FBXModel* fbxModel)
                     textureFile = textureFile.substr(0, extPos) + ".png";
                 }
             }
-            
+
             hasTexture = true;
         }
 
@@ -480,7 +456,7 @@ bool LoadFBX(const char* filename, FBXModel* fbxModel)
         }
 
         // 텍스처 로드 시도
-        if (!fbxModel->textureList[i]->LoadTexture()) {  
+        if (!fbxModel->textureList[i]->LoadTexture()) {
             std::cerr << "텍스처 로드 실패: Material " << i << std::endl;
             delete fbxModel->textureList[i];
             fbxModel->textureList[i] = nullptr;
@@ -490,7 +466,7 @@ bool LoadFBX(const char* filename, FBXModel* fbxModel)
         }
     }
 
-    
+
     for (size_t i = 0; i < fbxModel->textureList.size(); ++i) {
         if (fbxModel->textureList[i]) {
             std::cout << "Material " << i << " Texture ID: " << fbxModel->textureList[i] << std::endl;
@@ -520,20 +496,13 @@ void DrawScene()
     mainBladeRotation += mainBladeSpeed * Time::DeltaTime();
     tailBladeRotation += tailBladeSpeed * Time::DeltaTime();
 
-    glm::vec3 cameraOffset = heliForward * cameraDistance + heliUp * cameraHeight;
-    cameraPos = modelPosition + cameraOffset;
-
-    // 카메라 목표 지점
-    glm::vec3 cameraTarget = modelPosition + heliUp * 10.0f;
-
-
     // 씬 클리어
     glEnable(GL_DEPTH_TEST);
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glEnable(GL_CULL_FACE);
     glCullFace(GL_BACK);
-    
+
     // 알파 블렌딩 활성화
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -550,9 +519,7 @@ void DrawScene()
     GLint useVertexColorLoc = glGetUniformLocation(shaderProgramID, "useVertexColor");
     GLint alphaValueLoc = glGetUniformLocation(shaderProgramID, "alphaValue");  // 알파값 유니폼 위치
 
-    glm::mat4 view = glm::lookAt(cameraPos, cameraTarget, heliUp);
-
-
+    glm::mat4 view = glm::lookAt(cameraPos, glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 
     glm::mat4 proj = glm::perspective(glm::radians(100.0f), (float)width / (float)height, 0.1f, 1000.0f);
     glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
@@ -561,11 +528,11 @@ void DrawScene()
     GLint modelLoc = glGetUniformLocation(shaderProgramID, "model");
 
     //헬기 전체 모델 매트릭스 
-	glm::mat4 worldModelMat = glm::mat4(1.0f);
-	worldModelMat = glm::translate(worldModelMat, modelPosition);
+    glm::mat4 worldModelMat = glm::mat4(1.0f);
+    worldModelMat = glm::translate(worldModelMat, modelPosition);
     worldModelMat = glm::rotate(worldModelMat, glm::radians(yModelRotation), glm::vec3(0.0f, 1.0f, 0.0f));
-	worldModelMat = glm::rotate(worldModelMat, glm::radians(xModelRotation), glm::vec3(1.0f, 0.0f, 0.0f));
-	worldModelMat = glm::rotate(worldModelMat, glm::radians(zModelRotation), glm::vec3(0.0f, 0.0f, 1.0f));
+    worldModelMat = glm::rotate(worldModelMat, glm::radians(xModelRotation), glm::vec3(1.0f, 0.0f, 0.0f));
+    worldModelMat = glm::rotate(worldModelMat, glm::radians(zModelRotation), glm::vec3(0.0f, 0.0f, 1.0f));
 
 
     // 5. 모델 그리기
@@ -589,31 +556,32 @@ void DrawScene()
         // 메시별로 다른 텍스처를 적용하여 그리기
         for (size_t i = 0; i < mHeliBody.meshes.size(); ++i) {
             const auto& meshInfo = mHeliBody.meshes[i];
-            
+
             // 머티리얼 인덱스에 따라 알파값 설정
             if (meshInfo.materialIndex == 1) {
                 // Material 1 (유리): 투명도 적용
                 glUniform1f(alphaValueLoc, glassAlpha);
                 // 투명 객체는 깊이 쓰기 비활성화 (선택적)
                 glDepthMask(GL_FALSE);
-            } else {
+            }
+            else {
                 // 다른 Material: 불투명
                 glUniform1f(alphaValueLoc, 1.0f);
                 glDepthMask(GL_TRUE);
             }
-            
+
             // 해당 메시의 머티리얼 인덱스로 텍스처 바인딩
-            if (meshInfo.materialIndex < mHeliBody.textureList.size() && 
+            if (meshInfo.materialIndex < mHeliBody.textureList.size() &&
                 mHeliBody.textureList[meshInfo.materialIndex]) {
                 mHeliBody.textureList[meshInfo.materialIndex]->UseTexture();
                 glUniform1i(textureLoc, 0);
             }
 
             // 해당 메시만 그리기 (인덱스 오프셋 사용)
-            glDrawElements(GL_TRIANGLES, meshInfo.indexCount, GL_UNSIGNED_INT, 
-                          (void*)(meshInfo.indexStart * sizeof(GLuint)));
+            glDrawElements(GL_TRIANGLES, meshInfo.indexCount, GL_UNSIGNED_INT,
+                (void*)(meshInfo.indexStart * sizeof(GLuint)));
         }
-        
+
         // 깊이 쓰기 다시 활성화
         glDepthMask(GL_TRUE);
 
@@ -626,7 +594,7 @@ void DrawScene()
     {
         glUniform1i(useVertexColorLoc, 0);
         glUniform1f(alphaValueLoc, 1.0f);  // 불투명
-        
+
         // 5-1. 모델 매트릭스 설정
         glm::mat4 modelMat = worldModelMat;
         modelMat = glm::translate(modelMat, glm::vec3(2.5f, 18.0f, 0.0f));
@@ -645,15 +613,15 @@ void DrawScene()
         // 메시별로 다른 텍스처를 적용하여 그리기
         for (size_t i = 0; i < mHeliBlade.meshes.size(); ++i) {
             const auto& meshInfo = mHeliBlade.meshes[i];
-            
-            if (meshInfo.materialIndex < mHeliBlade.textureList.size() && 
+
+            if (meshInfo.materialIndex < mHeliBlade.textureList.size() &&
                 mHeliBlade.textureList[meshInfo.materialIndex]) {
                 mHeliBlade.textureList[meshInfo.materialIndex]->UseTexture();
                 glUniform1i(textureLoc, 0);
             }
 
-            glDrawElements(GL_TRIANGLES, meshInfo.indexCount, GL_UNSIGNED_INT, 
-                          (void*)(meshInfo.indexStart * sizeof(GLuint)));
+            glDrawElements(GL_TRIANGLES, meshInfo.indexCount, GL_UNSIGNED_INT,
+                (void*)(meshInfo.indexStart * sizeof(GLuint)));
         }
 
         glBindVertexArray(0);
@@ -665,7 +633,7 @@ void DrawScene()
     {
         glUniform1i(useVertexColorLoc, 0);
         glUniform1f(alphaValueLoc, 1.0f);  // 불투명
-        
+
         // 5-1. 모델 매트릭스 설정
         glm::mat4 modelMat = worldModelMat;
         modelMat = glm::translate(modelMat, glm::vec3(-88.0f, 17.0f, -7.0f));
@@ -684,15 +652,15 @@ void DrawScene()
         // 메시별로 다른 텍스처를 적용하여 그리기
         for (size_t i = 0; i < mHeliTail.meshes.size(); ++i) {
             const auto& meshInfo = mHeliTail.meshes[i];
-            
-            if (meshInfo.materialIndex < mHeliTail.textureList.size() && 
+
+            if (meshInfo.materialIndex < mHeliTail.textureList.size() &&
                 mHeliTail.textureList[meshInfo.materialIndex]) {
                 mHeliTail.textureList[meshInfo.materialIndex]->UseTexture();
                 glUniform1i(textureLoc, 0);
             }
 
-            glDrawElements(GL_TRIANGLES, meshInfo.indexCount, GL_UNSIGNED_INT, 
-                          (void*)(meshInfo.indexStart * sizeof(GLuint)));
+            glDrawElements(GL_TRIANGLES, meshInfo.indexCount, GL_UNSIGNED_INT,
+                (void*)(meshInfo.indexStart * sizeof(GLuint)));
         }
 
         glBindVertexArray(0);
@@ -761,29 +729,11 @@ void DrawScene()
     time += Time::DeltaTime();
     float fps = 1.0f / Time::DeltaTime();
     ImGui::Text("FPS: %.1f", fps);
-    
-    // *** 물리 정보 표시 ***
+
     ImGui::Separator();
-    ImGui::Text("Physics Info:");
-    ImGui::Text("Velocity: (%.1f, %.1f, %.1f)", velocity.x, velocity.y, velocity.z);
-    ImGui::Text("Speed: %.1f", glm::length(velocity));
-    ImGui::Text("Thrust: %.1f", thrust);
-    ImGui::Text("Hover Thrust: %.1f", hoverThrust);
     ImGui::Text("Position: (%.1f, %.1f, %.1f)", modelPosition.x, modelPosition.y, modelPosition.z);
     ImGui::Separator();
-    ImGui::Text("Angular Velocity: (%.1f, %.1f, %.1f)", angularVelocity.x, angularVelocity.y, angularVelocity.z);
-    ImGui::Text("Rotation: (%.1f, %.1f, %.1f)", xModelRotation, yModelRotation, zModelRotation);
-    ImGui::Separator();
-     
-    // === 물리 파라미터 조정 ===
-    ImGui::SliderFloat("Hover Thrust", &hoverThrust, 50.0f, 150.0f);
-    ImGui::SliderFloat("Thrust Accel", &thrustAcceleration, 10.0f, 100.0f);
-    ImGui::SliderFloat("Forward Thrust", &forwardThrustMultiplier, 0.5f, 3.0f);
-    ImGui::SliderFloat("Air Drag", &airDrag, 0.0f, 2.0f);
-    ImGui::SliderFloat("Angular Drag", &angularDrag, 0.0f, 10.0f);
-    ImGui::SliderFloat("Gravity", &gravity, 0.0f, 20.0f);
-    ImGui::Separator();
-    
+
     // === 갱신 주기 제어 슬라이더 ===
     ImGui::SliderInt("Frame Delay ", &targetFrameDelay, 1, 16);
     ImGui::Separator();
@@ -794,12 +744,15 @@ void DrawScene()
     ImGui::SliderFloat("Glass Alpha", &glassAlpha, 0.0f, 1.0f);  // 유리 투명도 슬라이더 추가
     ImGui::Separator();
 
-	ImGui::SliderFloat("Model ModelRotationX", &xModelRotation, -180.0f, 180.0f);
-	ImGui::SliderFloat("Model ModelRotationY", &yModelRotation, -180.0f, 180.0f);
-	ImGui::SliderFloat("Model ModelRotationZ", &zModelRotation, -180.0f, 180.0f);
+    ImGui::SliderFloat("Model ModelRotationX", &xModelRotation, -180.0f, 180.0f);
+    ImGui::SliderFloat("Model ModelRotationY", &yModelRotation, -180.0f, 180.0f);
+    ImGui::SliderFloat("Model ModelRotationZ", &zModelRotation, -180.0f, 180.0f);
     ImGui::Separator();
     ImGui::SliderFloat("Camera Distance", &cameraDistance, 10.0f, 200.0f);
     ImGui::SliderFloat("Camera Height", &cameraHeight, 0.0f, 100.0f);
+
+
+
 
     if (ImGui::Button("wired frame"))
     {
@@ -809,21 +762,6 @@ void DrawScene()
     if (ImGui::Button("XYZ"))
     {
         showAxis = !showAxis;
-    }
-    
-    // 물리 초기화 버튼
-    if (ImGui::Button("Reset Physics"))
-    {
-        velocity = glm::vec3(0.0f);
-        angularVelocity = glm::vec3(0.0f);
-        acceleration = glm::vec3(0.0f);
-        angularAcceleration = glm::vec3(0.0f);
-        thrust = hoverThrust;  // 호버링 추력으로 초기화
-        thrustUp = true;
-        modelPosition = glm::vec3(0.0f, 0.0f, 0.0f);
-        xModelRotation = 0.0f;
-        yModelRotation = 0.0f;
-        zModelRotation = 0.0f;
     }
 
     ImGui::End();
@@ -846,18 +784,18 @@ void SpecialKeyboard(int key, int x, int y)
     switch (key)
     {
     case GLUT_KEY_RIGHT:
-		modelPosition.x += 10.0f; 
+        modelPosition.x += 10.0f;
         break;
     case GLUT_KEY_LEFT:
-		modelPosition.x -= 10.0f;
+        modelPosition.x -= 10.0f;
         break;
     case GLUT_KEY_UP:
-		modelPosition.z += 1.0f;
+        modelPosition.z += 1.0f;
         break;
     case GLUT_KEY_DOWN:
-		modelPosition.z -= 1.0f;
+        modelPosition.z -= 1.0f;
         break;
-   
+
     }
 }
 
@@ -867,125 +805,6 @@ void Timer(int value) {
 
     float deltaTime = Time::DeltaTime();
 
-    // 카메라용 회전 매트릭스: Y축 회전(yaw)만 적용
-    glm::mat4 cameraRotationMat = glm::mat4(1.0f);
-    cameraRotationMat = glm::rotate(cameraRotationMat, glm::radians(yModelRotation), glm::vec3(0.0f, 1.0f, 0.0f));
-
-    // 헬기의 기본 방향 벡터
-    glm::vec3 baseForward = glm::vec3(-1.0f, 0.0f, 0.0f);
-    glm::vec3 baseUp = glm::vec3(0.0f, 1.0f, 0.0f);
-    glm::vec3 baseRight = glm::vec3(0.0f, 0.0f, 1.0f);
-
-    // 카메라용 기저벡터 (Y축 회전만 반영)
-    heliForward = glm::vec3(cameraRotationMat * glm::vec4(baseForward, 0.0f));
-    heliUp = glm::vec3(cameraRotationMat * glm::vec4(baseUp, 0.0f));
-
-    // 헬기 물리용 회전 매트릭스: 모든 회전 적용
-    glm::mat4 heliRotationMat = glm::mat4(1.0f);
-    heliRotationMat = glm::rotate(heliRotationMat, glm::radians(yModelRotation), glm::vec3(0.0f, 1.0f, 0.0f));
-    heliRotationMat = glm::rotate(heliRotationMat, glm::radians(xModelRotation), glm::vec3(1.0f, 0.0f, 0.0f));
-    heliRotationMat = glm::rotate(heliRotationMat, glm::radians(zModelRotation), glm::vec3(0.0f, 0.0f, 1.0f));
-
-    // 헬기의 실제 로컬 좌표계 (물리 계산용)
-    glm::vec3 heliActualUp = glm::vec3(heliRotationMat[1]);
-    glm::vec3 heliActualForward = glm::vec3(heliRotationMat[0]);
-    glm::vec3 heliActualRight = glm::vec3(heliRotationMat[2]);
-
-    // *** 가속도 기반 물리 시스템 ***
-    
-    // W 키를 뗐을 때 추력 감소 처리
-    if (wUpFlag && sUpFlag)
-    {
-        thrust -= 50.0f * deltaTime;
-        if (thrust < hoverThrust) thrust = hoverThrust;  // 호버링 추력까지만 감소
-        thrustUp = true;
-	}
-
-   
-
-    // 1. 중력 가속도 (항상 아래 방향)
-    glm::vec3 gravityAccel = glm::vec3(0.0f, -gravity, 0.0f);
-    
-    // 2. 추력 가속도 (헬기의 실제 상향 벡터 방향)
-    glm::vec3 thrustAccel = glm::vec3(0.0f);
-    if (thrustUp) {
-        thrustAccel = heliActualUp * (thrust * thrustAcceleration * 0.01f);
-    }
-    
-    // 3. 기울기에 따른 전방 이동력 (기체가 기울어지면 그 방향으로 이동)
-    glm::vec3 tiltAccel = glm::vec3(0.0f);
-    
-    // X축 기울기 (Roll) - 좌우 이동
-    float rollAngle = glm::radians(xModelRotation);
-    if (abs(xModelRotation) > 5.0f) {  // 5도 이상 기울어졌을 때만
-        tiltAccel += heliActualRight * sin(rollAngle) * forwardThrustMultiplier * 5.0f;
-    }
-    
-    // Z축 기울기 (Pitch) - 전후 이동
-    float pitchAngle = glm::radians(zModelRotation);
-    tiltAccel += heliActualForward * sin(pitchAngle) * forwardThrustMultiplier * 5.0f;
-
-        
-    
-    // 4. 공기 저항 (속도에 비례, 반대 방향)
-    glm::vec3 dragAccel = -velocity * airDrag;
-    
-    // 5. 총 가속도 계산
-    acceleration = gravityAccel + thrustAccel + tiltAccel + dragAccel;
-    
-    // 6. 속도 업데이트 (v = v0 + a * dt)
-    velocity += acceleration * deltaTime;
-    
-    // 7. 최대 속도 제한
-    float speed = glm::length(velocity);
-    if (speed > maxVelocity) {
-        velocity = glm::normalize(velocity) * maxVelocity;
-    }
-    
-    // 8. 위치 업데이트 (p = p0 + v * dt)
-    modelPosition += velocity * deltaTime;
-    
-    // 9. 지면 충돌 처리
-    if (modelPosition.y < 0.0f) {
-        modelPosition.y = 0.0f;
-        // 지면에 닿으면 Y방향 속도를 감쇠
-        if (velocity.y < 0.0f) {
-            velocity.y = -velocity.y * 0.3f; // 30% 반발
-        }
-        // 지면 마찰
-        velocity.x *= 0.95f;
-        velocity.z *= 0.95f;
-    }
-    
-    // *** 회전 가속도 시스템 ***
-    
-    // 회전 저항 (각속도에 비례)
-    glm::vec3 angularDragAccel = -angularVelocity * angularDrag;
-    
-    // 총 각가속도
-    angularAcceleration = angularDragAccel;
-    
-    // 각속도 업데이트
-    angularVelocity += angularAcceleration * deltaTime;
-    
-    // 최대 각속도 제한
-    angularVelocity.x = glm::clamp(angularVelocity.x, -maxAngularVelocity, maxAngularVelocity);
-    angularVelocity.y = glm::clamp(angularVelocity.y, -maxAngularVelocity, maxAngularVelocity);
-    angularVelocity.z = glm::clamp(angularVelocity.z, -maxAngularVelocity, maxAngularVelocity);
-    
-    // 회전 각도 업데이트 (부드러운 회전)
-    xModelRotation += angularVelocity.x * deltaTime;
-    yModelRotation += angularVelocity.y * deltaTime;
-    zModelRotation += angularVelocity.z * deltaTime;
-    
-    // 각도 정규화 (-180 ~ 180)
-    while (xModelRotation > 180.0f) xModelRotation -= 360.0f;
-    while (xModelRotation < -180.0f) xModelRotation += 360.0f;
-    while (yModelRotation > 180.0f) yModelRotation -= 360.0f;
-    while (yModelRotation < -180.0f) yModelRotation += 360.0f;
-    while (zModelRotation > 180.0f) zModelRotation -= 360.0f;
-    while (zModelRotation < -180.0f) zModelRotation += 360.0f;
-
     // 각도 보간 (기존 코드 유지 - 부드러운 카메라 전환용)
     cameraAngle = glm::mix(cameraAngle, targetCameraXAngle, interpSpeed * deltaTime);
     cameraYAngle = glm::mix(cameraYAngle, targetCameraYAngle, interpSpeed * deltaTime);
@@ -993,77 +812,9 @@ void Timer(int value) {
     glutPostRedisplay();
     glutTimerFunc(targetFrameDelay, Timer, 0);
 }
-
-
 void KeyBoard()
 {
-    // *** 가속도 기반 입력 시스템 ***
-    
-    // W 키: 추력 증가 (상승)
-    if (Input::GetKey(eKeyCode::W))
-    {
-        thrust += 3.0f;
-        if (thrust > 200.0f) thrust = 200.0f;  // 최대 추력 제한
-        thrustUp = true;    
-		wUpFlag = false;
-    }
-    if (Input::GetKeyUp(eKeyCode::W))
-    {
-		wUpFlag = true;  // 키를 떼면 점진적으로 호버링 추력으로 감소
-    }
 
-    // S 키: 추력 감소 (하강)
-    if (Input::GetKey(eKeyCode::S))
-    {
-        thrust -= 3.0f;
-		sUpFlag = false;
-      
-    }
-    if (Input::GetKeyUp(eKeyCode::S))
-    {
-        // S 키를 떼면 호버링 추력으로 복귀
-		sUpFlag = true;
-        if (thrust < hoverThrust) {
-            thrust = hoverThrust;
-            thrustUp = true;
-        }
-    }
-
-    // A 키: 좌회전 (각가속도 적용)
-    if (Input::GetKey(eKeyCode::A))
-    {
-        // Y축 회전 각속도 증가 (왼쪽 회전)
-        angularVelocity.y += 200.0f * Time::DeltaTime();
-        if (angularVelocity.y > maxAngularVelocity) 
-            angularVelocity.y = maxAngularVelocity;
-    }
-
-    // D 키: 우회전 (각가속도 적용)
-    if (Input::GetKey(eKeyCode::D))
-    {
-        // Y축 회전 각속도 감소 (오른쪽 회전)
-        angularVelocity.y -= 200.0f * Time::DeltaTime();
-        if (angularVelocity.y < -maxAngularVelocity) 
-            angularVelocity.y = -maxAngularVelocity;
-    }
-
-    // Q 키: 좌측 롤 (각가속도 적용) - 왼쪽으로 이동
-    if (Input::GetKey(eKeyCode::Q))
-    {
-        // X축 회전 각속도 감소 (왼쪽 기울임)
-        angularVelocity.x -= 200.0f * Time::DeltaTime();
-        if (angularVelocity.x < -maxAngularVelocity) 
-            angularVelocity.x = -maxAngularVelocity;
-    }
-
-    // E 키: 우측 롤 (각가속도 적용) - 오른쪽으로 이동
-    if (Input::GetKey(eKeyCode::E))
-    {
-        // X축 회전 각속도 증가 (오른쪽 기울임)
-        angularVelocity.x += 200.0f * Time::DeltaTime();
-        if (angularVelocity.x > maxAngularVelocity) 
-            angularVelocity.x = maxAngularVelocity;
-    }
 
     // ESC 키: 프로그램 종료
     if (Input::GetKey(eKeyCode::ESC))
@@ -1078,7 +829,7 @@ void Mouse(int button, int state, int x, int y) {
     ImGuiIO& io = ImGui::GetIO();
     if (!io.WantCaptureMouse)
     {
-     
+
     }
 }
 
@@ -1095,17 +846,6 @@ void Motion(int x, int y) {
         // 중앙으로부터의 마우스 이동량 계산
         int deltaX = x - centerX;
         int deltaY = y - centerY;
-
-        // *** 가속도 기반 회전 입력 ***
-        // 마우스 좌우 움직임 -> Y축 각속도 변경 (헬기가 좌우로 회전)
-        float yawInput = (float)deltaX * rotationSpeed * 10.0f;
-        angularVelocity.y += yawInput;
-        angularVelocity.y = glm::clamp(angularVelocity.y, -maxAngularVelocity, maxAngularVelocity);
-
-        // 마우스 앞뒤 움직임 -> Z축 각속도 변경 (헬기가 앞뒤로 기울어짐)
-        float pitchInput = (float)deltaY * rotationSpeed * 10.0f;
-        angularVelocity.z += pitchInput;
-        angularVelocity.z = glm::clamp(angularVelocity.z, -maxAngularVelocity, maxAngularVelocity);
 
         // 마우스를 화면 중앙으로 다시 이동
         glutWarpPointer(centerX, centerY);
@@ -1295,8 +1035,8 @@ GLuint MakeSkyboxShaderProgram() {
 
 
 void InitBuffers() {  // 변경: 모델별 버퍼 초기화
-    
-    
+
+
     // 스카이박스 버텍스 (위치만 필요)
     float skyboxVertices[] = {
         // positions          
