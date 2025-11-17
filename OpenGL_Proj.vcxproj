@@ -139,9 +139,12 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="Camera.h" />
     <ClInclude Include="CommonInclude.h" />
+    <ClInclude Include="FBXModel.h" />
     <ClInclude Include="FileRead.h" />
     <ClInclude Include="Ground.h" />
+    <ClInclude Include="Helicopter.h" />
     <ClInclude Include="image_loader\SOIL.h" />
     <ClInclude Include="image_loader\stb_image.h" />
     <ClInclude Include="imgui\imconfig.h" />
@@ -155,12 +158,16 @@
     <ClInclude Include="imgui_local\imgui_impl_opengl3_loader.h" />
     <ClInclude Include="Input.h" />
     <ClInclude Include="ObjRead.h" />
+    <ClInclude Include="ShaderManager.h" />
     <ClInclude Include="Texture.h" />
     <ClInclude Include="Time.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="Camera.cpp" />
     <ClCompile Include="Default_GL.cpp" />
+    <ClCompile Include="FBXModel.cpp" />
     <ClCompile Include="Ground.cpp" />
+    <ClCompile Include="Helicopter.cpp" />
     <ClCompile Include="imgui\imgui.cpp" />
     <ClCompile Include="imgui\imgui_demo.cpp" />
     <ClCompile Include="imgui\imgui_draw.cpp" />
@@ -169,6 +176,7 @@
     <ClCompile Include="imgui_local\imgui_impl_glut.cpp" />
     <ClCompile Include="imgui_local\imgui_impl_opengl3.cpp" />
     <ClCompile Include="Input.cpp" />
+    <ClCompile Include="ShaderManager.cpp" />
     <ClCompile Include="Texture.cpp" />
     <ClCompile Include="Time.cpp" />
   </ItemGroup>
