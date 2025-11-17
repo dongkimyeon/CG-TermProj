@@ -76,9 +76,6 @@ void getTangent(std::vector<glm::vec3>& vertices, std::vector<glm::vec2>& uvs, s
 
 
 
-
-
-
 //스카이박스 관련
 GLuint skyboxVAO, skyboxVBO;
 GLuint skyboxShaderProgramID, vertexSkyboxShader, fragmentSkyboxShader;
@@ -94,7 +91,7 @@ float targetCameraXAngle = 0.0f; // 타겟 X-Z 카메라 각도
 float targetCameraYAngle = 0.0f; // 타겟 Y 카메라 각도
 
 bool rightClickDown = false; // 마우스 우클릭 상태
-int lastMouseX = 0;          // 마지막 마우스 X 위치
+int lastMouseX = 0;          //_LAST 마우스 X 위치
 int lastMouseY = 0;          // 마지막 마우스 Y 위치
 float rotationSpeed = 0.005f; // 카메라 회전 속도 (조정 가능)
 
@@ -188,6 +185,8 @@ int main(int argc, char** argv) {
     cameraYAngle = atan2(cameraPos.y, r_xz_init);
     targetCameraXAngle = cameraAngle;
     targetCameraYAngle = cameraYAngle;
+    
+    std::cout << "카메라 초기 설정 완료 - 반지름: " << cameraRadius << ", 각도: " << glm::degrees(cameraAngle) << "도" << std::endl;
 
     // 초기 FBX 로드 (예시 파일) + 버퍼 업데이트
     if (!LoadFBX("HeliBlade.FBX", &mHeliBlade)) {
@@ -229,7 +228,8 @@ int main(int argc, char** argv) {
     glutTimerFunc(targetFrameDelay, Timer, 0); // ~60 FPS
     glutMouseFunc(Mouse);
     glutMotionFunc(Motion);
-    glutPassiveMotionFunc(Motion);
+    
+    //glutPassiveMotionFunc(Motion);
     glutSpecialFunc(SpecialKeyboard);
     glutMouseWheelFunc(WhellFunc);
 
@@ -263,29 +263,100 @@ void UpdateModelBuffers(FBXModel* model, GLuint vao, GLuint vbo, GLuint ebo)  //
         return;
     }
 
-    // 1. 버텍스 데이터: 위치 + 색상 + UV (센터 정규화)
+    // 노멀 계산
+    std::vector<glm::vec3> normals(model->vertices.size(), glm::vec3(0.0f));
+    
+    // 각 삼각형에 대해 노멀 계산
+    for (size_t i = 0; i < model->indices.size(); i += 3) {
+        GLuint i0 = model->indices[i];
+        GLuint i1 = model->indices[i + 1];
+        GLuint i2 = model->indices[i + 2];
+        
+        glm::vec3 v0 = model->vertices[i0] - model->center;
+        glm::vec3 v1 = model->vertices[i1] - model->center;
+        glm::vec3 v2 = model->vertices[i2] - model->center;
+        
+        glm::vec3 deltaPos1 = v1 - v0;
+        glm::vec3 deltaPos2 = v2 - v0;
+        
+        // 노멀 계산
+        glm::vec3 normal = glm::normalize(glm::cross(deltaPos1, deltaPos2));
+        normals[i0] += normal;
+        normals[i1] += normal;
+        normals[i2] += normal;
+    }
+    
+    // 노멀 정규화
+    for (size_t i = 0; i < normals.size(); ++i) {
+        if (glm::length(normals[i]) > 0.0001f)
+            normals[i] = glm::normalize(normals[i]);
+    }
+
+    // 인덱스 기반의 정점 데이터로 변환하여 탄젠트 계산
+    std::vector<glm::vec3> expandedVertices;
+    std::vector<glm::vec2> expandedUVs;
+    std::vector<glm::vec3> expandedNormals;
+    std::vector<glm::vec3> tangents;
+    
+    expandedVertices.reserve(model->indices.size());
+    expandedUVs.reserve(model->indices.size());
+    expandedNormals.reserve(model->indices.size());
+    
+    for (size_t i = 0; i < model->indices.size(); ++i) {
+        GLuint idx = model->indices[i];
+        expandedVertices.push_back(model->vertices[idx] - model->center);
+        expandedUVs.push_back(model->uvs[idx]);
+        expandedNormals.push_back(normals[idx]);
+    }
+    
+    // getTangent 함수를 사용하여 탄젠트 계산
+    getTangent(expandedVertices, expandedUVs, expandedNormals, tangents);
+    
+    // 인덱스 기반으로 다시 정리 (평균화)
+    std::vector<glm::vec3> vertexTangents(model->vertices.size(), glm::vec3(0.0f));
+    std::vector<int> tangentCounts(model->vertices.size(), 0);
+    
+    for (size_t i = 0; i < model->indices.size(); ++i) {
+        GLuint idx = model->indices[i];
+        if (i < tangents.size() && glm::length(tangents[i]) > 0.0001f) {
+            vertexTangents[idx] += tangents[i];
+            tangentCounts[idx]++;
+        }
+    }
+    
+    // 탄젠트 평균 및 정규화
+    for (size_t i = 0; i < vertexTangents.size(); ++i) {
+        if (tangentCounts[i] > 0) {
+            vertexTangents[i] /= static_cast<float>(tangentCounts[i]);
+            if (glm::length(vertexTangents[i]) > 0.0001f) {
+                vertexTangents[i] = glm::normalize(vertexTangents[i]);
+            }
+        }
+    }
+
+    // 버텍스 데이터: 위치(3) + UV(2) + 노멀(3) + 탄젠트(3) = 11 floats
     std::vector<GLfloat> vertexData;
-    vertexData.reserve(model->vertices.size() * 8); // 8 = pos(3) + color(3) + uv(2)
+    vertexData.reserve(model->vertices.size() * 11);
 
     for (size_t i = 0; i < model->vertices.size(); ++i) {
         glm::vec3 pos = model->vertices[i] - model->center;
         vertexData.insert(vertexData.end(), { pos.x, pos.y, pos.z });
-        vertexData.insert(vertexData.end(), { model->colors[i].r, model->colors[i].g, model->colors[i].b });
-        vertexData.insert(vertexData.end(), { model->uvs[i].x, model->uvs[i].y }); // UV 추가 
+        vertexData.insert(vertexData.end(), { model->uvs[i].x, model->uvs[i].y });
+        vertexData.insert(vertexData.end(), { normals[i].x, normals[i].y, normals[i].z });
+        vertexData.insert(vertexData.end(), { vertexTangents[i].x, vertexTangents[i].y, vertexTangents[i].z });
     }
 
-    // 2. VBO 및 EBO에 데이터 업로드 (GL_STATIC_DRAW 사용, 해당 버퍼만)
-    glBindVertexArray(vao);  // 변경: 매개변수 vao 사용
+    glBindVertexArray(vao);
 
-    glBindBuffer(GL_ARRAY_BUFFER, vbo);  // 변경: 매개변수 vbo 사용
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
     glBufferData(GL_ARRAY_BUFFER, vertexData.size() * sizeof(GLfloat), vertexData.data(), GL_STATIC_DRAW);
 
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);  // 변경: 매개변수 ebo 사용
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, model->indices.size() * sizeof(GLuint), model->indices.data(), GL_STATIC_DRAW);
 
     glBindVertexArray(0);
 
-    std::cout << "모델 버퍼가 GPU에 업로드되었습니다. (정점 " << model->vertices.size() << "개)" << std::endl;  // 변경: model 이름 출력 위해 간단히
+    std::cout << "모델 버퍼가 GPU에 업로드되었습니다. (정점 " << model->vertices.size() << "개, 탄젠트 적용)" << std::endl;
 }
 
 bool LoadFBX(const char* filename, FBXModel* fbxModel)
@@ -431,6 +502,7 @@ bool LoadFBX(const char* filename, FBXModel* fbxModel)
 
             // 경로에서 파일 이름만 추출 (역슬래시와 슬래시 모두 고려)
             size_t lastSlash = fullPath.find_last_of("/\\");
+
             if (lastSlash != std::string::npos) {
                 textureFile = fullPath.substr(lastSlash + 1);
             }
@@ -440,6 +512,7 @@ bool LoadFBX(const char* filename, FBXModel* fbxModel)
 
             // .TGA를 .png로 변경 (확장자 변환)
             size_t extPos = textureFile.find_last_of(".");
+
             if (extPos != std::string::npos) {
                 std::string ext = textureFile.substr(extPos);
                 // TGA를 PNG로 변환
@@ -480,6 +553,7 @@ bool LoadFBX(const char* filename, FBXModel* fbxModel)
     }
 
 	fbxModel->normalMap = new Texture("T_West_Heli_AH64D_N.png");
+
     if(fbxModel->normalMap->LoadTexture())
     {
         std::cout << "노말 맵 텍스처 로드 성공" << std::endl;
@@ -541,14 +615,35 @@ void DrawScene()
     GLint viewLoc = glGetUniformLocation(shaderProgramID, "view");
     GLint projLoc = glGetUniformLocation(shaderProgramID, "proj");
     GLint textureLoc = glGetUniformLocation(shaderProgramID, "textureSampler");
+    GLint normalMapLoc = glGetUniformLocation(shaderProgramID, "normalMap");
     GLint useVertexColorLoc = glGetUniformLocation(shaderProgramID, "useVertexColor");
-    GLint alphaValueLoc = glGetUniformLocation(shaderProgramID, "alphaValue");  // 알파값 유니폼 위치
+    GLint alphaValueLoc = glGetUniformLocation(shaderProgramID, "alphaValue");
+    GLint useNormalMapLoc = glGetUniformLocation(shaderProgramID, "useNormalMap");
+    
+    // 조명 유니폼
+    GLint eyePosLoc = glGetUniformLocation(shaderProgramID, "eyePos");
+    GLint lightDirLoc = glGetUniformLocation(shaderProgramID, "lightDir");
+    GLint lightColorLoc = glGetUniformLocation(shaderProgramID, "lightColor");
+    GLint ambientStrengthLoc = glGetUniformLocation(shaderProgramID, "ambientStrength");
+    GLint specularStrengthLoc = glGetUniformLocation(shaderProgramID, "specularStrength");
+    GLint shininessLoc = glGetUniformLocation(shaderProgramID, "shininess");
 
     glm::mat4 view = glm::lookAt(cameraPos, glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-
     glm::mat4 proj = glm::perspective(glm::radians(100.0f), (float)width / (float)height, 0.1f, 1000.0f);
+    
     glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
     glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(proj));
+    
+    // 조명 설정
+    glm::vec3 lightDir = glm::normalize(glm::vec3(1.0f, -1.0f, -1.0f));  // 라이트 방향
+    glm::vec3 lightColor = glm::vec3(1.0f, 1.0f, 1.0f);  // 흰색 광원
+    
+    glUniform3fv(eyePosLoc, 1, glm::value_ptr(cameraPos));
+    glUniform3fv(lightDirLoc, 1, glm::value_ptr(lightDir));
+    glUniform3fv(lightColorLoc, 1, glm::value_ptr(lightColor));
+    glUniform1f(ambientStrengthLoc, 0.3f);  // 환경광 강도
+    glUniform1f(specularStrengthLoc, 0.5f);  // 반사광 강도
+    glUniform1f(shininessLoc, 32.0f);  // 반사광 샤이니니스
 
     GLint modelLoc = glGetUniformLocation(shaderProgramID, "model");
 
@@ -558,13 +653,16 @@ void DrawScene()
     worldModelMat = glm::rotate(worldModelMat, glm::radians(yModelRotation), glm::vec3(0.0f, 1.0f, 0.0f));
     worldModelMat = glm::rotate(worldModelMat, glm::radians(xModelRotation), glm::vec3(1.0f, 0.0f, 0.0f));
     worldModelMat = glm::rotate(worldModelMat, glm::radians(zModelRotation), glm::vec3(0.0f, 0.0f, 1.0f));
-
+    
 
     // 5. 모델 그리기
     //몸체 (변경: VAO_Body 바인딩, 메시별로 다른 텍스처 적용)
     if (mHeliBody.loaded && !mHeliBody.indices.empty())
     {
         glUniform1i(useVertexColorLoc, 0);
+        // 노멀 맵 사용 여부 설정 - 노멀 맵이 있으면 활성화
+        glUniform1i(useNormalMapLoc, mHeliBody.normalMap != nullptr ? 1 : 0);
+        
         // 5-1. 모델 매트릭스 설정
         glm::mat4 modelMat = worldModelMat;
         modelMat = glm::scale(modelMat, glm::vec3(modelScale));
@@ -595,12 +693,19 @@ void DrawScene()
                 glDepthMask(GL_TRUE);
             }
 
-            // 해당 메시의 머티리얼 인덱스로 텍스처 바인딩
+            // 해당 메시의 머티리얼 인덱스로 디퓨즈 텍스처 바인딩 (텍스처 유닛 0)
             if (meshInfo.materialIndex < mHeliBody.textureList.size() &&
                 mHeliBody.textureList[meshInfo.materialIndex]) {
+                glActiveTexture(GL_TEXTURE0);
                 mHeliBody.textureList[meshInfo.materialIndex]->UseTexture();
-				//mHeliBody.normalMap->UseTexture(); // 노말 맵 사용
                 glUniform1i(textureLoc, 0);
+            }
+            
+            // 노멀 맵 바인딩 (텍스처 유닛 1)
+            if (mHeliBody.normalMap) {
+                glActiveTexture(GL_TEXTURE1);
+                mHeliBody.normalMap->UseTexture();
+                glUniform1i(normalMapLoc, 1);
             }
 
             // 해당 메시만 그리기 (인덱스 오프셋 사용)
@@ -620,6 +725,7 @@ void DrawScene()
     {
         glUniform1i(useVertexColorLoc, 0);
         glUniform1f(alphaValueLoc, 1.0f);  // 불투명
+        glUniform1i(useNormalMapLoc, mHeliBlade.normalMap != nullptr ? 1 : 0);
 
         // 5-1. 모델 매트릭스 설정
         glm::mat4 modelMat = worldModelMat;
@@ -640,10 +746,19 @@ void DrawScene()
         for (size_t i = 0; i < mHeliBlade.meshes.size(); ++i) {
             const auto& meshInfo = mHeliBlade.meshes[i];
 
+            // 디퓨즈 텍스처 바인딩 (텍스처 유닛 0)
             if (meshInfo.materialIndex < mHeliBlade.textureList.size() &&
                 mHeliBlade.textureList[meshInfo.materialIndex]) {
+                glActiveTexture(GL_TEXTURE0);
                 mHeliBlade.textureList[meshInfo.materialIndex]->UseTexture();
                 glUniform1i(textureLoc, 0);
+            }
+            
+            // 노멀 맵 바인딩 (텍스처 유닛 1)
+            if (mHeliBlade.normalMap) {
+                glActiveTexture(GL_TEXTURE1);
+                mHeliBlade.normalMap->UseTexture();
+                glUniform1i(normalMapLoc, 1);
             }
 
             glDrawElements(GL_TRIANGLES, meshInfo.indexCount, GL_UNSIGNED_INT,
@@ -659,6 +774,7 @@ void DrawScene()
     {
         glUniform1i(useVertexColorLoc, 0);
         glUniform1f(alphaValueLoc, 1.0f);  // 불투명
+        glUniform1i(useNormalMapLoc, mHeliTail.normalMap != nullptr ? 1 : 0);
 
         // 5-1. 모델 매트릭스 설정
         glm::mat4 modelMat = worldModelMat;
@@ -679,10 +795,19 @@ void DrawScene()
         for (size_t i = 0; i < mHeliTail.meshes.size(); ++i) {
             const auto& meshInfo = mHeliTail.meshes[i];
 
+            // 디퓨즈 텍스처 바인딩 (텍스처 유닛 0)
             if (meshInfo.materialIndex < mHeliTail.textureList.size() &&
                 mHeliTail.textureList[meshInfo.materialIndex]) {
+                glActiveTexture(GL_TEXTURE0);
                 mHeliTail.textureList[meshInfo.materialIndex]->UseTexture();
                 glUniform1i(textureLoc, 0);
+            }
+            
+            // 노멀 맵 바인딩 (텍스처 유닛 1)
+            if (mHeliTail.normalMap) {
+                glActiveTexture(GL_TEXTURE1);
+                mHeliTail.normalMap->UseTexture();
+                glUniform1i(normalMapLoc, 1);
             }
 
             glDrawElements(GL_TRIANGLES, meshInfo.indexCount, GL_UNSIGNED_INT,
@@ -767,7 +892,7 @@ void DrawScene()
     ImGui::Separator();
     ImGui::SliderFloat("Camera Distance", &cameraDistance, 10.0f, 200.0f);
     ImGui::SliderFloat("Camera Height", &cameraHeight, 0.0f, 100.0f);
-
+    
 
 
 
@@ -826,6 +951,12 @@ void Timer(int value) {
     cameraAngle = glm::mix(cameraAngle, targetCameraXAngle, interpSpeed * deltaTime);
     cameraYAngle = glm::mix(cameraYAngle, targetCameraYAngle, interpSpeed * deltaTime);
 
+    // 카메라 위치 업데이트 (구면 좌표계)
+    float r_xz = cameraRadius * cos(cameraYAngle);
+    cameraPos.x = r_xz * cos(cameraAngle);
+    cameraPos.z = r_xz * sin(cameraAngle);
+    cameraPos.y = cameraRadius * sin(cameraYAngle);
+
     glutPostRedisplay();
     glutTimerFunc(targetFrameDelay, Timer, 0);
 }
@@ -846,7 +977,22 @@ void Mouse(int button, int state, int x, int y) {
     ImGuiIO& io = ImGui::GetIO();
     if (!io.WantCaptureMouse)
     {
-
+        if (button == GLUT_LEFT_BUTTON) {
+            if (state == GLUT_DOWN) {
+                rightClickDown = true;
+                lastMouseX = x;
+                lastMouseY = y;
+            }
+            else if (state == GLUT_UP) {
+                rightClickDown = false;
+            }
+        }
+        else if (button == GLUT_RIGHT_BUTTON) {
+            if (state == GLUT_DOWN) {
+                lastMouseX = x;
+                lastMouseY = y;
+            }
+        }
     }
 }
 
@@ -856,19 +1002,28 @@ void Motion(int x, int y) {
     ImGuiIO& io = ImGui::GetIO();
     if (!io.WantCaptureMouse)
     {
-        // 화면 중앙 좌표 계산
-        int centerX = width / 2;
-        int centerY = height / 2;
+        if (rightClickDown) {
+            // 마우스 이동량 계산
+            int deltaX = x - lastMouseX;
+            int deltaY = y - lastMouseY;
 
-        // 중앙으로부터의 마우스 이동량 계산
-        int deltaX = x - centerX;
-        int deltaY = y - centerY;
+            // 카메라 각도 업데이트 (좌우로 회전)
+            targetCameraXAngle += deltaX * rotationSpeed;
+            
+            // 카메라 고도각 업데이트 (상하로 회전)
+            targetCameraYAngle -= deltaY * rotationSpeed;
+            
+            // 고도각 제한 (-89도 ~ 89도)
+            const float maxAngle = glm::radians(89.0f);
+            if (targetCameraYAngle > maxAngle) targetCameraYAngle = maxAngle;
+            if (targetCameraYAngle < -maxAngle) targetCameraYAngle = -maxAngle;
 
-        // 마우스를 화면 중앙으로 다시 이동
-        glutWarpPointer(centerX, centerY);
+            // 마지막 마우스 위치 업데이트
+            lastMouseX = x;
+            lastMouseY = y;
 
-        // 변경 사항을 반영하기 위해 화면 다시 그리기 요청
-        glutPostRedisplay();
+            glutPostRedisplay();
+        }
     }
 }
 
@@ -987,25 +1142,67 @@ GLuint loadCubemap(std::vector<std::string> faces)
 
 void getTangent(std::vector<glm::vec3>& vertices, std::vector<glm::vec2>& uvs, std::vector<glm::vec3>& normals, std::vector<glm::vec3>& tangents)
 {
-    for(unsigned int i =0; i < vertices.size(); i += 3)
+    // 탄젠트 벡터 초기화
+    tangents.clear();
+    tangents.resize(vertices.size(), glm::vec3(0.0f));
+    
+    // 바이탄젠트도 함께 계산
+    std::vector<glm::vec3> bitangents(vertices.size(), glm::vec3(0.0f));
+    
+    // 각 삼각형마다 탄젠트와 바이탄젠트 계산
+    for(unsigned int i = 0; i < vertices.size(); i += 3)
     {
+        if (i + 2 >= vertices.size()) break;
+        
         glm::vec3 v0 = vertices[i + 0];
         glm::vec3 v1 = vertices[i + 1];
         glm::vec3 v2 = vertices[i + 2];
+        
         glm::vec2 uv0 = uvs[i + 0];
         glm::vec2 uv1 = uvs[i + 1];
         glm::vec2 uv2 = uvs[i + 2];
+        
         glm::vec3 deltaPos1 = v1 - v0;
         glm::vec3 deltaPos2 = v2 - v0;
         glm::vec2 deltaUV1 = uv1 - uv0;
         glm::vec2 deltaUV2 = uv2 - uv0;
-        float r = 1.0f / (deltaUV1.x * deltaUV2.y - deltaUV1.y * deltaUV2.x);
-        glm::vec3 tangent = (deltaPos1 * deltaUV2.y - deltaPos2 * deltaUV1.y) * r;
-		tangents.push_back(tangent);
-		tangents.push_back(tangent);
-		tangents.push_back(tangent);
-
-	}
+        
+        float r = deltaUV1.x * deltaUV2.y - deltaUV1.y * deltaUV2.x;
+        if (abs(r) > 0.0001f) {
+            r = 1.0f / r;
+            glm::vec3 tangent = (deltaPos1 * deltaUV2.y - deltaPos2 * deltaUV1.y) * r;
+            glm::vec3 bitangent = (deltaPos2 * deltaUV1.x - deltaPos1 * deltaUV2.x) * r;
+            
+            // 각 정점에 탄젠트와 바이탄젠트 누적
+            tangents[i + 0] += tangent;
+            tangents[i + 1] += tangent;
+            tangents[i + 2] += tangent;
+            
+            bitangents[i + 0] += bitangent;
+            bitangents[i + 1] += bitangent;
+            bitangents[i + 2] += bitangent;
+        }
+    }
+    
+    // 노멀과 탄젠트를 직교화 (Gram-Schmidt 과정)
+    for (unsigned int i = 0; i < tangents.size(); ++i) {
+        if (glm::length(tangents[i]) > 0.0001f) {
+            glm::vec3& t = tangents[i];
+            glm::vec3& b = bitangents[i];
+            glm::vec3& n = normals[i];
+            
+            // Gram-Schmidt 직교화: t = normalize(t - n * dot(n, t))
+            t = glm::normalize(t - n * glm::dot(n, t));
+            
+            // 바이탄젠트 재계산하여 올바른 방향 보장
+            b = glm::cross(n, t);
+            
+            // 방향 확인 (handedness)
+            if (glm::dot(glm::cross(n, t), b) < 0.0f) {
+                t = t * -1.0f;
+            }
+        }
+    }
 }
 
 
@@ -1147,13 +1344,23 @@ void InitBuffers() {  // 변경: 모델별 버퍼 초기화
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO_Body);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, 0, nullptr, GL_STATIC_DRAW);
 
-    const GLsizei stride = 8 * sizeof(GLfloat);  // *** 8로 변경 ***
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, (void*)0);  // pos
+    const GLsizei stride = 11 * sizeof(GLfloat);  // pos(3) + uv(2) + normal(3) + tangent(3)
+    
+    // location 0: position
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, (void*)0);
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, stride, (void*)(3 * sizeof(GLfloat)));  // color
+    
+    // location 1: UV
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, stride, (void*)(3 * sizeof(GLfloat)));
     glEnableVertexAttribArray(1);
-    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, stride, (void*)(6 * sizeof(GLfloat)));  // *** UV 추가 (인덱스 2) ***
+    
+    // location 2: normal
+    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, stride, (void*)(5 * sizeof(GLfloat)));
     glEnableVertexAttribArray(2);
+    
+    // location 3: tangent
+    glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, stride, (void*)(8 * sizeof(GLfloat)));
+    glEnableVertexAttribArray(3);
 
     glBindVertexArray(0);
 
@@ -1171,10 +1378,12 @@ void InitBuffers() {  // 변경: 모델별 버퍼 초기화
 
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, (void*)0);
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, stride, (void*)(3 * sizeof(GLfloat)));
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, stride, (void*)(3 * sizeof(GLfloat)));
     glEnableVertexAttribArray(1);
-    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, stride, (void*)(6 * sizeof(GLfloat)));  // *** UV 추가 (인덱스 2) ***
+    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, stride, (void*)(5 * sizeof(GLfloat)));
     glEnableVertexAttribArray(2);
+    glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, stride, (void*)(8 * sizeof(GLfloat)));
+    glEnableVertexAttribArray(3);
 
     glBindVertexArray(0);
 
@@ -1192,10 +1401,12 @@ void InitBuffers() {  // 변경: 모델별 버퍼 초기화
 
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, (void*)0);
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, stride, (void*)(3 * sizeof(GLfloat)));
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, stride, (void*)(3 * sizeof(GLfloat)));
     glEnableVertexAttribArray(1);
-    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, stride, (void*)(6 * sizeof(GLfloat)));  // *** UV 추가 (인덱스 2) ***
+    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, stride, (void*)(5 * sizeof(GLfloat)));
     glEnableVertexAttribArray(2);
+    glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, stride, (void*)(8 * sizeof(GLfloat)));
+    glEnableVertexAttribArray(3);
 
     glBindVertexArray(0);
 

@@ -10,7 +10,7 @@ uniform mat4 model;
 uniform mat4 view;
 uniform mat4 proj;
 
-uniform vec3 evePos, lightDir;
+uniform vec3 eyePos, lightDir;
 
 
 out vec2 UV;
@@ -30,11 +30,17 @@ void main() {
 	// 탄젠트 공간 노멀 매핑 위해 TBN 구하기
 	vec3 Nor = normalize(transpose(inverse(mat3(model))) * aNormal);
 	vec3 Tan = normalize(transpose(inverse(mat3(model))) * aTangent);
-	vec3 Bit = cross(Nor, Tan);
-	// 탄젠트 공간 변환 행렬
+    
+    // Gram-Schmidt 재직교화로 Tangent 정제
+    Tan = normalize(Tan - dot(Tan, Nor) * Nor);
+    
+    // Bitangent 계산
+    vec3 Bit = cross(Nor, Tan);
+    
+    // 탄젠트 공간 변환 행렬
 	mat3 tbnMat = transpose(mat3(Tan, Bit, Nor));
 
 	// 빛 벡터, 뷰 벡터를 탄젠트 공간으로 변환
-	v_lightTs = tbnMat * normalize(lightDir);
-	v_viewTS = tbnMat * normalize(evePos - worldPos);
+	v_lightTs = tbnMat * normalize(-lightDir);  // 빛 방향을 음수로
+	v_viewTS = tbnMat * normalize(eyePos - worldPos);
 }
