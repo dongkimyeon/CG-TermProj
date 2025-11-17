@@ -1,10 +1,13 @@
 #version 330 core
 in vec3 ourColor;
 in vec2 UV;
-out vec4 FragColor;
+
 uniform sampler2D ourTexture;
 uniform bool useVertexColor;
 uniform float alphaValue; // <-- 알파값 유니폼 추가
+
+
+out vec4 FragColor;
 
 void main() {
 

@@ -21,7 +21,7 @@ struct FBXModel
         GLuint materialIndex; // 이 메시가 사용하는 머티리얼 인덱스
     };
     std::vector<MeshInfo> meshes; // 메시별 정보
-
+	Texture* normalMap = nullptr; // 노말 맵 텍스처 포인터
     glm::vec3 center;
     bool loaded = false;
 };
@@ -38,6 +38,7 @@ GLvoid Reshape(int w, int h);
 
 void SpecialKeyboard(int key, int x, int y);
 void Mouse(int button, int state, int x, int y);
+int main(int argc, char** argv);
 void WhellFunc(int whell, int dir, int x, int y);
 void Motion(int x, int y);
 void Timer(int value);
@@ -62,6 +63,18 @@ GLuint VAO_Body, VBO_Body, EBO_Body;
 GLuint VAO_Blade, VBO_Blade, EBO_Blade;
 GLuint VAO_Tail, VBO_Tail, EBO_Tail;
 GLuint axisVAO, axisVBO;  // 축 그리기용 별도 VAO/VBO
+
+
+std::vector<glm::vec3> bodyTangents;
+std::vector<glm::vec3> bladeTangents;
+std::vector<glm::vec3> tailTangents;
+GLuint BodyTangentBuffer;
+GLuint BladeTangentBuffer;
+GLuint TailTangentBuffer;
+
+void getTangent(std::vector<glm::vec3>& vertices, std::vector<glm::vec2>& uvs, std::vector<glm::vec3>& normals, std::vector<glm::vec3>& tangents);
+
+
 
 
 
@@ -466,6 +479,18 @@ bool LoadFBX(const char* filename, FBXModel* fbxModel)
         }
     }
 
+	fbxModel->normalMap = new Texture("T_West_Heli_AH64D_N.png");
+    if(fbxModel->normalMap->LoadTexture())
+    {
+        std::cout << "노말 맵 텍스처 로드 성공" << std::endl;
+    }
+    else
+    {
+        std::cerr << "노말 맵 텍스처 로드 실패" << std::endl;
+        delete fbxModel->normalMap;
+        fbxModel->normalMap = nullptr;
+	}
+
 
     for (size_t i = 0; i < fbxModel->textureList.size(); ++i) {
         if (fbxModel->textureList[i]) {
@@ -574,6 +599,7 @@ void DrawScene()
             if (meshInfo.materialIndex < mHeliBody.textureList.size() &&
                 mHeliBody.textureList[meshInfo.materialIndex]) {
                 mHeliBody.textureList[meshInfo.materialIndex]->UseTexture();
+				//mHeliBody.normalMap->UseTexture(); // 노말 맵 사용
                 glUniform1i(textureLoc, 0);
             }
 
@@ -734,15 +760,6 @@ void DrawScene()
     ImGui::Text("Position: (%.1f, %.1f, %.1f)", modelPosition.x, modelPosition.y, modelPosition.z);
     ImGui::Separator();
 
-    // === 갱신 주기 제어 슬라이더 ===
-    ImGui::SliderInt("Frame Delay ", &targetFrameDelay, 1, 16);
-    ImGui::Separator();
-    ImGui::SliderFloat("Blade Speed", &mainBladeSpeed, 100, 1000);
-    ImGui::Separator();
-    ImGui::SliderFloat("Tail Speed", &tailBladeSpeed, 100, 1000);
-    ImGui::Separator();
-    ImGui::SliderFloat("Glass Alpha", &glassAlpha, 0.0f, 1.0f);  // 유리 투명도 슬라이더 추가
-    ImGui::Separator();
 
     ImGui::SliderFloat("Model ModelRotationX", &xModelRotation, -180.0f, 180.0f);
     ImGui::SliderFloat("Model ModelRotationY", &yModelRotation, -180.0f, 180.0f);
@@ -968,6 +985,29 @@ GLuint loadCubemap(std::vector<std::string> faces)
     return textureID;
 }
 
+void getTangent(std::vector<glm::vec3>& vertices, std::vector<glm::vec2>& uvs, std::vector<glm::vec3>& normals, std::vector<glm::vec3>& tangents)
+{
+    for(unsigned int i =0; i < vertices.size(); i += 3)
+    {
+        glm::vec3 v0 = vertices[i + 0];
+        glm::vec3 v1 = vertices[i + 1];
+        glm::vec3 v2 = vertices[i + 2];
+        glm::vec2 uv0 = uvs[i + 0];
+        glm::vec2 uv1 = uvs[i + 1];
+        glm::vec2 uv2 = uvs[i + 2];
+        glm::vec3 deltaPos1 = v1 - v0;
+        glm::vec3 deltaPos2 = v2 - v0;
+        glm::vec2 deltaUV1 = uv1 - uv0;
+        glm::vec2 deltaUV2 = uv2 - uv0;
+        float r = 1.0f / (deltaUV1.x * deltaUV2.y - deltaUV1.y * deltaUV2.x);
+        glm::vec3 tangent = (deltaPos1 * deltaUV2.y - deltaPos2 * deltaUV1.y) * r;
+		tangents.push_back(tangent);
+		tangents.push_back(tangent);
+		tangents.push_back(tangent);
+
+	}
+}
+
 
 void MakeSkyboxVertexShader() {
     GLchar* vertexSource = filetobuf("skyboxVertex.glsl"); // 1단계에서 만든 파일
@@ -1181,4 +1221,8 @@ void InitBuffers() {  // 변경: 모델별 버퍼 초기화
     glEnableVertexAttribArray(1);
 
     glBindVertexArray(0);
+
+	glGenBuffers(1, &BodyTangentBuffer);
+	glBindBuffer(GL_ARRAY_BUFFER, BodyTangentBuffer);
+	glBufferData(GL_ARRAY_BUFFER, bodyTangents.size() * sizeof(glm::vec3), bodyTangents.data(), GL_STATIC_DRAW);
 }
