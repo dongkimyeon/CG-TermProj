@@ -1,8 +1,7 @@
 #include "Ground.h"
-#include "Texture.h"
 
 Ground::Ground()
-    : VAO(0), VBO(0), EBO(0), textureID(0), size(1000.0f), gridResolution(100)
+	: VAO(0), VBO(0), EBO(0), textureID(0), size(1000.0f), gridResolution(100), groundTexture("T_RockyGround_A.png"), normalMap("T_RockyGround_NA.png")
 {
 }
 
@@ -16,6 +15,9 @@ Ground::~Ground()
 
 void Ground::Initialize()
 {
+	groundTexture.LoadTexture();
+	normalMap.LoadTexture();
+
     // 정점 데이터 생성 (위치(3) + UV(2) + 노멀(3) + 탄젠트(3) = 11 floats)
     float halfSize = size / 2.0f;
     float step = size / gridResolution;
@@ -134,14 +136,19 @@ void Ground::Render(GLuint shaderProgramID, const glm::mat4& view, const glm::ma
 
     // 모델 행렬 (바닥은 변환 없음)
     glm::mat4 model = glm::mat4(1.0f);
-
+	model = glm::translate(model, glm::vec3(0.0f, -2.0f, 0.0f));
     glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
     glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
     glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(proj));
+    
 
-    // 정점 색상 사용 안 함, 불투명, 노멀맵 사용 안 함
-    glUniform1f(alphaValueLoc, 0.5f);
-    glUniform1i(useNormalMapLoc, 0);
+    
+	groundTexture.UseTexture(0);
+	normalMap.UseTexture(1);
+
+
+    glUniform1f(alphaValueLoc, 1.0f);
+    glUniform1i(useNormalMapLoc, 1);
 
 
     // 바닥 그리기

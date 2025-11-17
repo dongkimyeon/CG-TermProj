@@ -169,7 +169,6 @@ float maxLiftForce = 50.0f; // 최대 양력
 // 추가 변수
 float currHeight = 0.0f; // 현재 고도
 float boundary = 10.0f; // 이동 가능한 최소 고도
-bool isPropellerRotating = false; // 프로펠러 회전 상태
 float speed = 20.0f; // 이동 속도
 
 
@@ -873,10 +872,16 @@ void DrawScene()
 
     }
 
-    // 바닥 그리기 추가
     if (mGround)
     {
+        // 불투명 객체이므로 알파 블렌딩 비활성화
+        glDisable(GL_BLEND);
+        glDepthMask(GL_TRUE);  // 깊이 쓰기 활성화 확인
+
         mGround->Render(shaderProgramID, view, proj);
+
+        // 다시 블렌딩 활성화 (스카이박스나 다른 투명 객체를 위해)
+        glEnable(GL_BLEND);
     }
 
     // --- 스카이박스 그리기 ---
@@ -1027,14 +1032,10 @@ void Timer(int value) {
     modelPosition += velocity * deltaTime;
 
     // 5. 중력과 양력 적용 (프로펠러가 회전 중일 때만)
-    if (isPropellerRotating) {
-        float netVerticalForce = liftForce - gravity;
-        modelPosition.y += netVerticalForce * deltaTime;
-    }
-    else {
-        // 프로펠러가 꺼져있으면 중력만 적용
-        modelPosition.y -= gravity * deltaTime;
-    }
+   
+    float netVerticalForce = liftForce - gravity;
+    modelPosition.y += netVerticalForce * deltaTime;
+
 
     // 지면 충돌 방지
     if (modelPosition.y < 0.0f) {

@@ -1,5 +1,6 @@
 #pragma once
 #include "CommonInclude.h"
+#include "Texture.h"
 
 class Ground
 {
@@ -17,7 +18,8 @@ private:
 
     std::vector<GLfloat> vertices;
     std::vector<GLuint> indices;
-
+	Texture groundTexture;
+    Texture normalMap;
     float size;  
     int gridResolution; 
 };
