@@ -10,6 +10,7 @@ int ASCII[(UINT)eKeyCode::End] =
     'Z', 'X', 'C', 'V', 'B', 'N', 'M',
     VK_LEFT, VK_RIGHT, VK_DOWN, VK_UP,
     VK_LBUTTON, VK_MBUTTON, VK_RBUTTON, VK_SPACE, VK_ESCAPE, VK_BACK,
+    VK_SHIFT,
 };
 
 void Input::ProcessChar(WPARAM wParam)

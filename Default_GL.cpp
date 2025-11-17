@@ -3,7 +3,7 @@
 #include "CommonInclude.h" 
 #include "Time.h"
 #include "Texture.h"
-
+#include "Ground.h"
 
 // FBX 모델 데이터 
 struct FBXModel
@@ -89,19 +89,23 @@ float cameraAngle = 0.0f; // 초기 X-Z 각도 (45도 라디안)
 float cameraYAngle = 0.0f; // 초기 Y 각도 (고도각)
 float targetCameraXAngle = 0.0f; // 타겟 X-Z 카메라 각도
 float targetCameraYAngle = 0.0f; // 타겟 Y 카메라 각도
-
-bool rightClickDown = false; // 마우스 우클릭 상태
-int lastMouseX = 0;          //_LAST 마우스 X 위치
-int lastMouseY = 0;          // 마지막 마우스 Y 위치
-float rotationSpeed = 0.005f; // 카메라 회전 속도 (조정 가능)
-
 float cameraDistance = 150.0f;  // 헬기로부터의 거리
 float cameraHeight = 50.0f;     // 헬기 위쪽으로의 높이
 
+
+// 헬기 로컬 좌표계 기저 벡터
+glm::vec3 heliRight = glm::vec3(1.0f, 0.0f, 0.0f);   // 로컬 X축 (우측)
+glm::vec3 heliUp = glm::vec3(0.0f, 1.0f, 0.0f);      // 로컬 Y축 (상향)
+glm::vec3 heliForward = glm::vec3(0.0f, 0.0f, 1.0f); // 로컬 Z축 (전방)
+
+
+bool rightClickDown = false; 
+int lastMouseX = 0;         
+int lastMouseY = 0;          
+float rotationSpeed = 0.001f;
+
 //선형보간 속도
 float interpSpeed = 10.0f;
-
-
 
 //imgui 관련 변수
 bool showAxis = true;  // 축 표시 토글
@@ -119,6 +123,8 @@ float zModelRotation = 0.0f;
 //전체 모델 이동
 glm::vec3 modelPosition = glm::vec3(0.0f, 0.0f, 0.0f);
 
+//땅
+Ground* mGround = nullptr;
 
 
 float mainBladeRotation = 0.0f;
@@ -137,6 +143,35 @@ float tailBladeZ = 0.0f;
 FBXModel mHeliBody;
 FBXModel mHeliBlade;
 FBXModel mHeliTail;
+
+// 헬기 이동 관련 변수 
+float gravity = 9.81f; // 중력 가속도
+
+// 헬리콥터 물리 변수 추가
+glm::vec3 velocity = glm::vec3(0.0f); // 현재 속도
+glm::vec3 acceleration = glm::vec3(0.0f); // 현재 가속도
+
+float maxSpeed = 50.0f; // 최대 속도
+float accelerationRate = 30.0f; // 가속도 비율
+float drag = 2.0f; // 공기 저항 (속도 감쇠)
+
+// 기체 기울기 변수
+float targetPitch = 0.0f; // 목표 피치 (앞뒤 기울기)
+float targetRoll = 0.0f;  // 목표 롤 (좌우 기울기)
+float currentPitch = 0.0f; // 현재 피치
+float currentRoll = 0.0f;  // 현재 롤
+float tiltSpeed = 5.0f;    // 기울기 변화 속도
+
+float maxTiltAngle = 30.0f; // 최대 기울기 각도 (도)
+float liftForce = 0.0f; // 양력
+float maxLiftForce = 50.0f; // 최대 양력
+
+// 추가 변수
+float currHeight = 0.0f; // 현재 고도
+float boundary = 10.0f; // 이동 가능한 최소 고도
+bool isPropellerRotating = false; // 프로펠러 회전 상태
+float speed = 20.0f; // 이동 속도
+
 
 int main(int argc, char** argv) {
     glutInit(&argc, argv);
@@ -208,6 +243,9 @@ int main(int argc, char** argv) {
         UpdateModelBuffers(&mHeliTail, VAO_Tail, VBO_Tail, EBO_Tail);  // 변경: 모델별 버퍼 호출
     }
 
+	mGround = new Ground();
+	mGround->Initialize();
+
     std::vector<std::string> faces = {
           "SkyBox-Texture/px.png", // 오른쪽
           "SkyBox-Texture/nx.png", // 왼쪽
@@ -235,6 +273,7 @@ int main(int argc, char** argv) {
 
     glutMainLoop();
 
+    delete mGround;
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGLUT_Shutdown();
     ImGui::DestroyContext();
@@ -380,7 +419,6 @@ bool LoadFBX(const char* filename, FBXModel* fbxModel)
     // *** 머티리얼 슬롯 정보 출력 추가 ***
     std::cout << "\n=== 파일: " << filename << " ===" << std::endl;
     std::cout << "머티리얼 개수: " << scene->mNumMaterials << std::endl;
-
     for (unsigned int i = 0; i < scene->mNumMaterials; i++) {
         aiMaterial* material = scene->mMaterials[i];
         aiString matName;
@@ -415,7 +453,6 @@ bool LoadFBX(const char* filename, FBXModel* fbxModel)
     std::cout << "====================\n" << std::endl;
 
     // 메쉬
-    // 모든 메쉬를 순회하며 데이터를 병합합니다.
     for (unsigned int m = 0; m < scene->mNumMeshes; m++) {
         aiMesh* mesh = scene->mMeshes[m];
 
@@ -595,6 +632,13 @@ void DrawScene()
     mainBladeRotation += mainBladeSpeed * Time::DeltaTime();
     tailBladeRotation += tailBladeSpeed * Time::DeltaTime();
 
+    // 카메라가 헬기를 따라가도록 오프셋 계산
+    glm::vec3 cameraOffset = heliForward * cameraDistance + heliUp * cameraHeight;
+    cameraPos = modelPosition + cameraOffset;
+
+    // 카메라 목표 지점 (헬기 위쪽을 바라봄)
+    glm::vec3 cameraTarget = modelPosition + heliUp * 10.0f;
+
     // 씬 클리어
     glEnable(GL_DEPTH_TEST);
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
@@ -616,11 +660,10 @@ void DrawScene()
     GLint projLoc = glGetUniformLocation(shaderProgramID, "proj");
     GLint textureLoc = glGetUniformLocation(shaderProgramID, "textureSampler");
     GLint normalMapLoc = glGetUniformLocation(shaderProgramID, "normalMap");
-    GLint useVertexColorLoc = glGetUniformLocation(shaderProgramID, "useVertexColor");
     GLint alphaValueLoc = glGetUniformLocation(shaderProgramID, "alphaValue");
     GLint useNormalMapLoc = glGetUniformLocation(shaderProgramID, "useNormalMap");
- 
-    
+	GLint useTextureLoc = glGetUniformLocation(shaderProgramID, "useTexture");
+
     // 조명 유니폼
     GLint eyePosLoc = glGetUniformLocation(shaderProgramID, "eyePos");
     GLint lightDirLoc = glGetUniformLocation(shaderProgramID, "lightDir");
@@ -629,42 +672,48 @@ void DrawScene()
     GLint specularStrengthLoc = glGetUniformLocation(shaderProgramID, "specularStrength");
     GLint shininessLoc = glGetUniformLocation(shaderProgramID, "shininess");
 
-    glm::mat4 view = glm::lookAt(cameraPos, glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    // 카메라가 타겟을 바라보도록 View 행렬 설정
+    glm::mat4 view = glm::lookAt(cameraPos, cameraTarget, heliUp);
     glm::mat4 proj = glm::perspective(glm::radians(100.0f), (float)width / (float)height, 0.1f, 1000.0f);
-    
+
     glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
     glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(proj));
-    
-    
+
+
     // 조명 설정
     glm::vec3 lightDir = glm::normalize(glm::vec3(1.0f, -1.0f, -1.0f));  // 라이트 방향
     glm::vec3 lightColor = glm::vec3(1.0f, 1.0f, 1.0f);  // 흰색 광원
-    
+
     glUniform3fv(eyePosLoc, 1, glm::value_ptr(cameraPos));
     glUniform3fv(lightDirLoc, 1, glm::value_ptr(lightDir));
     glUniform3fv(lightColorLoc, 1, glm::value_ptr(lightColor));
     glUniform1f(ambientStrengthLoc, 0.3f);  // 환경광 강도
     glUniform1f(specularStrengthLoc, 0.5f);  // 반사광 강도
     glUniform1f(shininessLoc, 32.0f);  // 반사광 샤이니니스
-
+    glUniform1f(useTextureLoc, 32.0f);  // 반사광 샤이니니스
     GLint modelLoc = glGetUniformLocation(shaderProgramID, "model");
 
-    //헬기 전체 모델 매트릭스 
+    //헬기 전체 모델 매트릭스 - 가속도 기반 기울기 적용
     glm::mat4 worldModelMat = glm::mat4(1.0f);
     worldModelMat = glm::translate(worldModelMat, modelPosition);
     worldModelMat = glm::rotate(worldModelMat, glm::radians(yModelRotation), glm::vec3(0.0f, 1.0f, 0.0f));
+
+    // 물리 기반 기울기 적용 (피치와 롤)
+    worldModelMat = glm::rotate(worldModelMat, glm::radians(currentRoll), glm::vec3(1.0f, 0.0f, 0.0f)); // 롤 (좌우 기울기) - X축
+    worldModelMat = glm::rotate(worldModelMat, glm::radians(currentPitch), glm::vec3(0.0f, 0.0f, 1.0f));  // 피치 (앞뒤 기울기) - Z축
+
+    // 수동 회전 (디버그용)
     worldModelMat = glm::rotate(worldModelMat, glm::radians(xModelRotation), glm::vec3(1.0f, 0.0f, 0.0f));
     worldModelMat = glm::rotate(worldModelMat, glm::radians(zModelRotation), glm::vec3(0.0f, 0.0f, 1.0f));
-    
+
 
     // 5. 모델 그리기
     //몸체 (변경: VAO_Body 바인딩, 메시별로 다른 텍스처 적용)
     if (mHeliBody.loaded && !mHeliBody.indices.empty())
     {
-        glUniform1i(useVertexColorLoc, 0);
         // 노멀 맵 사용 여부 설정 - 노멀 맵이 있으면 활성화
         glUniform1i(useNormalMapLoc, mHeliBody.normalMap != nullptr ? 1 : 0);
-        
+
         // 5-1. 모델 매트릭스 설정
         glm::mat4 modelMat = worldModelMat;
         modelMat = glm::scale(modelMat, glm::vec3(modelScale));
@@ -701,13 +750,13 @@ void DrawScene()
                 mHeliBody.textureList[meshInfo.materialIndex]->UseTexture(0);
                 glUniform1i(textureLoc, 0);
             }
-            
+
             // 노멀 맵 바인딩 (텍스처 유닛 1)
             if (mHeliBody.normalMap) {
                 mHeliBody.normalMap->UseTexture(1);
                 glUniform1i(normalMapLoc, 1);
             }
-
+			
             // 해당 메시만 그리기 (인덱스 오프셋 사용)
             glDrawElements(GL_TRIANGLES, meshInfo.indexCount, GL_UNSIGNED_INT,
                 (void*)(meshInfo.indexStart * sizeof(GLuint)));
@@ -723,7 +772,7 @@ void DrawScene()
     //Main Blade
     if (mHeliBlade.loaded && !mHeliBlade.indices.empty())
     {
-        glUniform1i(useVertexColorLoc, 0);
+       
         glUniform1f(alphaValueLoc, 1.0f);  // 불투명
         glUniform1i(useNormalMapLoc, mHeliBlade.normalMap != nullptr ? 1 : 0);
 
@@ -749,11 +798,11 @@ void DrawScene()
             // 디퓨즈 텍스처 바인딩 (텍스처 유닛 0)
             if (meshInfo.materialIndex < mHeliBlade.textureList.size() &&
                 mHeliBlade.textureList[meshInfo.materialIndex]) {
- 
+
                 mHeliBlade.textureList[meshInfo.materialIndex]->UseTexture(0);
                 glUniform1i(textureLoc, 0);
             }
-            
+
             // 노멀 맵 바인딩 (텍스처 유닛 1)
             if (mHeliBlade.normalMap) {
                 mHeliBlade.normalMap->UseTexture(1);
@@ -771,7 +820,7 @@ void DrawScene()
     //Tail Blade
     if (mHeliTail.loaded && !mHeliTail.indices.empty())
     {
-        glUniform1i(useVertexColorLoc, 0);
+        
         glUniform1f(alphaValueLoc, 1.0f);  // 불투명
         glUniform1i(useNormalMapLoc, mHeliTail.normalMap != nullptr ? 1 : 0);
 
@@ -797,14 +846,14 @@ void DrawScene()
             // 디퓨즈 텍스처 바인딩 (텍스처 유닛 0)
             if (meshInfo.materialIndex < mHeliTail.textureList.size() &&
                 mHeliTail.textureList[meshInfo.materialIndex]) {
-          
+
                 mHeliTail.textureList[meshInfo.materialIndex]->UseTexture(0);
                 glUniform1i(textureLoc, 0);
             }
-            
+
             // 노멀 맵 바인딩 (텍스처 유닛 1)
             if (mHeliTail.normalMap) {
-          
+
                 mHeliTail.normalMap->UseTexture(1);
                 glUniform1i(normalMapLoc, 1);
             }
@@ -814,32 +863,28 @@ void DrawScene()
         }
 
         glBindVertexArray(0);
+        // 텍스처 유닛 0 해제
+        glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, 0);
+
+        // 텍스처 유닛 1 해제 (노멀맵)
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, 0);
+
     }
 
-    // 축 그리기 (토글 가능)
-    if (showAxis) {
-        glUniform1i(useVertexColorLoc, 1);
-        // 6-1. 모델 매트릭스 설정 (축은 기본)
-        glm::mat4 axisMat = glm::mat4(1.0f);
-        glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(axisMat));
-
-        // 6-2. 그리기
-        glBindVertexArray(axisVAO);
-        glDrawArrays(GL_LINES, 0, 6);
-        glBindVertexArray(0);
+    // 바닥 그리기 추가
+    if (mGround)
+    {
+        mGround->Render(shaderProgramID, view, proj);
     }
-
-
 
     // --- 스카이박스 그리기 ---
-    // 깊이 테스트 함수를 GL_LEQUAL로 변경합니다. 
     glDepthFunc(GL_LEQUAL);
 
     glUseProgram(skyboxShaderProgramID); // 스카이박스 전용 셰이더 사용
 
     // 셰이더에 view, projection 행렬 전달
-    // (스카이박스 셰이더가 내부적으로 view의 이동값을 제거함)
     GLint skyViewLoc = glGetUniformLocation(skyboxShaderProgramID, "view");
     GLint skyProjLoc = glGetUniformLocation(skyboxShaderProgramID, "projection");
     glUniformMatrix4fv(skyViewLoc, 1, GL_FALSE, glm::value_ptr(view));
@@ -857,10 +902,10 @@ void DrawScene()
     glBindVertexArray(0);
 
     glDepthFunc(GL_LESS); // 깊이 테스트 함수를 다시 기본값으로 복원
-    // --- 스카이박스 그리기 끝 ---
 
 
-    // ImGui 렌더링 (이하 동일)
+
+    // ImGui 렌더링 
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplGLUT_NewFrame();
     ImGui::NewFrame();
@@ -873,7 +918,7 @@ void DrawScene()
     ImGui::SetNextWindowSize(ImVec2(200, 100), ImGuiCond_FirstUseEver);
 
     // ImGui UI 윈도우
-    ImGui::Begin("FBX Model Controls");
+    ImGui::Begin("Debug Controls");
 
     static float time = 0.0f;
     time += Time::DeltaTime();
@@ -882,6 +927,11 @@ void DrawScene()
 
     ImGui::Separator();
     ImGui::Text("Position: (%.1f, %.1f, %.1f)", modelPosition.x, modelPosition.y, modelPosition.z);
+    ImGui::Text("Velocity: (%.1f, %.1f, %.1f)", velocity.x, velocity.y, velocity.z);
+    ImGui::Text("Speed: %.1f", glm::length(velocity));
+    ImGui::Separator();
+    ImGui::Text("Pitch: %.1f", currentPitch);
+    ImGui::Text("Roll: %.1f", currentRoll);
     ImGui::Separator();
 
 
@@ -889,18 +939,15 @@ void DrawScene()
     ImGui::SliderFloat("Model ModelRotationY", &yModelRotation, -180.0f, 180.0f);
     ImGui::SliderFloat("Model ModelRotationZ", &zModelRotation, -180.0f, 180.0f);
     ImGui::Separator();
-    ImGui::SliderFloat("Camera Distance", &cameraDistance, 10.0f, 200.0f);
-    ImGui::SliderFloat("Camera Height", &cameraHeight, 0.0f, 100.0f);
 
+    ImGui::SliderFloat("Max Speed", &maxSpeed, 10.0f, 200.0f);
+    ImGui::SliderFloat("Acceleration", &accelerationRate, 10.0f, 100.0f);
+    ImGui::SliderFloat("Max Tilt", &maxTiltAngle, 10.0f, 60.0f);
+    ImGui::Separator();
 
     if (ImGui::Button("wired frame"))
     {
         wireframeMode = !wireframeMode;
-    }
-
-    if (ImGui::Button("XYZ"))
-    {
-        showAxis = !showAxis;
     }
 
     ImGui::End();
@@ -910,6 +957,8 @@ void DrawScene()
 
     glutSwapBuffers();
 }
+
+
 void Reshape(int w, int h) {
     glViewport(0, 0, w, h);
     width = w;
@@ -944,29 +993,130 @@ void Timer(int value) {
 
     float deltaTime = Time::DeltaTime();
 
-    // 각도 보간 (기존 코드 유지 - 부드러운 카메라 전환용)
-    cameraAngle = glm::mix(cameraAngle, targetCameraXAngle, interpSpeed * deltaTime);
-    cameraYAngle = glm::mix(cameraYAngle, targetCameraYAngle, interpSpeed * deltaTime);
+    // 카메라용 회전 매트릭스: Y축 회전(yaw)만 적용
+    glm::mat4 cameraRotationMat = glm::mat4(1.0f);
+    cameraRotationMat = glm::rotate(cameraRotationMat, glm::radians(yModelRotation), glm::vec3(0.0f, 1.0f, 0.0f));
 
-    // 카메라 위치 업데이트 (구면 좌표계)
-    float r_xz = cameraRadius * cos(cameraYAngle);
-    cameraPos.x = r_xz * cos(cameraAngle);
-    cameraPos.z = r_xz * sin(cameraAngle);
-    cameraPos.y = cameraRadius * sin(cameraYAngle);
+    // 헬기의 기본 방향 벡터
+    glm::vec3 baseForward = glm::vec3(-1.0f, 0.0f, 0.0f);
+    glm::vec3 baseUp = glm::vec3(0.0f, 1.0f, 0.0f);
+
+    // 카메라용 기저벡터 (Y축 회전만 반영)
+    heliForward = glm::vec3(cameraRotationMat * glm::vec4(baseForward, 0.0f));
+    heliUp = glm::vec3(cameraRotationMat * glm::vec4(baseUp, 0.0f));
+
+    // === 헬리콥터 물리 시뮬레이션 ===
+
+    // 현재 고도 업데이트
+    currHeight = modelPosition.y;
+
+    // 1. 공기 저항 적용 (속도 감쇠)
+    glm::vec3 dragForce = -velocity * drag;
+    acceleration += dragForce * deltaTime;
+
+    // 2. 속도 업데이트
+    velocity += acceleration * deltaTime;
+
+    // 3. 최대 속도 제한
+    float currentSpeed = glm::length(velocity);
+    if (currentSpeed > maxSpeed) {
+        velocity = glm::normalize(velocity) * maxSpeed;
+    }
+
+    // 4. 위치 업데이트
+    modelPosition += velocity * deltaTime;
+
+    // 5. 중력과 양력 적용 (프로펠러가 회전 중일 때만)
+    if (isPropellerRotating) {
+        float netVerticalForce = liftForce - gravity;
+        modelPosition.y += netVerticalForce * deltaTime;
+    }
+    else {
+        // 프로펠러가 꺼져있으면 중력만 적용
+        modelPosition.y -= gravity * deltaTime;
+    }
+
+    // 지면 충돌 방지
+    if (modelPosition.y < 0.0f) {
+        modelPosition.y = 0.0f;
+        velocity.y = 0.0f;
+    }
+
+    // 6. 기울기 부드럽게 보간
+    currentPitch = glm::mix(currentPitch, targetPitch, tiltSpeed * deltaTime);
+    currentRoll = glm::mix(currentRoll, targetRoll, tiltSpeed * deltaTime);
+
+    // 7. 가속도 초기화 (다음 프레임을 위해)
+    acceleration = glm::vec3(0.0f);
 
     glutPostRedisplay();
     glutTimerFunc(targetFrameDelay, Timer, 0);
 }
 void KeyBoard()
 {
+    float deltaTime = Time::DeltaTime();
 
+    // 현재 헬기의 회전 방향 벡터 계산 (Y축 회전 기준)
+    float yawRad = glm::radians(yModelRotation);
+    glm::vec3 forward = glm::vec3(cos(yawRad), 0.0f, -sin(yawRad));
+    glm::vec3 right = glm::vec3(sin(yawRad), 0.0f, cos(yawRad));
+    
+    //전진 - 헬기 바라보는 방향으로 이동
+    if (Input::GetKey(eKeyCode::W))
+    {
+        acceleration += forward * accelerationRate;
+        targetPitch = -maxTiltAngle; // 앞으로 기울임
+    }
+    //후진 - 헬기 바라보는 방향 반대로 이동
+    if (Input::GetKey(eKeyCode::S))
+    {
+        acceleration -= forward * accelerationRate;
+        targetPitch = maxTiltAngle; // 뒤로 기울임
+    }
 
-    // ESC 키: 프로그램 종료
+    //좌측 이동 - 헬기 기준 왼쪽으로 이동
+    if (Input::GetKey(eKeyCode::A))
+    {
+        acceleration -= right * accelerationRate;
+        targetRoll = -maxTiltAngle; // 왼쪽으로 기울임
+    }
+    //오른쪽 이동 - 헬기 기준 오른쪽으로 이동
+    if (Input::GetKey(eKeyCode::D))
+    {
+        acceleration += right * accelerationRate;
+        targetRoll = maxTiltAngle; // 오른쪽으로 기울임
+    }
+
+    // 아무 키도 안 눌렀을 때 기울기 복원
+    if (!Input::GetKey(eKeyCode::W) && !Input::GetKey(eKeyCode::S))
+    { 
+        targetPitch = 0.0f;
+    }
+    if (!Input::GetKey(eKeyCode::A) && !Input::GetKey(eKeyCode::D))
+    {
+        targetRoll = 0.0f;
+    }
+
+    //고도 상승
+    if (Input::GetKey(eKeyCode::SPACE))
+    {
+        liftForce = maxLiftForce;
+    }
+    else if (Input::GetKey(eKeyCode::SHIFT))
+    {
+        liftForce = -maxLiftForce * 0.5f; // 하강
+    }
+    else
+    {
+        liftForce = gravity; // 중력과 균형 (호버링)
+    }
+
     if (Input::GetKey(eKeyCode::ESC))
     {
         exit(0);
     }
 }
+
 void Mouse(int button, int state, int x, int y) {
     ImGui_ImplGLUT_MouseFunc(button, state, x, y);
 
@@ -1004,12 +1154,15 @@ void Motion(int x, int y) {
             int deltaX = x - lastMouseX;
             int deltaY = y - lastMouseY;
 
-            // 카메라 각도 업데이트 (좌우로 회전)
-            targetCameraXAngle += deltaX * rotationSpeed;
-            
+            // 마우스 좌우 움직임으로 헬기 Yaw 회전 제어
+            yModelRotation += deltaX * rotationSpeed * 100.0f; // 헬기 회전
+
+            // 카메라는 헬기를 따라가도록 설정
+            targetCameraXAngle -= deltaX * rotationSpeed;
+
             // 카메라 고도각 업데이트 (상하로 회전)
-            targetCameraYAngle -= deltaY * rotationSpeed;
-            
+            targetCameraYAngle += deltaY * rotationSpeed;
+
             // 고도각 제한 (-89도 ~ 89도)
             const float maxAngle = glm::radians(89.0f);
             if (targetCameraYAngle > maxAngle) targetCameraYAngle = maxAngle;
@@ -1376,30 +1529,9 @@ void InitBuffers() {  // 변경: 모델별 버퍼 초기화
 
     glBindVertexArray(0);
 
-    // --- 축 데이터 (기존 그대로) ---
-    std::vector<GLfloat> axesData = {
-        -200.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f,   // X red
-        200.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f,
-        0.0f, -200.0f, 0.0f, 0.0f, 0.0f, 1.0f,  // Y blue
-        0.0f, 200.0f, 0.0f, 0.0f, 0.0f, 1.0f,
-        0.0f, 0.0f, -200.0f, 0.0f, 1.0f, 0.0f, // Z green
-        0.0f, 0.0f, 200.0f, 0.0f, 1.0f, 0.0f
-    };
-
-    glGenVertexArrays(1, &axisVAO);
-    glBindVertexArray(axisVAO);
-
-    glGenBuffers(1, &axisVBO);
-    glBindBuffer(GL_ARRAY_BUFFER, axisVBO);
-    glBufferData(GL_ARRAY_BUFFER, axesData.size() * sizeof(GLfloat), axesData.data(), GL_STATIC_DRAW);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
-    glEnableVertexAttribArray(1);
-
-    glBindVertexArray(0);
-
 	glGenBuffers(1, &BodyTangentBuffer);
 	glBindBuffer(GL_ARRAY_BUFFER, BodyTangentBuffer);
 	glBufferData(GL_ARRAY_BUFFER, bodyTangents.size() * sizeof(glm::vec3), bodyTangents.data(), GL_STATIC_DRAW);
+
+    glBindVertexArray(0);
 }

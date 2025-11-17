@@ -76,7 +76,10 @@
       <Filter>헤더 파일</Filter>
     </ClInclude>
     <ClInclude Include="Input.h">
-      <Filter>소스 파일</Filter>
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="Ground.h">
+      <Filter>헤더 파일</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -111,6 +114,9 @@
       <Filter>소스 파일\imgui_local</Filter>
     </ClCompile>
     <ClCompile Include="Input.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="Ground.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
   </ItemGroup>

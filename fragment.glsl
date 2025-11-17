@@ -15,7 +15,8 @@ uniform float specularStrength;     // 반사광 강도
 uniform float shininess;            // 반사광 샤이니니스
 uniform int useNormalMap;           // 노멀 맵 사용 여부
 uniform float alphaValue;           // 알파값
-
+uniform bool useTexture;          // 텍스처 사용 여부
+uniform vec3 aColor;
 // Vertex 셰이더로부터 입력
 in vec2 UV;                         // UV 좌표
 in vec3 v_lightTs;                  // 탄젠트 공간의 광원 방향
@@ -28,7 +29,15 @@ void main()
 {
 	// 1. 디퓨즈 텍스처에서 색상 가져오기 (조명 계산에 사용될 표면 색상)
 	vec4 texColor = texture(textureSampler, UV);
-	vec3 matDiff = texColor.rgb;
+	vec3 matDiff;
+
+	if (!useTexture) {
+		matDiff = aColor;
+	}
+	else
+	{
+		matDiff = texColor.rgb;
+	}
 	
 	// 2. 스페큘러 계수
 	vec3 matSpec = vec3(1.0, 1.0, 1.0);
@@ -36,10 +45,10 @@ void main()
 	// 3. 노멀 벡터 계산 (조명 계산을 위한 표면 방향만 사용)
 	vec3 normal;
 	if (useNormalMap == 1) {
-    normal = normalize(2.0 * texture(normalMap, UV).xyz - 1.0);
+		normal = normalize(2.0 * texture(normalMap, UV).xyz - 1.0);
 	} 
 	else {
-    normal = vec3(0.0, 0.0, 1.0);
+		normal = vec3(0.0, 0.0, 1.0);
 	}
 	
 	// 4. 탄젠트 공간에서 정규화
