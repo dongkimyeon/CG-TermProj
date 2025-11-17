@@ -619,6 +619,7 @@ void DrawScene()
     GLint useVertexColorLoc = glGetUniformLocation(shaderProgramID, "useVertexColor");
     GLint alphaValueLoc = glGetUniformLocation(shaderProgramID, "alphaValue");
     GLint useNormalMapLoc = glGetUniformLocation(shaderProgramID, "useNormalMap");
+ 
     
     // 조명 유니폼
     GLint eyePosLoc = glGetUniformLocation(shaderProgramID, "eyePos");
@@ -633,6 +634,7 @@ void DrawScene()
     
     glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
     glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(proj));
+    
     
     // 조명 설정
     glm::vec3 lightDir = glm::normalize(glm::vec3(1.0f, -1.0f, -1.0f));  // 라이트 방향
@@ -696,15 +698,13 @@ void DrawScene()
             // 해당 메시의 머티리얼 인덱스로 디퓨즈 텍스처 바인딩 (텍스처 유닛 0)
             if (meshInfo.materialIndex < mHeliBody.textureList.size() &&
                 mHeliBody.textureList[meshInfo.materialIndex]) {
-                glActiveTexture(GL_TEXTURE0);
-                mHeliBody.textureList[meshInfo.materialIndex]->UseTexture();
+                mHeliBody.textureList[meshInfo.materialIndex]->UseTexture(0);
                 glUniform1i(textureLoc, 0);
             }
             
             // 노멀 맵 바인딩 (텍스처 유닛 1)
             if (mHeliBody.normalMap) {
-                glActiveTexture(GL_TEXTURE1);
-                mHeliBody.normalMap->UseTexture();
+                mHeliBody.normalMap->UseTexture(1);
                 glUniform1i(normalMapLoc, 1);
             }
 
@@ -749,15 +749,14 @@ void DrawScene()
             // 디퓨즈 텍스처 바인딩 (텍스처 유닛 0)
             if (meshInfo.materialIndex < mHeliBlade.textureList.size() &&
                 mHeliBlade.textureList[meshInfo.materialIndex]) {
-                glActiveTexture(GL_TEXTURE0);
-                mHeliBlade.textureList[meshInfo.materialIndex]->UseTexture();
+ 
+                mHeliBlade.textureList[meshInfo.materialIndex]->UseTexture(0);
                 glUniform1i(textureLoc, 0);
             }
             
             // 노멀 맵 바인딩 (텍스처 유닛 1)
             if (mHeliBlade.normalMap) {
-                glActiveTexture(GL_TEXTURE1);
-                mHeliBlade.normalMap->UseTexture();
+                mHeliBlade.normalMap->UseTexture(1);
                 glUniform1i(normalMapLoc, 1);
             }
 
@@ -798,15 +797,15 @@ void DrawScene()
             // 디퓨즈 텍스처 바인딩 (텍스처 유닛 0)
             if (meshInfo.materialIndex < mHeliTail.textureList.size() &&
                 mHeliTail.textureList[meshInfo.materialIndex]) {
-                glActiveTexture(GL_TEXTURE0);
-                mHeliTail.textureList[meshInfo.materialIndex]->UseTexture();
+          
+                mHeliTail.textureList[meshInfo.materialIndex]->UseTexture(0);
                 glUniform1i(textureLoc, 0);
             }
             
             // 노멀 맵 바인딩 (텍스처 유닛 1)
             if (mHeliTail.normalMap) {
-                glActiveTexture(GL_TEXTURE1);
-                mHeliTail.normalMap->UseTexture();
+          
+                mHeliTail.normalMap->UseTexture(1);
                 glUniform1i(normalMapLoc, 1);
             }
 
@@ -892,8 +891,6 @@ void DrawScene()
     ImGui::Separator();
     ImGui::SliderFloat("Camera Distance", &cameraDistance, 10.0f, 200.0f);
     ImGui::SliderFloat("Camera Height", &cameraHeight, 0.0f, 100.0f);
-    
-
 
 
     if (ImGui::Button("wired frame"))
@@ -1142,66 +1139,35 @@ GLuint loadCubemap(std::vector<std::string> faces)
 
 void getTangent(std::vector<glm::vec3>& vertices, std::vector<glm::vec2>& uvs, std::vector<glm::vec3>& normals, std::vector<glm::vec3>& tangents)
 {
-    // 탄젠트 벡터 초기화
-    tangents.clear();
-    tangents.resize(vertices.size(), glm::vec3(0.0f));
-    
-    // 바이탄젠트도 함께 계산
-    std::vector<glm::vec3> bitangents(vertices.size(), glm::vec3(0.0f));
-    
-    // 각 삼각형마다 탄젠트와 바이탄젠트 계산
-    for(unsigned int i = 0; i < vertices.size(); i += 3)
+    // 무조건 3의 배수(폴리곤 메시)라서 에러날 일이 없음
+    for (unsigned int i = 0; i < vertices.size(); i += 3)
     {
-        if (i + 2 >= vertices.size()) break;
-        
-        glm::vec3 v0 = vertices[i + 0];
-        glm::vec3 v1 = vertices[i + 1];
-        glm::vec3 v2 = vertices[i + 2];
-        
-        glm::vec2 uv0 = uvs[i + 0];
-        glm::vec2 uv1 = uvs[i + 1];
-        glm::vec2 uv2 = uvs[i + 2];
-        
+        // 이름 줄이기
+        glm::vec3& v0 = vertices[i + 0];
+        glm::vec3& v1 = vertices[i + 1];
+        glm::vec3& v2 = vertices[i + 2];
+
+        glm::vec2& uv0 = uvs[i + 0];
+        glm::vec2& uv1 = uvs[i + 1];
+        glm::vec2& uv2 = uvs[i + 2];
+
+        // 탄젠트를 구하려면 노멀은 그대로 사용하고
+        // 그람-슈미트 사용해야하나..?
+        // 정점 돌면서 삼각형을 만드는 두 벡터 구하기
         glm::vec3 deltaPos1 = v1 - v0;
         glm::vec3 deltaPos2 = v2 - v0;
+
+        // UV
         glm::vec2 deltaUV1 = uv1 - uv0;
         glm::vec2 deltaUV2 = uv2 - uv0;
-        
-        float r = deltaUV1.x * deltaUV2.y - deltaUV1.y * deltaUV2.x;
-        if (abs(r) > 0.0001f) {
-            r = 1.0f / r;
-            glm::vec3 tangent = (deltaPos1 * deltaUV2.y - deltaPos2 * deltaUV1.y) * r;
-            glm::vec3 bitangent = (deltaPos2 * deltaUV1.x - deltaPos1 * deltaUV2.x) * r;
-            
-            // 각 정점에 탄젠트와 바이탄젠트 누적
-            tangents[i + 0] += tangent;
-            tangents[i + 1] += tangent;
-            tangents[i + 2] += tangent;
-            
-            bitangents[i + 0] += bitangent;
-            bitangents[i + 1] += bitangent;
-            bitangents[i + 2] += bitangent;
-        }
-    }
-    
-    // 노멀과 탄젠트를 직교화 (Gram-Schmidt 과정)
-    for (unsigned int i = 0; i < tangents.size(); ++i) {
-        if (glm::length(tangents[i]) > 0.0001f) {
-            glm::vec3& t = tangents[i];
-            glm::vec3& b = bitangents[i];
-            glm::vec3& n = normals[i];
-            
-            // Gram-Schmidt 직교화: t = normalize(t - n * dot(n, t))
-            t = glm::normalize(t - n * glm::dot(n, t));
-            
-            // 바이탄젠트 재계산하여 올바른 방향 보장
-            b = glm::cross(n, t);
-            
-            // 방향 확인 (handedness)
-            if (glm::dot(glm::cross(n, t), b) < 0.0f) {
-                t = t * -1.0f;
-            }
-        }
+
+        float r = 1.0f / (deltaUV1.x * deltaUV2.y - deltaUV1.y * deltaUV2.x);
+        glm::vec3 tangent = (deltaPos1 * deltaUV2.y - deltaPos2 * deltaUV1.y) * r;
+
+        // 세 정점의 탄젠트 벡터는 모두 동일
+        tangents.push_back(tangent);
+        tangents.push_back(tangent);
+        tangents.push_back(tangent);
     }
 }
 

@@ -56,11 +56,11 @@ bool Texture::LoadTexture()
     return true;  // *** 추가: 성공 시 return true (경고 해결) ***
 }
 
-void Texture::UseTexture()
+void Texture::UseTexture(GLuint textureUnit)
 {
-    glActiveTexture(GL_TEXTURE0); //0번 텍스쳐 유닛 활성화
-    glBindTexture(GL_TEXTURE_2D, textureID); // VRAM 내에 있는 이 텍스쳐를 0번 텍스쳐 유닛에 bind
-}
+    glActiveTexture(GL_TEXTURE0 + textureUnit); // 지정된 텍스쳐 유닛 활성화
+    glBindTexture(GL_TEXTURE_2D, textureID); // VRAM 내에 있는 이 텍스쳐를 지정된 텍스쳐 유닛에 bind
+}   
 
 void Texture::ClearTexture()
 {
