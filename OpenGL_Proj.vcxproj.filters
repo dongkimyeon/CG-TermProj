@@ -52,6 +52,9 @@
     <Filter Include="헤더 파일\Shader\Shaders">
       <UniqueIdentifier>{30102f1b-359e-49a3-82f4-6f638a7798de}</UniqueIdentifier>
     </Filter>
+    <Filter Include="소스 파일\Particle">
+      <UniqueIdentifier>{980d2892-efb8-4de2-af88-d8ce8356961d}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="imgui\imgui.h">
@@ -123,6 +126,12 @@
     <ClInclude Include="Missile.h">
       <Filter>소스 파일\Helicopter\Missile</Filter>
     </ClInclude>
+    <ClInclude Include="Particle.h">
+      <Filter>소스 파일\Particle</Filter>
+    </ClInclude>
+    <ClInclude Include="ParticleSystem.h">
+      <Filter>소스 파일\Particle</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Default_GL.cpp">
@@ -175,6 +184,12 @@
     </ClCompile>
     <ClCompile Include="Missile.cpp">
       <Filter>소스 파일\Helicopter\Missile</Filter>
+    </ClCompile>
+    <ClCompile Include="Particle.cpp">
+      <Filter>소스 파일\Particle</Filter>
+    </ClCompile>
+    <ClCompile Include="ParticleSystem.cpp">
+      <Filter>소스 파일\Particle</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

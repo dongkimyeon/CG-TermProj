@@ -159,6 +159,8 @@
     <ClInclude Include="Input.h" />
     <ClInclude Include="Missile.h" />
     <ClInclude Include="ObjRead.h" />
+    <ClInclude Include="Particle.h" />
+    <ClInclude Include="ParticleSystem.h" />
     <ClInclude Include="ShaderManager.h" />
     <ClInclude Include="Texture.h" />
     <ClInclude Include="Time.h" />
@@ -178,6 +180,8 @@
     <ClCompile Include="imgui_local\imgui_impl_opengl3.cpp" />
     <ClCompile Include="Input.cpp" />
     <ClCompile Include="Missile.cpp" />
+    <ClCompile Include="Particle.cpp" />
+    <ClCompile Include="ParticleSystem.cpp" />
     <ClCompile Include="ShaderManager.cpp" />
     <ClCompile Include="Texture.cpp" />
     <ClCompile Include="Time.cpp" />
