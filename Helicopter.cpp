@@ -3,369 +3,519 @@
 #include "Time.h"
 
 Helicopter::Helicopter()
-    : position(glm::vec3(0.0f))
-    , velocity(glm::vec3(0.0f))
-    , acceleration(glm::vec3(0.0f))
-    , forward(glm::vec3(0.0f, 0.0f, 1.0f))
-    , up(glm::vec3(0.0f, 1.0f, 0.0f))
-    , right(glm::vec3(1.0f, 0.0f, 0.0f))
-    , yRotation(0.0f)
-    , targetPitch(0.0f)
-    , targetRoll(0.0f)
-    , currentPitch(0.0f)
-    , currentRoll(0.0f)
-    , tiltSpeed(5.0f)
-    , mainBladeRotation(0.0f)
-    , mainBladeSpeed(2000.0f)
-    , tailBladeRotation(0.0f)
-    , tailBladeSpeed(2000.0f)
-    , gravity(9.81f)
-    , maxSpeed(50.0f)
-    , accelerationRate(30.0f)
-    , drag(2.0f)
-    , maxTiltAngle(30.0f)
-    , liftForce(0.0f)
-    , maxLiftForce(50.0f)
-    , debugRotationX(0.0f)
-    , debugRotationY(0.0f)
-    , debugRotationZ(0.0f)
-    , vaoBody(0), vboBody(0), eboBody(0)
-    , vaoBlade(0), vboBlade(0), eboBlade(0)
-    , vaoTail(0), vboTail(0), eboTail(0)
+	: position(glm::vec3(0.0f))
+	, velocity(glm::vec3(0.0f))
+	, acceleration(glm::vec3(0.0f))
+	, forward(glm::vec3(0.0f, 0.0f, 1.0f))
+	, up(glm::vec3(0.0f, 1.0f, 0.0f))
+	, right(glm::vec3(1.0f, 0.0f, 0.0f))
+	, yRotation(0.0f)
+	, targetPitch(0.0f)
+	, targetRoll(0.0f)
+	, currentPitch(0.0f)
+	, currentRoll(0.0f)
+	, tiltSpeed(5.0f)
+	, mainBladeRotation(0.0f)
+	, mainBladeSpeed(2000.0f)
+	, tailBladeRotation(0.0f)
+	, tailBladeSpeed(2000.0f)
+	, gravity(9.81f)
+	, maxSpeed(50.0f)
+	, accelerationRate(30.0f)
+	, drag(2.0f)
+	, maxTiltAngle(30.0f)
+	, liftForce(0.0f)
+	, maxLiftForce(50.0f)
+	, debugRotationX(0.0f)
+	, debugRotationY(0.0f)
+	, debugRotationZ(0.0f)
+	, vaoBody(0), vboBody(0), eboBody(0)
+	, vaoBlade(0), vboBlade(0), eboBlade(0)
+	, vaoTail(0), vboTail(0), eboTail(0)
 {
 }
 
 Helicopter::~Helicopter()
 {
+	// 미사일 메모리 해제
+	for (auto* missile : missiles) {
+		delete missile;
+	}
+	for (auto* missile : attachedMissiles) {
+		delete missile;
+	}
 }
 
 void Helicopter::Initialize()
 {
-    position = glm::vec3(0.0f, 0.0f, 0.0f);
-    velocity = glm::vec3(0.0f);
-    acceleration = glm::vec3(0.0f);
-    yRotation = 0.0f;
+	position = glm::vec3(0.0f, 0.0f, 0.0f);
+	velocity = glm::vec3(0.0f);
+	acceleration = glm::vec3(0.0f);
+	yRotation = 0.0f;
+
+	// 초기 미사일 생성 (헬리콥터에 부착된 상태)
+	for (int i = 0; i < maxMissiles; ++i) {
+		Missile* missile = new Missile();
+		missile->Initialize();
+		attachedMissiles.push_back(missile);
+	}
+
+	UpdateMissilePositions();
 }
 
 void Helicopter::LoadModels(GLuint vaoB, GLuint vboB, GLuint eboB,
-                            GLuint vaoBl, GLuint vboBl, GLuint eboBl,
-                            GLuint vaoT, GLuint vboT, GLuint eboT)
+	GLuint vaoBl, GLuint vboBl, GLuint eboBl,
+	GLuint vaoT, GLuint vboT, GLuint eboT)
 {
-    vaoBody = vaoB;
-    vboBody = vboB;
-    eboBody = eboB;
-    
-    vaoBlade = vaoBl;
-    vboBlade = vboBl;
-    eboBlade = eboBl;
-    
-    vaoTail = vaoT;
-    vboTail = vboT;
-    eboTail = eboT;
-    
-    // FBX 로드
-    if (!LoadFBX("HeliBlade.FBX", &bladeModel)) {
-        std::cerr << "HeliBlade FBX 로드 실패." << std::endl;
-    }
-    else {
-        UpdateModelBuffers(&bladeModel, vaoBlade, vboBlade, eboBlade);
-    }
-    
-    if (!LoadFBX("HeliBody.FBX", &bodyModel)) {
-        std::cerr << "HeliBody FBX 로드 실패." << std::endl;
-    }
-    else {
-        UpdateModelBuffers(&bodyModel, vaoBody, vboBody, eboBody);
-    }
-    
-    if (!LoadFBX("HeliTail.FBX", &tailModel)) {
-        std::cerr << "HeliTail FBX 로드 실패." << std::endl;
-    }
-    else {
-        UpdateModelBuffers(&tailModel, vaoTail, vboTail, eboTail);
-    }
+	vaoBody = vaoB;
+	vboBody = vboB;
+	eboBody = eboB;
+
+	vaoBlade = vaoBl;
+	vboBlade = vboBl;
+	eboBlade = eboBl;
+
+	vaoTail = vaoT;
+	vboTail = vboT;
+	eboTail = eboT;
+
+	// FBX 로드
+	if (!LoadFBX("HeliBlade.FBX", &bladeModel)) {
+		std::cerr << "HeliBlade FBX 로드 실패." << std::endl;
+	}
+	else {
+		UpdateModelBuffers(&bladeModel, vaoBlade, vboBlade, eboBlade);
+	}
+
+	if (!LoadFBX("HeliBody.FBX", &bodyModel)) {
+		std::cerr << "HeliBody FBX 로드 실패." << std::endl;
+	}
+	else {
+		UpdateModelBuffers(&bodyModel, vaoBody, vboBody, eboBody);
+	}
+
+	if (!LoadFBX("HeliTail.FBX", &tailModel)) {
+		std::cerr << "HeliTail FBX 로드 실패." << std::endl;
+	}
+	else {
+		UpdateModelBuffers(&tailModel, vaoTail, vboTail, eboTail);
+	}
 }
 
 void Helicopter::Update(float deltaTime)
 {
-    // 블레이드 회전
-    mainBladeRotation += mainBladeSpeed * deltaTime;
-    tailBladeRotation += tailBladeSpeed * deltaTime;
-    
-    // 입력 처리
-    ProcessInput(deltaTime);
-    
-    // 물리 업데이트
-    UpdatePhysics(deltaTime);
-    
-    // 방향 업데이트
-    UpdateOrientation(deltaTime);
+	// 블레이드 회전
+	mainBladeRotation += mainBladeSpeed * deltaTime;
+	tailBladeRotation += tailBladeSpeed * deltaTime;
+
+	// 입력 처리
+	ProcessInput(deltaTime);
+
+	// 물리 업데이트
+	UpdatePhysics(deltaTime);
+
+	// 방향 업데이트
+	UpdateOrientation(deltaTime);
+
+	// 미사일 업데이트
+	UpdateMissiles(deltaTime);
+	UpdateMissilePositions();
 }
 
 void Helicopter::ProcessInput(float deltaTime)
 {
-    // 현재 헬기의 회전 방향 벡터 계산
-    float yawRad = glm::radians(yRotation);
-    glm::vec3 forwardDir = glm::vec3(cos(yawRad), 0.0f, -sin(yawRad));
-    glm::vec3 rightDir = glm::vec3(sin(yawRad), 0.0f, cos(yawRad));
-    
-    // 전진
-    if (Input::GetKey(eKeyCode::W))
-    {
-        acceleration += forwardDir * accelerationRate;
-        targetPitch = -maxTiltAngle;
-    }
-    // 후진
-    if (Input::GetKey(eKeyCode::S))
-    {
-        acceleration -= forwardDir * accelerationRate;
-        targetPitch = maxTiltAngle;
-    }
-    
-    // 좌측 이동
-    if (Input::GetKey(eKeyCode::A))
-    {
-        acceleration -= rightDir * accelerationRate;
-        targetRoll = -maxTiltAngle;
-    }
-    // 우측 이동
-    if (Input::GetKey(eKeyCode::D))
-    {
-        acceleration += rightDir * accelerationRate;
-        targetRoll = maxTiltAngle;
-    }
-    
-    // 기울기 복원
-    if (!Input::GetKey(eKeyCode::W) && !Input::GetKey(eKeyCode::S))
-    { 
-        targetPitch = 0.0f;
-    }
-    if (!Input::GetKey(eKeyCode::A) && !Input::GetKey(eKeyCode::D))
-    {
-        targetRoll = 0.0f;
-    }
-    
-    // 고도 제어
-    if (Input::GetKey(eKeyCode::SPACE))
-    {
-        liftForce = maxLiftForce;
-    }
-    else if (Input::GetKey(eKeyCode::SHIFT))
-    {
-        liftForce = -maxLiftForce * 0.5f;
-    }
-    else
-    {
-        liftForce = gravity; // 호버링
-    }
+	// 현재 헬기의 회전 방향 벡터 계산
+	float yawRad = glm::radians(yRotation);
+	glm::vec3 forwardDir = glm::vec3(cos(yawRad), 0.0f, -sin(yawRad));
+	glm::vec3 rightDir = glm::vec3(sin(yawRad), 0.0f, cos(yawRad));
+
+	// 전진
+	if (Input::GetKey(eKeyCode::W))
+	{
+		acceleration += forwardDir * accelerationRate;
+		targetPitch = -maxTiltAngle;
+	}
+	// 후진
+	if (Input::GetKey(eKeyCode::S))
+	{
+		acceleration -= forwardDir * accelerationRate;
+		targetPitch = maxTiltAngle;
+	}
+
+	// 좌측 이동
+	if (Input::GetKey(eKeyCode::A))
+	{
+		acceleration -= rightDir * accelerationRate;
+		targetRoll = -maxTiltAngle;
+	}
+	// 우측 이동
+	if (Input::GetKey(eKeyCode::D))
+	{
+		acceleration += rightDir * accelerationRate;
+		targetRoll = maxTiltAngle;
+	}
+
+	// 기울기 복원
+	if (!Input::GetKey(eKeyCode::W) && !Input::GetKey(eKeyCode::S))
+	{
+		targetPitch = 0.0f;
+	}
+	if (!Input::GetKey(eKeyCode::A) && !Input::GetKey(eKeyCode::D))
+	{
+		targetRoll = 0.0f;
+	}
+
+	// 고도 제어
+	if (Input::GetKey(eKeyCode::SPACE))
+	{
+		liftForce = maxLiftForce;
+	}
+	else if (Input::GetKey(eKeyCode::SHIFT))
+	{
+		liftForce = -maxLiftForce * 0.5f;
+	}
+	else
+	{
+		liftForce = gravity; // 호버링
+	}
+
+	// 미사일 발사 (F 키)
+	if (Input::GetKeyDown(eKeyCode::F))
+	{
+		FireMissile();
+	}
 }
 
 void Helicopter::UpdatePhysics(float deltaTime)
 {
-    // 1. 공기 저항 적용
-    glm::vec3 dragForce = -velocity * drag;
-    acceleration += dragForce * deltaTime;
-    
-    // 2. 속도 업데이트
-    velocity += acceleration * deltaTime;
-    
-    // 3. 최대 속도 제한
-    float currentSpeed = glm::length(velocity);
-    if (currentSpeed > maxSpeed) {
-        velocity = glm::normalize(velocity) * maxSpeed;
-    }
-    
-    // 4. 위치 업데이트
-    position += velocity * deltaTime;
-    
-    // 5. 중력과 양력 적용
-    float netVerticalForce = liftForce - gravity;
-    position.y += netVerticalForce * deltaTime;
-    
-    // 지면 충돌 방지
-    if (position.y < 0.0f) {
-        position.y = 0.0f;
-        velocity.y = 0.0f;
-    }
-    
-    // 6. 기울기 부드럽게 보간
-    currentPitch = glm::mix(currentPitch, targetPitch, tiltSpeed * deltaTime);
-    currentRoll = glm::mix(currentRoll, targetRoll, tiltSpeed * deltaTime);
-    
-    // 7. 가속도 초기화
-    acceleration = glm::vec3(0.0f);
+	// 1. 공기 저항 적용
+	glm::vec3 dragForce = -velocity * drag;
+	acceleration += dragForce * deltaTime;
+
+	// 2. 속도 업데이트
+	velocity += acceleration * deltaTime;
+
+	// 3. 최대 속도 제한
+	float currentSpeed = glm::length(velocity);
+	if (currentSpeed > maxSpeed) {
+		velocity = glm::normalize(velocity) * maxSpeed;
+	}
+
+	// 4. 위치 업데이트
+	position += velocity * deltaTime;
+
+	// 5. 중력과 양력 적용
+	float netVerticalForce = liftForce - gravity;
+	position.y += netVerticalForce * deltaTime;
+
+	// 지면 충돌 방지
+	if (position.y < 0.0f) {
+		position.y = 0.0f;
+		velocity.y = 0.0f;
+	}
+
+	// 6. 기울기 부드럽게 보간
+	currentPitch = glm::mix(currentPitch, targetPitch, tiltSpeed * deltaTime);
+	currentRoll = glm::mix(currentRoll, targetRoll, tiltSpeed * deltaTime);
+
+	// 7. 가속도 초기화
+	acceleration = glm::vec3(0.0f);
 }
 
 void Helicopter::UpdateOrientation(float deltaTime)
 {
-    // 카메라용 회전 매트릭스: Y축 회전(yaw)만 적용
-    glm::mat4 rotationMat = glm::mat4(1.0f);
-    rotationMat = glm::rotate(rotationMat, glm::radians(yRotation), glm::vec3(0.0f, 1.0f, 0.0f));
-    
-    // 헬기의 기본 방향 벡터
-    glm::vec3 baseForward = glm::vec3(-1.0f, 0.0f, 0.0f);
-    glm::vec3 baseUp = glm::vec3(0.0f, 1.0f, 0.0f);
-    
-    // 기저벡터 업데이트 (Y축 회전만 반영)
-    forward = glm::vec3(rotationMat * glm::vec4(baseForward, 0.0f));
-    up = glm::vec3(rotationMat * glm::vec4(baseUp, 0.0f));
-    right = glm::cross(forward, up);
+	// 카메라용 회전 매트릭스: Y축 회전(yaw)만 적용
+	glm::mat4 rotationMat = glm::mat4(1.0f);
+	rotationMat = glm::rotate(rotationMat, glm::radians(yRotation), glm::vec3(0.0f, 1.0f, 0.0f));
+
+	// 헬기의 기본 방향 벡터
+	glm::vec3 baseForward = glm::vec3(-1.0f, 0.0f, 0.0f);
+	glm::vec3 baseUp = glm::vec3(0.0f, 1.0f, 0.0f);
+
+	// 기저벡터 업데이트 (Y축 회전만 반영)
+	forward = glm::vec3(rotationMat * glm::vec4(baseForward, 0.0f));
+	up = glm::vec3(rotationMat * glm::vec4(baseUp, 0.0f));
+	right = glm::cross(forward, up);
+}
+
+glm::mat4 Helicopter::GetHelicopterTransform() const
+{
+	glm::mat4 worldModelMat = glm::mat4(1.0f);
+	worldModelMat = glm::translate(worldModelMat, position);
+	worldModelMat = glm::rotate(worldModelMat, glm::radians(yRotation), glm::vec3(0.0f, 1.0f, 0.0f));
+
+	// 물리 기반 기울기 적용
+	worldModelMat = glm::rotate(worldModelMat, glm::radians(currentRoll), glm::vec3(1.0f, 0.0f, 0.0f));
+	worldModelMat = glm::rotate(worldModelMat, glm::radians(currentPitch), glm::vec3(0.0f, 0.0f, 1.0f));
+
+	// 디버그 회전
+	worldModelMat = glm::rotate(worldModelMat, glm::radians(debugRotationX), glm::vec3(1.0f, 0.0f, 0.0f));
+	worldModelMat = glm::rotate(worldModelMat, glm::radians(debugRotationZ), glm::vec3(0.0f, 0.0f, 1.0f));
+
+	return worldModelMat;
+}
+
+glm::vec3 Helicopter::GetMissileAttachmentPosition() const
+{
+	glm::mat4 heliTransform = GetHelicopterTransform();
+	glm::vec3 attachmentOffset = glm::vec3(0.0f, missileAttachmentOffset, 0.0f);
+	glm::vec4 worldAttachmentPos = heliTransform * glm::vec4(attachmentOffset, 1.0f);
+	return glm::vec3(worldAttachmentPos);
+}
+
+void Helicopter::UpdateMissilePositions()
+{
+	if (attachedMissiles.empty()) return;
+
+	glm::mat4 heliTransform = GetHelicopterTransform();
+
+	// 미사일들을 헬리콥터 아래쪽에 일렬로 배치
+	float totalWidth = (attachedMissiles.size() - 1) * missileSpacing;
+	float startOffset = -totalWidth * 0.5f;
+
+	for (size_t i = 0; i < attachedMissiles.size(); ++i) {
+		float xOffset = startOffset + i * missileSpacing;
+		glm::vec3 localOffset = glm::vec3(xOffset, missileAttachmentOffset, 0.0f);
+		glm::vec4 worldPos = heliTransform * glm::vec4(localOffset, 1.0f);
+
+		attachedMissiles[i]->SetPosition(glm::vec3(worldPos));
+
+		// 헬리콥터의 기저벡터 forward 방향에 피치를 반영
+		float pitchRad = glm::radians(currentPitch);
+
+		// forward 벡터를 기준으로 피치 적용
+		glm::vec3 baseForward = glm::normalize(forward); // 기저벡터의 forward 사용
+		glm::vec3 baseUp = glm::normalize(up);      // 기저벡터의 up 사용
+
+		// 피치 회전을 위한 축 (right 벡터)
+		glm::vec3 rightAxis = glm::normalize(glm::cross(baseForward, baseUp));
+
+		// 피치 회전 매트릭스 생성
+		glm::mat4 pitchRotation = glm::rotate(glm::mat4(1.0f), pitchRad, rightAxis);
+
+		// forward 벡터에 피치 적용
+		glm::vec4 pitchedForward = pitchRotation * glm::vec4(baseForward, 0.0f);
+		glm::vec3 missileDirection = glm::normalize(glm::vec3(pitchedForward));
+
+		attachedMissiles[i]->SetDirection(missileDirection);
+	}
+}
+
+void Helicopter::FireMissile()
+{
+	if (attachedMissiles.empty()) return;
+
+	// 첫 번째 미사일을 발사
+	Missile* missileToFire = attachedMissiles.front();
+	attachedMissiles.erase(attachedMissiles.begin());
+
+	// 발사 위치: 헬리콥터 전방 약간 앞쪽에서 발사
+	glm::mat4 heliTransform = GetHelicopterTransform();
+	glm::vec3 forwardOffset = glm::vec3(5.0f, 0.0f, 0.0f); // 헬리콥터 전방으로 5 단위
+	glm::vec4 launchPosWorld = heliTransform * glm::vec4(forwardOffset, 1.0f);
+	glm::vec3 launchPos = glm::vec3(launchPosWorld);
+
+	// 발사 방향: 헬리콥터의 기저벡터 forward 방향에 피치 반영
+	float pitchRad = - glm::radians(currentPitch);
+
+	// forward 벡터를 기준으로 피치 적용
+	glm::vec3 baseForward = glm::normalize(forward); // 기저벡터의 forward 사용
+	glm::vec3 baseUp = glm::normalize(up);   // 기저벡터의 up 사용
+
+	// 피치 회전을 위한 축 (right 벡터)
+	glm::vec3 rightAxis = glm::normalize(glm::cross(baseForward, baseUp));
+
+	// 피치 회전 매트릭스 생성
+	glm::mat4 pitchRotation = glm::rotate(glm::mat4(1.0f), pitchRad, rightAxis);
+
+	// forward 벡터에 피치 적용
+	glm::vec4 pitchedForward = pitchRotation * glm::vec4(baseForward, 0.0f);
+	glm::vec3 launchDir = -glm::normalize(glm::vec3(pitchedForward));
+
+	missileToFire->Launch(launchPos, launchDir);
+	missiles.push_back(missileToFire);
+
+	std::cout << "미사일 발사! 남은 미사일: " << attachedMissiles.size() << std::endl;
+}
+
+void Helicopter::UpdateMissiles(float deltaTime)
+{
+	// 발사된 미사일들 업데이트
+	for (auto it = missiles.begin(); it != missiles.end();) {
+		(*it)->Update(deltaTime);
+
+		// 비활성화된 미사일 제거
+		if (!(*it)->IsActive()) {
+			delete* it;
+			it = missiles.erase(it);
+		}
+		else {
+			++it;
+		}
+	}
+}
+
+void Helicopter::RenderMissiles(GLuint shaderID, const glm::mat4& view, const glm::mat4& proj)
+{
+	// 부착된 미사일들 렌더링
+	for (auto* missile : attachedMissiles) {
+		missile->Render(shaderID, view, proj);
+	}
+
+	// 발사된 미사일들 렌더링
+	for (auto* missile : missiles) {
+		missile->Render(shaderID, view, proj);
+	}
 }
 
 void Helicopter::Render(GLuint shaderID, bool wireframeMode, float glassAlpha, float modelScale)
 {
-    GLint modelLoc = glGetUniformLocation(shaderID, "model");
-    GLint textureLoc = glGetUniformLocation(shaderID, "textureSampler");
-    GLint normalMapLoc = glGetUniformLocation(shaderID, "normalMap");
-    GLint alphaValueLoc = glGetUniformLocation(shaderID, "alphaValue");
-    GLint useNormalMapLoc = glGetUniformLocation(shaderID, "useNormalMap");
-    
-    // 헬기 전체 모델 매트릭스
-    glm::mat4 worldModelMat = glm::mat4(1.0f);
-    worldModelMat = glm::translate(worldModelMat, position);
-    worldModelMat = glm::rotate(worldModelMat, glm::radians(yRotation), glm::vec3(0.0f, 1.0f, 0.0f));
-    
-    // 물리 기반 기울기 적용
-    worldModelMat = glm::rotate(worldModelMat, glm::radians(currentRoll), glm::vec3(1.0f, 0.0f, 0.0f));
-    worldModelMat = glm::rotate(worldModelMat, glm::radians(currentPitch), glm::vec3(0.0f, 0.0f, 1.0f));
-    
-    // 디버그 회전
-    worldModelMat = glm::rotate(worldModelMat, glm::radians(debugRotationX), glm::vec3(1.0f, 0.0f, 0.0f));
-    worldModelMat = glm::rotate(worldModelMat, glm::radians(debugRotationZ), glm::vec3(0.0f, 0.0f, 1.0f));
-    
-    // 몸체 렌더링
-    if (bodyModel.loaded && !bodyModel.indices.empty())
-    {
-        glUniform1i(useNormalMapLoc, bodyModel.normalMap != nullptr ? 1 : 0);
-        
-        glm::mat4 modelMat = worldModelMat;
-        modelMat = glm::scale(modelMat, glm::vec3(modelScale));
-        glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(modelMat));
-        
-        glBindVertexArray(vaoBody);
-        if (wireframeMode) {
-            glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-        }
-        else {
-            glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-        }
-        
-        for (size_t i = 0; i < bodyModel.meshes.size(); ++i) {
-            const auto& meshInfo = bodyModel.meshes[i];
-            
-            if (meshInfo.materialIndex == 1) {
-                glUniform1f(alphaValueLoc, glassAlpha);
-                glDepthMask(GL_FALSE);
-            }
-            else {
-                glUniform1f(alphaValueLoc, 1.0f);
-                glDepthMask(GL_TRUE);
-            }
-            
-            if (meshInfo.materialIndex < bodyModel.textureList.size() &&
-                bodyModel.textureList[meshInfo.materialIndex]) {
-                bodyModel.textureList[meshInfo.materialIndex]->UseTexture(0);
-                glUniform1i(textureLoc, 0);
-            }
-            
-            if (bodyModel.normalMap) {
-                bodyModel.normalMap->UseTexture(1);
-                glUniform1i(normalMapLoc, 1);
-            }
-            
-            glDrawElements(GL_TRIANGLES, meshInfo.indexCount, GL_UNSIGNED_INT,
-                (void*)(meshInfo.indexStart * sizeof(GLuint)));
-        }
-        
-        glDepthMask(GL_TRUE);
-        glBindVertexArray(0);
-        glBindTexture(GL_TEXTURE_2D, 0);
-    }
-    
-    // 메인 블레이드 렌더링
-    if (bladeModel.loaded && !bladeModel.indices.empty())
-    {
-        glUniform1f(alphaValueLoc, 1.0f);
-        glUniform1i(useNormalMapLoc, bladeModel.normalMap != nullptr ? 1 : 0);
-        
-        glm::mat4 modelMat = worldModelMat;
-        modelMat = glm::translate(modelMat, glm::vec3(2.5f, 18.0f, 0.0f));
-        modelMat = glm::rotate(modelMat, glm::radians(mainBladeRotation), glm::vec3(0.0f, 1.0f, 0.0f));
-        modelMat = glm::scale(modelMat, glm::vec3(modelScale));
-        glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(modelMat));
-        
-        glBindVertexArray(vaoBlade);
-        if (wireframeMode) {
-            glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-        }
-        else {
-            glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-        }
-        
-        for (size_t i = 0; i < bladeModel.meshes.size(); ++i) {
-            const auto& meshInfo = bladeModel.meshes[i];
-            
-            if (meshInfo.materialIndex < bladeModel.textureList.size() &&
-                bladeModel.textureList[meshInfo.materialIndex]) {
-                bladeModel.textureList[meshInfo.materialIndex]->UseTexture(0);
-                glUniform1i(textureLoc, 0);
-            }
-            
-            if (bladeModel.normalMap) {
-                bladeModel.normalMap->UseTexture(1);
-                glUniform1i(normalMapLoc, 1);
-            }
-            
-            glDrawElements(GL_TRIANGLES, meshInfo.indexCount, GL_UNSIGNED_INT,
-                (void*)(meshInfo.indexStart * sizeof(GLuint)));
-        }
-        
-        glBindVertexArray(0);
-        glBindTexture(GL_TEXTURE_2D, 0);
-    }
-    
-    // 테일 블레이드 렌더링
-    if (tailModel.loaded && !tailModel.indices.empty())
-    {
-        glUniform1f(alphaValueLoc, 1.0f);
-        glUniform1i(useNormalMapLoc, tailModel.normalMap != nullptr ? 1 : 0);
-        
-        glm::mat4 modelMat = worldModelMat;
-        modelMat = glm::translate(modelMat, glm::vec3(-88.0f, 17.0f, -7.0f));
-        modelMat = glm::rotate(modelMat, glm::radians(tailBladeRotation), glm::vec3(0.0f, 0.0f, 1.0f));
-        modelMat = glm::scale(modelMat, glm::vec3(modelScale));
-        glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(modelMat));
-        
-        glBindVertexArray(vaoTail);
-        if (wireframeMode) {
-            glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-        }
-        else {
-            glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-        }
-        
-        for (size_t i = 0; i < tailModel.meshes.size(); ++i) {
-            const auto& meshInfo = tailModel.meshes[i];
-            
-            if (meshInfo.materialIndex < tailModel.textureList.size() &&
-                tailModel.textureList[meshInfo.materialIndex]) {
-                tailModel.textureList[meshInfo.materialIndex]->UseTexture(0);
-                glUniform1i(textureLoc, 0);
-            }
-            
-            if (tailModel.normalMap) {
-                tailModel.normalMap->UseTexture(1);
-                glUniform1i(normalMapLoc, 1);
-            }
-            
-            glDrawElements(GL_TRIANGLES, meshInfo.indexCount, GL_UNSIGNED_INT,
-                (void*)(meshInfo.indexStart * sizeof(GLuint)));
-        }
-        
-        glBindVertexArray(0);
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, 0);
-        glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, 0);
-    }
+	GLint modelLoc = glGetUniformLocation(shaderID, "model");
+	GLint textureLoc = glGetUniformLocation(shaderID, "textureSampler");
+	GLint normalMapLoc = glGetUniformLocation(shaderID, "normalMap");
+	GLint alphaValueLoc = glGetUniformLocation(shaderID, "alphaValue");
+	GLint useNormalMapLoc = glGetUniformLocation(shaderID, "useNormalMap");
+	GLint useTextureLoc = glGetUniformLocation(shaderID, "useTexture");
+
+	// 헬리콥터는 텍스처를 사용
+	glUniform1f(useTextureLoc, 1.0f);
+
+	// 헬기 전체 모델 매트릭스
+	glm::mat4 worldModelMat = GetHelicopterTransform();
+
+	// 몸체 렌더링
+	if (bodyModel.loaded && !bodyModel.indices.empty())
+	{
+		glUniform1i(useNormalMapLoc, bodyModel.normalMap != nullptr ? 1 : 0);
+
+		glm::mat4 modelMat = worldModelMat;
+		modelMat = glm::scale(modelMat, glm::vec3(modelScale));
+		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(modelMat));
+
+		glBindVertexArray(vaoBody);
+		if (wireframeMode) {
+			glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+		}
+		else {
+			glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+		}
+
+		for (size_t i = 0; i < bodyModel.meshes.size(); ++i) {
+			const auto& meshInfo = bodyModel.meshes[i];
+
+			if (meshInfo.materialIndex == 1) {
+				glUniform1f(alphaValueLoc, glassAlpha);
+				glDepthMask(GL_FALSE);
+			}
+			else {
+				glUniform1f(alphaValueLoc, 1.0f);
+				glDepthMask(GL_TRUE);
+			}
+
+			if (meshInfo.materialIndex < bodyModel.textureList.size() &&
+				bodyModel.textureList[meshInfo.materialIndex]) {
+				bodyModel.textureList[meshInfo.materialIndex]->UseTexture(0);
+				glUniform1i(textureLoc, 0);
+			}
+
+			if (bodyModel.normalMap) {
+				bodyModel.normalMap->UseTexture(1);
+				glUniform1i(normalMapLoc, 1);
+			}
+
+			glDrawElements(GL_TRIANGLES, meshInfo.indexCount, GL_UNSIGNED_INT,
+				(void*)(meshInfo.indexStart * sizeof(GLuint)));
+		}
+
+		glDepthMask(GL_TRUE);
+		glBindVertexArray(0);
+		glBindTexture(GL_TEXTURE_2D, 0);
+	}
+
+	// 메인 블레이드 렌더링
+	if (bladeModel.loaded && !bladeModel.indices.empty())
+	{
+		glUniform1f(alphaValueLoc, 1.0f);
+		glUniform1i(useNormalMapLoc, bladeModel.normalMap != nullptr ? 1 : 0);
+
+		glm::mat4 modelMat = worldModelMat;
+		modelMat = glm::translate(modelMat, glm::vec3(2.5f, 18.0f, 0.0f));
+		modelMat = glm::rotate(modelMat, glm::radians(mainBladeRotation), glm::vec3(0.0f, 1.0f, 0.0f));
+		modelMat = glm::scale(modelMat, glm::vec3(modelScale));
+		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(modelMat));
+
+		glBindVertexArray(vaoBlade);
+		if (wireframeMode) {
+			glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+		}
+		else {
+			glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+		}
+
+		for (size_t i = 0; i < bladeModel.meshes.size(); ++i) {
+			const auto& meshInfo = bladeModel.meshes[i];
+
+			if (meshInfo.materialIndex < bladeModel.textureList.size() &&
+				bladeModel.textureList[meshInfo.materialIndex]) {
+				bladeModel.textureList[meshInfo.materialIndex]->UseTexture(0);
+				glUniform1i(textureLoc, 0);
+			}
+
+			if (bladeModel.normalMap) {
+				bladeModel.normalMap->UseTexture(1);
+				glUniform1i(normalMapLoc, 1);
+			}
+
+			glDrawElements(GL_TRIANGLES, meshInfo.indexCount, GL_UNSIGNED_INT,
+				(void*)(meshInfo.indexStart * sizeof(GLuint)));
+		}
+
+		glBindVertexArray(0);
+		glBindTexture(GL_TEXTURE_2D, 0);
+	}
+
+	// 테일 블레이드 렌더링
+	if (tailModel.loaded && !tailModel.indices.empty())
+	{
+		glUniform1f(alphaValueLoc, 1.0f);
+		glUniform1i(useNormalMapLoc, tailModel.normalMap != nullptr ? 1 : 0);
+
+		glm::mat4 modelMat = worldModelMat;
+		modelMat = glm::translate(modelMat, glm::vec3(-88.0f, 17.0f, -7.0f));
+		modelMat = glm::rotate(modelMat, glm::radians(tailBladeRotation), glm::vec3(0.0f, 0.0f, 1.0f));
+		modelMat = glm::scale(modelMat, glm::vec3(modelScale));
+		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(modelMat));
+
+		glBindVertexArray(vaoTail);
+		if (wireframeMode) {
+			glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+		}
+		else {
+			glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+		}
+
+		for (size_t i = 0; i < tailModel.meshes.size(); ++i) {
+			const auto& meshInfo = tailModel.meshes[i];
+
+			if (meshInfo.materialIndex < tailModel.textureList.size() &&
+				tailModel.textureList[meshInfo.materialIndex]) {
+				tailModel.textureList[meshInfo.materialIndex]->UseTexture(0);
+				glUniform1i(textureLoc, 0);
+			}
+
+			if (tailModel.normalMap) {
+				tailModel.normalMap->UseTexture(1);
+				glUniform1i(normalMapLoc, 1);
+			}
+
+			glDrawElements(GL_TRIANGLES, meshInfo.indexCount, GL_UNSIGNED_INT,
+				(void*)(meshInfo.indexStart * sizeof(GLuint)));
+		}
+
+		glBindVertexArray(0);
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, 0);
+		glActiveTexture(GL_TEXTURE1);
+		glBindTexture(GL_TEXTURE_2D, 0);
+	}
 }

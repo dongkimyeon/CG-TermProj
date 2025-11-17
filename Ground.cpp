@@ -133,6 +133,7 @@ void Ground::Render(GLuint shaderProgramID, const glm::mat4& view, const glm::ma
     GLint projLoc = glGetUniformLocation(shaderProgramID, "proj");
     GLint alphaValueLoc = glGetUniformLocation(shaderProgramID, "alphaValue");
     GLint useNormalMapLoc = glGetUniformLocation(shaderProgramID, "useNormalMap");
+    GLint useTextureLoc = glGetUniformLocation(shaderProgramID, "useTexture");
 
     // 모델 행렬 (바닥은 변환 없음)
     glm::mat4 model = glm::mat4(1.0f);
@@ -141,14 +142,14 @@ void Ground::Render(GLuint shaderProgramID, const glm::mat4& view, const glm::ma
     glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
     glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(proj));
     
-
-    
-	groundTexture.UseTexture(0);
-	normalMap.UseTexture(1);
-
-
+    // 텍스처 사용 설정
+    glUniform1f(useTextureLoc, 1.0f); // 텍스처 사용
     glUniform1f(alphaValueLoc, 1.0f);
     glUniform1i(useNormalMapLoc, 1);
+
+
+	groundTexture.UseTexture(0);
+	normalMap.UseTexture(1);
 
 
     // 바닥 그리기

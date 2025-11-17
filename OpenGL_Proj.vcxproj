@@ -157,6 +157,7 @@
     <ClInclude Include="imgui_local\imgui_impl_opengl3.h" />
     <ClInclude Include="imgui_local\imgui_impl_opengl3_loader.h" />
     <ClInclude Include="Input.h" />
+    <ClInclude Include="Missile.h" />
     <ClInclude Include="ObjRead.h" />
     <ClInclude Include="ShaderManager.h" />
     <ClInclude Include="Texture.h" />
@@ -176,6 +177,7 @@
     <ClCompile Include="imgui_local\imgui_impl_glut.cpp" />
     <ClCompile Include="imgui_local\imgui_impl_opengl3.cpp" />
     <ClCompile Include="Input.cpp" />
+    <ClCompile Include="Missile.cpp" />
     <ClCompile Include="ShaderManager.cpp" />
     <ClCompile Include="Texture.cpp" />
     <ClCompile Include="Time.cpp" />

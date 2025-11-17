@@ -1,6 +1,7 @@
 #pragma once
 #include "CommonInclude.h"
 #include "FBXModel.h"
+#include "Missile.h"
 
 class Helicopter {
 public:
@@ -30,6 +31,11 @@ public:
     float GetPitch() const { return currentPitch; }
     float GetRoll() const { return currentRoll; }
     
+    // 미사일 관련
+    void FireMissile();
+    void UpdateMissiles(float deltaTime);
+    void RenderMissiles(GLuint shaderID, const glm::mat4& view, const glm::mat4& proj);
+    
     // Setter (디버그용)
     void SetDebugRotation(float x, float y, float z) {
         debugRotationX = x;
@@ -46,8 +52,11 @@ public:
 private:
     void UpdatePhysics(float deltaTime);
     void UpdateOrientation(float deltaTime);
+    void UpdateMissilePositions();
     void RenderModel(const FBXModel& model, GLuint vao, const glm::mat4& transform, 
                      GLuint shaderID, bool wireframe, float alpha);
+    glm::vec3 GetMissileAttachmentPosition() const;
+    glm::mat4 GetHelicopterTransform() const;
     
     // 모델
     FBXModel bodyModel;
@@ -96,4 +105,11 @@ private:
     float debugRotationX;
     float debugRotationY;
     float debugRotationZ;
+    
+    // 미사일 시스템
+    std::vector<Missile*> missiles;
+    std::vector<Missile*> attachedMissiles;  // 헬리콥터에 붙어있는 미사일
+    float missileAttachmentOffset = -8.0f;   // 헬리콥터 아래쪽 오프셋
+    int maxMissiles = 30;    // 최대 미사일 개수
+    float missileSpacing = 3.0f;           // 미사일 간 간격
 };

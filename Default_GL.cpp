@@ -213,16 +213,29 @@ void DrawScene()
 
     // 헬리콥터 렌더링
     if (helicopter) {
+      // 텍스처 사용 설정
+        glUniform1f(useTextureLoc, 1.0f);
+  
         helicopter->Render(shaderProgramID, wireframeMode, glassAlpha, modelScale);
+        
+ // 미사일 렌더링 (별도 상태로 처리)
+        helicopter->RenderMissiles(shaderProgramID, view, proj);
+        
+        // 텍스처 사용 상태 복원
+  glUniform1f(useTextureLoc, 1.0f);
     }
 
     // 땅 렌더링
     if (mGround)
     {
         glDisable(GL_BLEND);
-        glDepthMask(GL_TRUE);
-        mGround->Render(shaderProgramID, view, proj);
-        glEnable(GL_BLEND);
+   glDepthMask(GL_TRUE);
+        
+        // 텍스처 사용 명시적으로 설정
+        glUniform1f(useTextureLoc, 1.0f);
+     
+    mGround->Render(shaderProgramID, view, proj);
+ glEnable(GL_BLEND);
     }
 
     // 스카이박스 그리기
