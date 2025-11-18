@@ -56,6 +56,21 @@ bool Texture::LoadTexture()
     return true;  // *** 추가: 성공 시 return true (경고 해결) ***
 }
 
+unsigned char* Texture::GetImageData(int* outWidth, int* outHeight, int* outChannels)
+{
+    // Load image data without creating OpenGL texture
+    // This is used for heightmap terrain generation
+    unsigned char* data = stbi_load(fileLocation, outWidth, outHeight, outChannels, 0);
+    if (!data)
+    {
+        printf("이미지 데이터 로드 실패: %s\n", fileLocation);
+        return nullptr;
+    }
+    
+    // Note: Caller is responsible for freeing this data with stbi_image_free()
+    return data;
+}
+
 void Texture::UseTexture(GLuint textureUnit)
 {
     glActiveTexture(GL_TEXTURE0 + textureUnit); // 지정된 텍스쳐 유닛 활성화

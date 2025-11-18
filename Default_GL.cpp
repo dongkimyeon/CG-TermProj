@@ -171,8 +171,8 @@ void DrawScene()
     glEnable(GL_DEPTH_TEST);
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    glEnable(GL_CULL_FACE);
-    glCullFace(GL_BACK);
+    //glEnable(GL_CULL_FACE);
+    //glCullFace(GL_BACK);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glDepthFunc(GL_LESS);
@@ -206,7 +206,7 @@ void DrawScene()
     glUniform3fv(eyePosLoc, 1, glm::value_ptr(camera->GetPosition()));
     glUniform3fv(lightDirLoc, 1, glm::value_ptr(lightDir));
     glUniform3fv(lightColorLoc, 1, glm::value_ptr(lightColor));
-    glUniform1f(ambientStrengthLoc, 0.3f);
+    glUniform1f(ambientStrengthLoc, 0.5f);
     glUniform1f(specularStrengthLoc, 0.5f);
     glUniform1f(shininessLoc, 32.0f);
     glUniform1f(useTextureLoc, 1.0f);
@@ -271,14 +271,28 @@ void DrawScene()
     ImGui::Begin("Debug Controls");
 
     float fps = 1.0f / Time::DeltaTime();
-ImGui::Text("FPS: %.1f", fps);
+    ImGui::Text("FPS: %.1f", fps);
+
+    // Ground HeightMap Control
+    if (mGround) {
+        ImGui::Separator();
+        ImGui::Text("Terrain Controls");
+        float currentScale = mGround->GetHeightScale();
+        if (ImGui::SliderFloat("Height Scale", &currentScale, 0.0f, 10.0f)) {
+            mGround->SetHeightScale(currentScale);
+        }
+        if (ImGui::Button("Rebuild Terrain")) {
+            mGround->Initialize();
+        }
+        ImGui::Separator();
+    }
 
     if (helicopter) {
         ImGui::Separator();
-  glm::vec3 pos = helicopter->GetPosition();
-    glm::vec3 vel = helicopter->GetVelocity();
+        glm::vec3 pos = helicopter->GetPosition();
+        glm::vec3 vel = helicopter->GetVelocity();
         ImGui::Text("Position: (%.1f, %.1f, %.1f)", pos.x, pos.y, pos.z);
-     ImGui::Text("Velocity: (%.1f, %.1f, %.1f)", vel.x, vel.y, vel.z);
+        ImGui::Text("Velocity: (%.1f, %.1f, %.1f)", vel.x, vel.y, vel.z);
         ImGui::Text("Speed: %.1f", glm::length(vel));
         ImGui::Separator();
         ImGui::Text("Pitch: %.1f", helicopter->GetPitch());
@@ -286,15 +300,15 @@ ImGui::Text("FPS: %.1f", fps);
         
         ImGui::Separator();
 
- ImGui::SliderFloat("Model RotationX", &xModelRotation, -180.0f, 180.0f);
-      ImGui::SliderFloat("Model RotationY", &yModelRotation, -180.0f, 180.0f);
+        ImGui::SliderFloat("Model RotationX", &xModelRotation, -180.0f, 180.0f);
+        ImGui::SliderFloat("Model RotationY", &yModelRotation, -180.0f, 180.0f);
         ImGui::SliderFloat("Model RotationZ", &zModelRotation, -180.0f, 180.0f);
-helicopter->SetDebugRotation(xModelRotation, yModelRotation, zModelRotation);
+        helicopter->SetDebugRotation(xModelRotation, yModelRotation, zModelRotation);
         ImGui::Separator();
 
         ImGui::SliderFloat("Max Speed", &helicopter->GetMaxSpeed(), 10.0f, 200.0f);
-  ImGui::SliderFloat("Acceleration", &helicopter->GetAccelerationRate(), 10.0f, 100.0f);
-    ImGui::SliderFloat("Max Tilt", &helicopter->GetMaxTiltAngle(), 10.0f, 60.0f);
+        ImGui::SliderFloat("Acceleration", &helicopter->GetAccelerationRate(), 10.0f, 100.0f);
+        ImGui::SliderFloat("Max Tilt", &helicopter->GetMaxTiltAngle(), 10.0f, 60.0f);
         ImGui::Separator();
     }
 

@@ -12,6 +12,7 @@ public:
 	bool LoadTexture(); // 디스크에 저장된 이미지를 메모리에 텍스쳐로 로드
 	void UseTexture(GLuint textureUnit); // 렌더링할 때 이 텍스쳐를 쓰겠다고 설정
 	void ClearTexture(); // 메모리에서 텍스쳐 내리기
+	unsigned char* GetImageData(int* outWidth, int* outHeight, int* outChannels); // Get raw image data for heightmap
 
 	~Texture();
 

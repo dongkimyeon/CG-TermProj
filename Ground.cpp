@@ -1,7 +1,8 @@
 #include "Ground.h"
 
 Ground::Ground()
-	: VAO(0), VBO(0), EBO(0), textureID(0), size(1000.0f), gridResolution(100), groundTexture("T_RockyGround_A.png"), normalMap("T_RockyGround_NA.png")
+	: VAO(0), VBO(0), EBO(0), textureID(0), size(1000.0f), gridResolution(100), groundTexture("T_RockyGround_A.png"), normalMap("T_RockyGround_NA.png"),
+    heightMap("heightMap.png"), heightMapWidth(0), heightMapHeight(0), numStrips(0), numTrisPerStrip(0), heightScale(1.0f)
 {
 }
 
@@ -17,28 +18,52 @@ void Ground::Initialize()
 {
 	groundTexture.LoadTexture();
 	normalMap.LoadTexture();
-
-    // 정점 데이터 생성 (위치(3) + UV(2) + 노멀(3) + 탄젠트(3) = 11 floats)
-    float halfSize = size / 2.0f;
-    float step = size / gridResolution;
-
+	
+    // Load heightmap image data
+    heightMap.LoadTexture();
+    
+    // Load heightmap image for terrain generation using stb_image
+    int nrChannels;
+    unsigned char* data = heightMap.GetImageData(&heightMapWidth, &heightMapHeight, &nrChannels);
+    
+    if (!data)
+    {
+        std::cout << "Failed to load heightmap data, creating flat terrain" << std::endl;
+        // Fall back to flat terrain generation
+        CreateFlatTerrain();
+        return;
+    }
+    
+    std::cout << "Loaded heightmap of size " << heightMapHeight << " x " << heightMapWidth << std::endl;
+    
     vertices.clear();
     indices.clear();
 
-    // 정점 생성
-    for (int z = 0; z <= gridResolution; ++z)
+    // Generate vertices from heightmap
+    // Apply heightScale to control the intensity of the heightmap
+    float yScale = (64.0f / 256.0f) * heightScale;
+    float yShift = 16.0f;
+    int rez = 1;
+    unsigned bytePerPixel = nrChannels;
+    
+    std::cout << "Using height scale: " << heightScale << " (yScale: " << yScale << ")" << std::endl;
+    
+    for(int i = 0; i < heightMapHeight; i++)
     {
-        for (int x = 0; x <= gridResolution; ++x)
+        for(int j = 0; j < heightMapWidth; j++)
         {
-            float xPos = -halfSize + x * step;
-            float zPos = -halfSize + z * step;
-            float yPos = 0.0f;  // 바닥은 y=0
+            unsigned char* pixelOffset = data + (j + heightMapWidth * i) * bytePerPixel;
+            unsigned char y = pixelOffset[0];
 
-            // UV 좌표 (타일링)
-            float u = (float)x / gridResolution * 10.0f;  // 10배 타일링
-            float v = (float)z / gridResolution * 10.0f;
+            float xPos = -heightMapHeight / 2.0f + heightMapHeight * i / (float)heightMapHeight;
+            float yPos = (int)y * yScale - yShift;
+            float zPos = -heightMapWidth / 2.0f + heightMapWidth * j / (float)heightMapWidth;
+            
+            // UV coordinates
+            float u = (float)j / heightMapWidth * 10.0f;  // 10x tiling
+            float v = (float)i / heightMapHeight * 10.0f;
 
-            // 위치 (3)
+            // Position (3)
             vertices.push_back(xPos);
             vertices.push_back(yPos);
             vertices.push_back(zPos);
@@ -47,41 +72,43 @@ void Ground::Initialize()
             vertices.push_back(u);
             vertices.push_back(v);
 
-            // 노멀 (3) - 위쪽 향함
+            // Normal (3) - will be calculated properly later, for now up vector
             vertices.push_back(0.0f);
             vertices.push_back(1.0f);
             vertices.push_back(0.0f);
 
-            // 탄젠트 (3) - X축 방향
+            // Tangent (3) - X axis direction
             vertices.push_back(1.0f);
             vertices.push_back(0.0f);
             vertices.push_back(0.0f);
         }
     }
+    
+    std::cout << "Loaded " << vertices.size() / 11 << " vertices" << std::endl;
 
-    // 인덱스 생성
-    for (int z = 0; z < gridResolution; ++z)
+    // Generate indices using triangle strips
+    for(unsigned i = 0; i < heightMapHeight - 1; i += rez)
     {
-        for (int x = 0; x < gridResolution; ++x)
+        for(unsigned j = 0; j < heightMapWidth; j += rez)
         {
-            int topLeft = z * (gridResolution + 1) + x;
-            int topRight = topLeft + 1;
-            int bottomLeft = (z + 1) * (gridResolution + 1) + x;
-            int bottomRight = bottomLeft + 1;
-
-            // 첫 번째 삼각형
-            indices.push_back(topLeft);
-            indices.push_back(bottomLeft);
-            indices.push_back(topRight);
-
-            // 두 번째 삼각형
-            indices.push_back(topRight);
-            indices.push_back(bottomLeft);
-            indices.push_back(bottomRight);
+            for(unsigned k = 0; k < 2; k++)
+            {
+                indices.push_back(j + heightMapWidth * (i + k * rez));
+            }
         }
     }
+    
+    std::cout << "Loaded " << indices.size() << " indices" << std::endl;
 
-    // VAO/VBO/EBO 생성
+    numStrips = (heightMapHeight - 1) / rez;
+    numTrisPerStrip = (heightMapWidth / rez) * 2 - 2;
+    std::cout << "Created lattice of " << numStrips << " strips with " << numTrisPerStrip << " triangles each" << std::endl;
+    std::cout << "Created " << numStrips * numTrisPerStrip << " triangles total" << std::endl;
+
+    // Free the image data
+    stbi_image_free(data);
+
+    // VAO/VBO/EBO setup
     glGenVertexArrays(1, &VAO);
     glGenBuffers(1, &VBO);
     glGenBuffers(1, &EBO);
@@ -114,20 +141,116 @@ void Ground::Initialize()
 
     glBindVertexArray(0);
 
+    std::cout << "Ground 초기화 완료 - Heightmap terrain created" << std::endl;
+}
+
+void Ground::CreateFlatTerrain()
+{
+    // Fallback: create flat terrain
+    float halfSize = size / 2.0f;
+    float step = size / gridResolution;
+   
+    vertices.clear();
+    indices.clear();
+
+    float yScale = 64.0f / 256.0f, yShift = 16.0f;
+    // Generate vertices
+    for (int z = 0; z <= gridResolution; ++z)
+    {
+        for (int x = 0; x <= gridResolution; ++x)
+        {
+            float xPos = -halfSize + x * step;
+            float zPos = -halfSize + z * step;
+            float yPos = 4.0f;
+
+            // UV coordinates (tiling)
+            float u = (float)x / gridResolution * 10.0f;
+            float v = (float)z / gridResolution * 10.0f;
+
+            // Position (3)
+            vertices.push_back(xPos * 10);
+            vertices.push_back((int)yPos * yScale - yShift);
+            vertices.push_back(zPos * 10);
+
+            // UV (2)
+            vertices.push_back(u);
+            vertices.push_back(v);
+
+            // Normal (3)
+            vertices.push_back(1.0f);
+            vertices.push_back(1.0f);
+            vertices.push_back(1.0f);
+
+            // Tangent (3)
+            vertices.push_back(1.0f);
+            vertices.push_back(0.0f);
+            vertices.push_back(0.0f);
+        }
+    }
+
+    // Generate indices
+    for (int z = 0; z < gridResolution; ++z)
+    {
+        for (int x = 0; x < gridResolution; ++x)
+        {
+            int topLeft = z * (gridResolution + 1) + x;
+            int topRight = topLeft + 1;
+            int bottomLeft = (z + 1) * (gridResolution + 1) + x;
+            int bottomRight = bottomLeft + 1;
+
+            indices.push_back(topLeft);
+            indices.push_back(bottomLeft);
+            indices.push_back(topRight);
+
+            indices.push_back(topRight);
+            indices.push_back(bottomLeft);
+            indices.push_back(bottomRight);
+        }
+    }
+
+    // VAO/VBO/EBO setup
+    glGenVertexArrays(1, &VAO);
+    glGenBuffers(1, &VBO);
+    glGenBuffers(1, &EBO);
+
+    glBindVertexArray(VAO);
+
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(GLfloat), vertices.data(), GL_STATIC_DRAW);
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(GLuint), indices.data(), GL_STATIC_DRAW);
+
+    const GLsizei stride = 11 * sizeof(GLfloat);
+
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, (void*)0);
+    glEnableVertexAttribArray(0);
+
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, stride, (void*)(3 * sizeof(GLfloat)));
+    glEnableVertexAttribArray(1);
+
+    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, stride, (void*)(5 * sizeof(GLfloat)));
+    glEnableVertexAttribArray(2);
+
+    glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, stride, (void*)(8 * sizeof(GLfloat)));
+    glEnableVertexAttribArray(3);
+
+    glBindVertexArray(0);
+
     std::cout << "Ground 초기화 완료 - 크기: " << size << ", 정점: " << vertices.size() / 11
         << ", 인덱스: " << indices.size() << std::endl;
 }
 
 void Ground::Update()
 {
-    // 필요시 업데이트 로직 추가
+    // Add update logic if needed
 }
 
 void Ground::Render(GLuint shaderProgramID, const glm::mat4& view, const glm::mat4& proj)
 {
     glUseProgram(shaderProgramID);
 
-    // 유니폼 위치 가져오기
+    // Get uniform locations
     GLint modelLoc = glGetUniformLocation(shaderProgramID, "model");
     GLint viewLoc = glGetUniformLocation(shaderProgramID, "view");
     GLint projLoc = glGetUniformLocation(shaderProgramID, "proj");
@@ -135,15 +258,15 @@ void Ground::Render(GLuint shaderProgramID, const glm::mat4& view, const glm::ma
     GLint useNormalMapLoc = glGetUniformLocation(shaderProgramID, "useNormalMap");
     GLint useTextureLoc = glGetUniformLocation(shaderProgramID, "useTexture");
 
-    // 모델 행렬 (바닥은 변환 없음)
+    // Model matrix
     glm::mat4 model = glm::mat4(1.0f);
 	model = glm::translate(model, glm::vec3(0.0f, -2.0f, 0.0f));
     glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
     glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
     glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(proj));
     
-    // 텍스처 사용 설정
-    glUniform1f(useTextureLoc, 1.0f); // 텍스처 사용
+    // Texture settings
+    glUniform1f(useTextureLoc, 1.0f);
     glUniform1f(alphaValueLoc, 1.0f);
     glUniform1i(useNormalMapLoc, 1);
 
@@ -151,9 +274,25 @@ void Ground::Render(GLuint shaderProgramID, const glm::mat4& view, const glm::ma
 	groundTexture.UseTexture(0);
 	normalMap.UseTexture(1);
 
-
-    // 바닥 그리기
+    // Draw terrain
     glBindVertexArray(VAO);
-    glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, 0);
+    
+    if (numStrips > 0 && numTrisPerStrip > 0)
+    {
+        // Draw using triangle strips (heightmap-based terrain)
+        for(unsigned strip = 0; strip < numStrips; strip++)
+        {
+            glDrawElements(GL_TRIANGLE_STRIP,
+                           numTrisPerStrip + 2,
+                           GL_UNSIGNED_INT,
+                           (void*)(sizeof(unsigned) * (numTrisPerStrip + 2) * strip));
+        }
+    }
+    else
+    {
+        // Draw using regular triangles (flat terrain)
+        glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, 0);
+    }
+    
     glBindVertexArray(0);
 }
