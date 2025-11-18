@@ -54,7 +54,7 @@ float glassAlpha = 0.5f;
 float xModelRotation = 0.0f;
 float yModelRotation = 0.0f;
 float zModelRotation = 0.0f;
-
+float currentScale = 1.0f;
 int main(int argc, char** argv) {
     glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA | GLUT_DEPTH);
@@ -171,8 +171,8 @@ void DrawScene()
     glEnable(GL_DEPTH_TEST);
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    //glEnable(GL_CULL_FACE);
-    //glCullFace(GL_BACK);
+    glEnable(GL_CULL_FACE);
+    glCullFace(GL_BACK);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glDepthFunc(GL_LESS);
@@ -229,13 +229,13 @@ void DrawScene()
     if (mGround)
     {
         glDisable(GL_BLEND);
-   glDepthMask(GL_TRUE);
+        glDepthMask(GL_TRUE);
         
         // 텍스처 사용 명시적으로 설정
         glUniform1f(useTextureLoc, 1.0f);
      
-    mGround->Render(shaderProgramID, view, proj);
- glEnable(GL_BLEND);
+        mGround->Render(shaderProgramID, view, proj);
+        glEnable(GL_BLEND);
     }
 
     // 스카이박스 그리기
@@ -277,12 +277,9 @@ void DrawScene()
     if (mGround) {
         ImGui::Separator();
         ImGui::Text("Terrain Controls");
-        float currentScale = mGround->GetHeightScale();
+        
         if (ImGui::SliderFloat("Height Scale", &currentScale, 0.0f, 10.0f)) {
-            mGround->SetHeightScale(currentScale);
-        }
-        if (ImGui::Button("Rebuild Terrain")) {
-            mGround->Initialize();
+			mGround->ControlHeightmap(currentScale);
         }
         ImGui::Separator();
     }

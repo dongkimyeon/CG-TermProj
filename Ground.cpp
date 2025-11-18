@@ -1,7 +1,8 @@
 #include "Ground.h"
 
 Ground::Ground()
-	: VAO(0), VBO(0), EBO(0), textureID(0), size(1000.0f), gridResolution(100), groundTexture("T_RockyGround_A.png"), normalMap("T_RockyGround_NA.png"),
+	: VAO(0), VBO(0), EBO(0), textureID(0), size(1000.0f), gridResolution(100), groundTexture("T_RockyGround_A.png"), 
+    normalMap("T_RockyGround_NA.png"),
     heightMap("heightMap.png"), heightMapWidth(0), heightMapHeight(0), numStrips(0), numTrisPerStrip(0), heightScale(1.0f)
 {
 }
@@ -19,9 +20,6 @@ void Ground::Initialize()
 	groundTexture.LoadTexture();
 	normalMap.LoadTexture();
 	
-    // Load heightmap image data
-    heightMap.LoadTexture();
-    
     // Load heightmap image for terrain generation using stb_image
     int nrChannels;
     unsigned char* data = heightMap.GetImageData(&heightMapWidth, &heightMapHeight, &nrChannels);
@@ -39,8 +37,6 @@ void Ground::Initialize()
     vertices.clear();
     indices.clear();
 
-    // Generate vertices from heightmap
-    // Apply heightScale to control the intensity of the heightmap
     float yScale = (64.0f / 256.0f) * heightScale;
     float yShift = 16.0f;
     int rez = 1;
@@ -60,7 +56,7 @@ void Ground::Initialize()
             float zPos = -heightMapWidth / 2.0f + heightMapWidth * j / (float)heightMapWidth;
             
             // UV coordinates
-            float u = (float)j / heightMapWidth * 10.0f;  // 10x tiling
+            float u = (float)j / heightMapWidth * 10.0f;  
             float v = (float)i / heightMapHeight * 10.0f;
 
             // Position (3)
@@ -87,13 +83,15 @@ void Ground::Initialize()
     std::cout << "Loaded " << vertices.size() / 11 << " vertices" << std::endl;
 
     // Generate indices using triangle strips
-    for(unsigned i = 0; i < heightMapHeight - 1; i += rez)
+    for (int i = heightMapHeight - 2; i >= 0; i -= rez)
     {
-        for(unsigned j = 0; j < heightMapWidth; j += rez)
+        for (int j = heightMapWidth - 1; j >= 0; j -= rez)
         {
-            for(unsigned k = 0; k < 2; k++)
+            for (unsigned k = 0; k < 2; k++)
             {
-                indices.push_back(j + heightMapWidth * (i + k * rez));
+                // 역순 정점에 맞게 인덱스 계산
+                int vertexIndex = (heightMapHeight - 1 - (i + k * rez)) * heightMapWidth + (heightMapWidth - 1 - j);
+                indices.push_back(vertexIndex);
             }
         }
     }
@@ -116,7 +114,7 @@ void Ground::Initialize()
     glBindVertexArray(VAO);
 
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(GLfloat), vertices.data(), GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(GLfloat), vertices.data(), GL_DYNAMIC_DRAW);
 
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(GLuint), indices.data(), GL_STATIC_DRAW);
@@ -294,5 +292,27 @@ void Ground::Render(GLuint shaderProgramID, const glm::mat4& view, const glm::ma
         glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, 0);
     }
     
+    glBindVertexArray(0);
+}
+
+void Ground::ControlHeightmap(float scale)
+{
+    // heightScale 업데이트 후 vertices y 좌표에 스케일 값 적용
+    for (size_t i = 0; i < vertices.size() / 11; ++i)
+    {
+        vertices[i * 11 + 1] = vertices[i * 11 + 1] / heightScale * scale;
+    } 
+    heightScale = scale; // 현재 스케일 값 저장
+
+
+    // 기존 VAO 바인딩 후 버퍼 데이터만 업데이트
+    glBindVertexArray(VAO);
+
+    // VBO 업데이트 (GL_DYNAMIC_DRAW 사용)
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(GLfloat), vertices.data(), GL_DYNAMIC_DRAW);
+
+    // EBO는 변경되지 않으므로 업데이트 불필요
+
     glBindVertexArray(0);
 }

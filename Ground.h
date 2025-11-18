@@ -12,10 +12,7 @@ public:
     void Update();
     void Render(GLuint shaderProgramID, const glm::mat4& view, const glm::mat4& proj);
     
-    // Heightmap control
-    void SetHeightScale(float scale) { heightScale = scale; }
-    float GetHeightScale() const { return heightScale; }
-
+    void ControlHeightmap(float scale);
 private:
     void CreateFlatTerrain(); // Fallback method for flat terrain
     
@@ -35,5 +32,5 @@ private:
     int heightMapHeight;
     int numStrips;
     int numTrisPerStrip;
-    float heightScale; // Control heightmap intensity
+	float heightScale;
 };
