@@ -1,7 +1,8 @@
 #include "Missile.h"
 
 Missile::Missile()
-	: VAO(0), VBO(0), EBO(0), position(0.0f), direction(0.0f, 0.0f, 1.0f), velocity(0.0f), isActive(false)
+	: VAO(0), VBO(0), EBO(0), position(0.0f), direction(0.0f, 0.0f, 1.0f), velocity(0.0f), 
+	  isActive(false), smokeTrail(500), particleEmissionTimer(0.0f)
 {
 }
 
@@ -117,6 +118,9 @@ void Missile::SetupBuffers()
 	// 탄젠트 (location 3)
 	glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, stride, (void*)(8 * sizeof(GLfloat)));
 	glEnableVertexAttribArray(3);
+	
+	// 파티클용 색상 속성 (location 4) - 기본값으로 설정 (미사일은 파티클이 아님)
+	glVertexAttrib4f(4, 0.0f, 0.0f, 0.0f, 0.0f);
 
 	glBindVertexArray(0);
 
@@ -132,70 +136,125 @@ void Missile::Update(float deltaTime)
 		velocity = direction * speed;
 		position += velocity * deltaTime;
 
+		// 연기 파티클 생성 - 더 자주 생성하도록 수정
+		particleEmissionTimer += deltaTime;
+		float emissionInterval = 0.01f; // 0.01초마다 파티클 생성 (100 파티클/초)
+		
+		while (particleEmissionTimer >= emissionInterval)
+		{
+			// 미사일 뒤쪽에서 연기 파티클 생성 (여러 개)
+			for (int i = 0; i < 5; ++i) // 한 번에 5개씩 생성 (더 많이)
+			{
+				// 미사일 뒤쪽 위치 계산 (미사일의 길이를 고려)
+				glm::vec3 smokePosition = position - direction * (height * 0.6f);
+				
+				// 약간의 랜덤 위치 변화 (더 큰 범위)
+				smokePosition += glm::vec3(
+					(rand() / float(RAND_MAX) - 0.5f) * 6.0f,
+					(rand() / float(RAND_MAX) - 0.5f) * 3.0f,
+					(rand() / float(RAND_MAX) - 0.5f) * 6.0f
+				);
+				
+				// 연기 속도 (미사일 방향의 반대 + 더 큰 랜덤)
+				glm::vec3 smokeVelocity = -direction * (speed * 0.3f) + glm::vec3(
+					(rand() / float(RAND_MAX) - 0.5f) * 40.0f,
+					(rand() / float(RAND_MAX) - 0.5f) * 20.0f,
+					(rand() / float(RAND_MAX) - 0.5f) * 40.0f
+				);
+				
+				smokeTrail.emitParticle(smokePosition, smokeVelocity);
+			}
+			particleEmissionTimer -= emissionInterval;
+		}
+		
+		// 파티클 시스템 업데이트
+		smokeTrail.update(deltaTime);
+
 		// 땅에 닿거나 범위를 벗어나면 비활성화
 		if (position.y <= 0.0f || glm::length(position) > 2000.0f)
 		{
 			isActive = false;
 		}
 	}
+	else
+	{
+		// 미사일이 비활성화되어도 파티클은 계속 업데이트
+		smokeTrail.update(deltaTime);
+	}
 }
 
 void Missile::Render(GLuint shaderProgramID, const glm::mat4& view, const glm::mat4& proj)
 {
-	if (!isActive) return;
-
-	glUseProgram(shaderProgramID);
-
-	// 유니폼 위치 가져오기
-	GLint modelLoc = glGetUniformLocation(shaderProgramID, "model");
-	GLint viewLoc = glGetUniformLocation(shaderProgramID, "view");
-	GLint projLoc = glGetUniformLocation(shaderProgramID, "proj");
-	GLint colorLoc = glGetUniformLocation(shaderProgramID, "aColor");  // aColor 사용
-	GLint useTextureLoc = glGetUniformLocation(shaderProgramID, "useTexture");
-	GLint alphaValueLoc = glGetUniformLocation(shaderProgramID, "alphaValue");
-
-	// 모델 행렬 생성 (위치와 방향에 따른 변환)
-	glm::mat4 model = glm::mat4(1.0f);
-	model = glm::translate(model, position);
-
-	// 방향에 따른 회전 - 미사일의 긴 축(Y축)이 방향을 향하도록 설정
-	if (glm::length(direction) > 0.0f)
+	// 미사일 렌더링
+	if (isActive)
 	{
-		glm::vec3 forward = glm::normalize(direction);
-		glm::vec3 worldUp = glm::vec3(0.0f, 1.0f, 0.0f);
+		glUseProgram(shaderProgramID);
 
-		// forward가 거의 수직일 때의 처리
-		if (abs(glm::dot(forward, worldUp)) > 0.99f) {
-			worldUp = glm::vec3(1.0f, 0.0f, 0.0f); // 다른 축 사용
+		// 유니폼 위치 가져오기
+		GLint modelLoc = glGetUniformLocation(shaderProgramID, "model");
+		GLint viewLoc = glGetUniformLocation(shaderProgramID, "view");
+		GLint projLoc = glGetUniformLocation(shaderProgramID, "proj");
+		GLint colorLoc = glGetUniformLocation(shaderProgramID, "aColor");  // aColor 사용
+		GLint useTextureLoc = glGetUniformLocation(shaderProgramID, "useTexture");
+		GLint alphaValueLoc = glGetUniformLocation(shaderProgramID, "alphaValue");
+
+		// 모델 행렬 생성 (위치와 방향에 따른 변환)
+		glm::mat4 model = glm::mat4(1.0f);
+		model = glm::translate(model, position);
+
+		// 방향에 따른 회전 - 미사일의 긴 축(Y축)이 방향을 향하도록 설정
+		if (glm::length(direction) > 0.0f)
+		{
+			glm::vec3 forward = glm::normalize(direction);
+			glm::vec3 worldUp = glm::vec3(0.0f, 1.0f, 0.0f);
+
+			// forward가 거의 수직일 때의 처리
+			if (abs(glm::dot(forward, worldUp)) > 0.99f) {
+				worldUp = glm::vec3(1.0f, 0.0f, 0.0f); // 다른 축 사용
+			}
+
+			glm::vec3 right = glm::normalize(glm::cross(worldUp, forward));
+			glm::vec3 up = glm::cross(forward, right);
+
+			// 미사일의 긴 축(Y축)이 forward 방향을 향하도록 회전 매트릭스 구성
+			glm::mat4 rotationMatrix = glm::mat4(1.0f);
+			rotationMatrix[0] = glm::vec4(right, 0.0f);
+			rotationMatrix[1] = glm::vec4(forward, 0.0f);  // Y축이 forward 방향
+			rotationMatrix[2] = glm::vec4(up, 0.0f);
+
+			model *= rotationMatrix;
 		}
 
-		glm::vec3 right = glm::normalize(glm::cross(worldUp, forward));
-		glm::vec3 up = glm::cross(forward, right);
+		// 행렬 및 색상 설정
+		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
+		glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
+		glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(proj));
+		glUniform3fv(colorLoc, 1, glm::value_ptr(missileColor));
+		glUniform1f(useTextureLoc, 0.0f); // 텍스처 사용 안 함
+		glUniform1f(alphaValueLoc, 1.0f); // 알파값 설정
 
-		// 미사일의 긴 축(Y축)이 forward 방향을 향하도록 회전 매트릭스 구성
-		glm::mat4 rotationMatrix = glm::mat4(1.0f);
-		rotationMatrix[0] = glm::vec4(right, 0.0f);
-		rotationMatrix[1] = glm::vec4(forward, 0.0f);  // Y축이 forward 방향
-		rotationMatrix[2] = glm::vec4(up, 0.0f);
+		// 미사일 렌더링
+		glBindVertexArray(VAO);
+		glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, 0);
+		glBindVertexArray(0);
 
-		model *= rotationMatrix;
+		// 렌더링 후 원래 상태로 복원
+		glUniform1f(useTextureLoc, 1.0f); // 텍스처 사용 다시 활성화
 	}
+	
+	// 연기 파티클 렌더링 (미사일이 비활성화되어도 파티클은 계속 렌더링)
+	smokeTrail.render();
+}
 
-	// 행렬 및 색상 설정
-	glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
-	glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
-	glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(proj));
-	glUniform3fv(colorLoc, 1, glm::value_ptr(missileColor));
-	glUniform1f(useTextureLoc, 0.0f); // 텍스처 사용 안 함
-	glUniform1f(alphaValueLoc, 1.0f); // 알파값 설정
-
-	// 미사일 렌더링
-	glBindVertexArray(VAO);
-	glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, 0);
-	glBindVertexArray(0);
-
-	// 렌더링 후 원래 상태로 복원
-	glUniform1f(useTextureLoc, 1.0f); // 텍스처 사용 다시 활성화
+void Missile::Launch(const glm::vec3& startPos, const glm::vec3& dir)
+{
+	position = startPos;
+	direction = glm::normalize(dir);
+	velocity = direction * speed;
+	isActive = true;
+	particleEmissionTimer = 0.0f;
+	// 새로운 발사 시 이전 파티클 제거
+	smokeTrail.clear();
 }
 
 void Missile::SetPosition(const glm::vec3& pos)
@@ -206,12 +265,4 @@ void Missile::SetPosition(const glm::vec3& pos)
 void Missile::SetDirection(const glm::vec3& dir)
 {
 	direction = glm::normalize(dir);
-}
-
-void Missile::Launch(const glm::vec3& startPos, const glm::vec3& dir)
-{
-	position = startPos;
-	direction = glm::normalize(dir);
-	velocity = direction * speed;
-	isActive = true;
 }

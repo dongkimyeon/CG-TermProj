@@ -10,9 +10,14 @@ private:
 	GLuint maxParticles;
 	GLfloat emissionRate;
 	GLfloat timeSinceLastEmission;
+	
+	// OpenGL 버퍼
+	GLuint VAO, VBO;
+	std::vector<GLfloat> vertexData;
 
 public:
 	ParticleSystem(GLuint maxParticleCount = 1000);
+	~ParticleSystem();
 	
 	// 파티클 방출 (미사일 위치에서)
 	void emitParticle(const glm::vec3& position, const glm::vec3& baseVelocity);
@@ -31,4 +36,8 @@ public:
 	
 	// 활성 파티클 수 반환
 	int getActiveParticleCount() const;
+	
+private:
+	void setupBuffers();
+	void updateVertexData();
 };

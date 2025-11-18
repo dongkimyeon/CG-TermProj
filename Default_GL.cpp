@@ -271,29 +271,30 @@ void DrawScene()
     ImGui::Begin("Debug Controls");
 
     float fps = 1.0f / Time::DeltaTime();
-    ImGui::Text("FPS: %.1f", fps);
+ImGui::Text("FPS: %.1f", fps);
 
     if (helicopter) {
         ImGui::Separator();
-        glm::vec3 pos = helicopter->GetPosition();
-        glm::vec3 vel = helicopter->GetVelocity();
+  glm::vec3 pos = helicopter->GetPosition();
+    glm::vec3 vel = helicopter->GetVelocity();
         ImGui::Text("Position: (%.1f, %.1f, %.1f)", pos.x, pos.y, pos.z);
-        ImGui::Text("Velocity: (%.1f, %.1f, %.1f)", vel.x, vel.y, vel.z);
+     ImGui::Text("Velocity: (%.1f, %.1f, %.1f)", vel.x, vel.y, vel.z);
         ImGui::Text("Speed: %.1f", glm::length(vel));
         ImGui::Separator();
         ImGui::Text("Pitch: %.1f", helicopter->GetPitch());
         ImGui::Text("Roll: %.1f", helicopter->GetRoll());
+        
         ImGui::Separator();
 
-        ImGui::SliderFloat("Model RotationX", &xModelRotation, -180.0f, 180.0f);
-        ImGui::SliderFloat("Model RotationY", &yModelRotation, -180.0f, 180.0f);
+ ImGui::SliderFloat("Model RotationX", &xModelRotation, -180.0f, 180.0f);
+      ImGui::SliderFloat("Model RotationY", &yModelRotation, -180.0f, 180.0f);
         ImGui::SliderFloat("Model RotationZ", &zModelRotation, -180.0f, 180.0f);
-        helicopter->SetDebugRotation(xModelRotation, yModelRotation, zModelRotation);
+helicopter->SetDebugRotation(xModelRotation, yModelRotation, zModelRotation);
         ImGui::Separator();
 
         ImGui::SliderFloat("Max Speed", &helicopter->GetMaxSpeed(), 10.0f, 200.0f);
-        ImGui::SliderFloat("Acceleration", &helicopter->GetAccelerationRate(), 10.0f, 100.0f);
-        ImGui::SliderFloat("Max Tilt", &helicopter->GetMaxTiltAngle(), 10.0f, 60.0f);
+  ImGui::SliderFloat("Acceleration", &helicopter->GetAccelerationRate(), 10.0f, 100.0f);
+    ImGui::SliderFloat("Max Tilt", &helicopter->GetMaxTiltAngle(), 10.0f, 60.0f);
         ImGui::Separator();
     }
 

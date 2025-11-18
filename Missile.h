@@ -1,5 +1,6 @@
 #pragma once
 #include "CommonInclude.h"
+#include "ParticleSystem.h"
 
 class Missile
 {
@@ -46,5 +47,10 @@ private:
     
     // 색상 - 노란색으로 변경
     glm::vec3 missileColor = glm::vec3(1.0f, 1.0f, 0.0f); // 노란색
+    
+    // 파티클 시스템
+    ParticleSystem smokeTrail;
+    float particleEmissionTimer;
+    const float particleEmissionRate = 0.02f; // 50 파티클/초
 };
 
