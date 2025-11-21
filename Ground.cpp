@@ -20,7 +20,7 @@ void Ground::Initialize()
 	groundTexture.LoadTexture();
 	normalMap.LoadTexture();
 	
-    // Load heightmap image for terrain generation using stb_image
+ 
     int nrChannels;
     unsigned char* data = heightMap.GetImageData(&heightMapWidth, &heightMapHeight, &nrChannels);
     

@@ -60,7 +60,7 @@ void Camera::Update(float deltaTime, const glm::vec3& targetPosition, const glm:
         glm::mat4 rollRotation = glm::rotate(glm::mat4(1.0f), rollRad, -targetForward);
 
         // 전체 회전 매트릭스 (롤 -> 피치 순서)
-        glm::mat4 rotationMatrix = pitchRotation * rollRotation;
+        glm::mat4 rotationMatrix = rollRotation * pitchRotation;
 
         // 로컬 오프셋을 월드 좌표계로 변환
         glm::vec3 worldOffset = -targetForward * localCockpitOffset.x
@@ -87,7 +87,7 @@ void Camera::Update(float deltaTime, const glm::vec3& targetPosition, const glm:
     case 2: // 기관포 사수 뷰
     {
         // 기관포 위치 (헬리콥터 앞쪽 아래)
-        glm::vec3 gunnerOffset = -targetForward * 20.0f - targetUp * 10.0f;
+        glm::vec3 gunnerOffset = -targetForward * 20.0f - targetUp * 12.5f;
         position = targetPosition + gunnerOffset;
 
         // 약간 아래를 향하도록
