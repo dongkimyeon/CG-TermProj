@@ -60,17 +60,23 @@ void Camera::ProcessMouseDrag(int deltaX, int deltaY, float& heliYawRotation)
 
 void Camera::Zoom(int direction)
 {
-    float zoomSpeed = 5.0f;
-    if (direction > 0)
+    float zoomSpeed = 10.0f;
+    
+    if (direction > 0)  // 줌 인
     {
-        radius -= zoomSpeed;
-        if (radius < 2.0f)
-            radius = 2.0f;
+        distance -= zoomSpeed;
+        if (distance < 10.0f)  // 최소 거리
+            distance = 10.0f;
     }
-    else
+    else  // 줌 아웃
     {
-        radius += zoomSpeed;
+        distance += zoomSpeed;
+        if (distance > 500.0f)  // 최대 거리
+            distance = 500.0f;
     }
+    
+    // radius도 같이 조정
+    radius = distance;
 }
 
 glm::mat4 Camera::GetViewMatrix() const

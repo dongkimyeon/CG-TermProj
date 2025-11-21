@@ -145,10 +145,13 @@ int main(int argc, char** argv) {
     return 0;
 }
 
-void WhellFunc(int whell, int dir, int x, int y)
+void WhellFunc(int wheel, int dir, int x, int y)
 {
     if (camera) {
+        // dir > 0: 휠을 위로 (줌 인)
+        // dir < 0: 휠을 아래로 (줌 아웃)
         camera->Zoom(dir);
+        glutPostRedisplay();  // 화면 갱신
     }
 }
 
@@ -274,6 +277,15 @@ void DrawScene()
 
     float fps = 1.0f / Time::DeltaTime();
     ImGui::Text("FPS: %.1f", fps);
+    
+    // 카메라 정보
+    if (camera) {
+        ImGui::Separator();
+        ImGui::Text("Camera");
+        ImGui::Text("Distance: %.1f", camera->GetDistance());
+        ImGui::Text("(Mouse Wheel to Zoom)");
+        ImGui::Separator();
+    }
 
     // Ground HeightMap Control
     if (mGround) {

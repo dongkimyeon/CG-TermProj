@@ -19,6 +19,7 @@ public:
     glm::vec3 GetPosition() const { return position; }
     glm::vec3 GetTarget() const { return target; }
     glm::vec3 GetUp() const { return up; }
+    float GetDistance() const { return distance; }  // ¡‹ ∞≈∏Æ Getter √ﬂ∞°
     glm::mat4 GetViewMatrix() const;
     glm::mat4 GetProjectionMatrix(float aspect, float fov = 100.0f) const;
     

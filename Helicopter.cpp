@@ -33,7 +33,7 @@ Helicopter::Helicopter()
 	, vaoBlade(0), vboBlade(0), eboBlade(0)
 	, vaoTail(0), vboTail(0), eboTail(0)
 	, vaoCannon(0), vboCannon(0), eboCannon(0)
-	, cannonOffset(0.0f, -5.0f, 15.0f)
+	, cannonOffset(28.0f, -16.5f, 0.0f)
 {
 }
 
