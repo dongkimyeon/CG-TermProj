@@ -113,9 +113,10 @@ private:
     float debugRotationY;
     float debugRotationZ;
     
-    // 기관포 오프셋 (바디 기준 상대 위치)
+    // 기관포 오프셋 
     glm::vec3 cannonOffset = glm::vec3(0.0f, -5.0f, 15.0f); // 초기값: 바디 앞쪽 약간 아래
-    
+	float cannonPitch = -45.0f; // 기관포 피치 각도
+    float cannonYaw = -45.0f;    // 기관포 요 각도
     // 미사일 시스템
     std::vector<Missile*> missiles;
     std::vector<Missile*> attachedMissiles;  // 헬리콥터에 붙어있는 미사일
