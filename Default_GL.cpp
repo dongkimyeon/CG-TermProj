@@ -278,7 +278,7 @@ void DrawScene()
         ImGui::Separator();
         ImGui::Text("Terrain Controls");
         
-        if (ImGui::SliderFloat("Height Scale", &currentScale, 0.0f, 10.0f)) {
+        if (ImGui::SliderFloat("Height Scale", &currentScale, 0.0f, 1000.0f)) {
 			mGround->ControlHeightmap(currentScale);
         }
         ImGui::Separator();

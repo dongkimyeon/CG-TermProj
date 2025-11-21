@@ -259,6 +259,7 @@ void Ground::Render(GLuint shaderProgramID, const glm::mat4& view, const glm::ma
     // Model matrix
     glm::mat4 model = glm::mat4(1.0f);
 	model = glm::translate(model, glm::vec3(0.0f, -2.0f, 0.0f));
+	model = glm::scale(model, glm::vec3(10.0f, 1.0f, 10.0f)); 
     glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
     glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
     glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(proj));
