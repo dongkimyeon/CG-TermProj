@@ -14,18 +14,18 @@ Helicopter::Helicopter()
 	, targetRoll(0.0f)
 	, currentPitch(0.0f)
 	, currentRoll(0.0f)
-	, tiltSpeed(8.0f)                   //  더 빠른 기울기 반응 (전투기급)
+	, tiltSpeed(8.0f)                  
 	, mainBladeRotation(0.0f)
-	, mainBladeSpeed(2500.0f)           //  더 빠른 블레이드 회전
+	, mainBladeSpeed(2500.0f)           
 	, tailBladeRotation(0.0f)
 	, tailBladeSpeed(2500.0f)
-	, gravity(9.81f)                    //  현실 중력
-	, maxSpeed(101.4f)                  // 365 km/h = 101.4 m/s (아파치급)
-	, accelerationRate(25.0f)           //  강력한 가속 (약 4초에 최고속도)
-	, drag(1.2f)                        //  낮은 공기저항 (유선형 설계)
-	, maxTiltAngle(35.0f)               //  공격적인 기울기 (전투기동)
+	, gravity(9.81f)                 
+	, maxSpeed(101.4f)                 
+	, accelerationRate(25.0f)          
+	, drag(1.2f)                      
+	, maxTiltAngle(35.0f)               
 	, liftForce(0.0f)
-	, maxLiftForce(60.0f)               //  강력한 양력 (빠른 상승/하강)
+	, maxLiftForce(60.0f)               
 	, debugRotationX(0.0f)
 	, debugRotationY(0.0f)
 	, debugRotationZ(0.0f)
@@ -55,7 +55,7 @@ void Helicopter::Initialize()
 	acceleration = glm::vec3(0.0f);
 	yRotation = 0.0f;
 
-	// 초기 미사일 생성 (헬리콥터에 부착된 상태)
+
 	for (int i = 0; i < maxMissiles; ++i) {
 		Missile* missile = new Missile();
 		missile->Initialize();

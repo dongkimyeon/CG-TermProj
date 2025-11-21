@@ -166,10 +166,12 @@ void DrawScene()
     
     // 카메라 업데이트
     if (camera && helicopter) {
-        camera->Update(Time::DeltaTime(), 
-                      helicopter->GetPosition(), 
-                      helicopter->GetUp(), 
-                      helicopter->GetForward());
+        camera->Update(Time::DeltaTime(),
+            helicopter->GetPosition(),
+            helicopter->GetUp(),
+            helicopter->GetForward(),
+            helicopter->GetPitch(),    // 피치 추가
+            helicopter->GetRoll());    // 롤 추가
     }
 
     // 씬 클리어
@@ -317,27 +319,27 @@ void DrawScene()
         helicopter->SetDebugRotation(xModelRotation, yModelRotation, zModelRotation);
         ImGui::Separator();
 
-        // 기관포 위치 조정 (참조를 통해 직접 수정)
-        ImGui::Text("Cannon Offset");
-        glm::vec3 cannonOffset = helicopter->GetCannonOffset(); // 값 복사로 변경
-        bool cannonChanged = false;
-        
-        cannonChanged |= ImGui::SliderFloat("Cannon X", &cannonOffset.x, -100.0f, 100.0f);
-        cannonChanged |= ImGui::SliderFloat("Cannon Y", &cannonOffset.y, -100.0f, 100.0f);
-        cannonChanged |= ImGui::SliderFloat("Cannon Z", &cannonOffset.z, -100.0f, 100.0f);
-        
-        if (cannonChanged) {
-            helicopter->SetCannonOffset(cannonOffset);
-        }
-        
-        ImGui::Text("Current: (%.1f, %.1f, %.1f)", cannonOffset.x, cannonOffset.y, cannonOffset.z);
-        ImGui::Separator();
-
         ImGui::SliderFloat("Max Speed", &helicopter->GetMaxSpeed(), 10.0f, 200.0f);
         ImGui::SliderFloat("Acceleration", &helicopter->GetAccelerationRate(), 10.0f, 100.0f);
         ImGui::SliderFloat("Max Tilt", &helicopter->GetMaxTiltAngle(), 10.0f, 60.0f);
         ImGui::Separator();
     }
+
+    // 카메라 모드 전환
+    if (camera) {
+        ImGui::Separator();
+        ImGui::Text("Camera Mode");
+
+        const char* modes[] = { "3rd Person", "Cockpit View", "Gunner View" };
+        int currentMode = camera->GetCameraMode();
+
+        if (ImGui::Combo("View Mode", &currentMode, modes, IM_ARRAYSIZE(modes))) {
+            camera->SetCameraMode(currentMode);
+        }
+
+        ImGui::Separator();
+    }
+
 
     if (ImGui::Button("wired frame"))
     {
