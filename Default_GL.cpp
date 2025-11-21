@@ -28,6 +28,7 @@ GLuint shaderProgramID;
 GLuint VAO_Body, VBO_Body, EBO_Body;
 GLuint VAO_Blade, VBO_Blade, EBO_Blade;
 GLuint VAO_Tail, VBO_Tail, EBO_Tail;
+GLuint VAO_Cannon, VBO_Cannon, EBO_Cannon;
 
 //스카이박스 관련
 GLuint skyboxVAO, skyboxVBO;
@@ -102,7 +103,8 @@ int main(int argc, char** argv) {
     helicopter->Initialize();
     helicopter->LoadModels(VAO_Body, VBO_Body, EBO_Body,
                           VAO_Blade, VBO_Blade, EBO_Blade,
-                          VAO_Tail, VBO_Tail, EBO_Tail);
+                          VAO_Tail, VBO_Tail, EBO_Tail,
+                          VAO_Cannon, VBO_Cannon, EBO_Cannon);
     
     // 땅 초기화
     mGround = new Ground();
@@ -301,6 +303,22 @@ void DrawScene()
         ImGui::SliderFloat("Model RotationY", &yModelRotation, -180.0f, 180.0f);
         ImGui::SliderFloat("Model RotationZ", &zModelRotation, -180.0f, 180.0f);
         helicopter->SetDebugRotation(xModelRotation, yModelRotation, zModelRotation);
+        ImGui::Separator();
+
+        // 기관포 위치 조정 (참조를 통해 직접 수정)
+        ImGui::Text("Cannon Offset");
+        glm::vec3 cannonOffset = helicopter->GetCannonOffset(); // 값 복사로 변경
+        bool cannonChanged = false;
+        
+        cannonChanged |= ImGui::SliderFloat("Cannon X", &cannonOffset.x, -100.0f, 100.0f);
+        cannonChanged |= ImGui::SliderFloat("Cannon Y", &cannonOffset.y, -100.0f, 100.0f);
+        cannonChanged |= ImGui::SliderFloat("Cannon Z", &cannonOffset.z, -100.0f, 100.0f);
+        
+        if (cannonChanged) {
+            helicopter->SetCannonOffset(cannonOffset);
+        }
+        
+        ImGui::Text("Current: (%.1f, %.1f, %.1f)", cannonOffset.x, cannonOffset.y, cannonOffset.z);
         ImGui::Separator();
 
         ImGui::SliderFloat("Max Speed", &helicopter->GetMaxSpeed(), 10.0f, 200.0f);
@@ -525,6 +543,27 @@ void InitBuffers() {
 
     glGenBuffers(1, &EBO_Tail);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO_Tail);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, 0, nullptr, GL_STATIC_DRAW);
+
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, (void*)0);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, stride, (void*)(3 * sizeof(GLfloat)));
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, stride, (void*)(5 * sizeof(GLfloat)));
+    glEnableVertexAttribArray(2);
+    glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, stride, (void*)(8 * sizeof(GLfloat)));
+    glEnableVertexAttribArray(3);
+
+	// Cannon 버퍼
+    glGenVertexArrays(1, &VAO_Cannon);
+    glBindVertexArray(VAO_Cannon);
+
+    glGenBuffers(1, &VBO_Cannon);
+    glBindBuffer(GL_ARRAY_BUFFER, VBO_Cannon);
+    glBufferData(GL_ARRAY_BUFFER, 0, nullptr, GL_STATIC_DRAW);
+
+    glGenBuffers(1, &EBO_Cannon);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO_Cannon);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, 0, nullptr, GL_STATIC_DRAW);
 
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, (void*)0);

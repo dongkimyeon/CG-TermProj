@@ -1,4 +1,4 @@
-#include "Helicopter.h"
+ï»¿#include "Helicopter.h"
 #include "Input.h"
 #include "Time.h"
 
@@ -14,30 +14,32 @@ Helicopter::Helicopter()
 	, targetRoll(0.0f)
 	, currentPitch(0.0f)
 	, currentRoll(0.0f)
-	, tiltSpeed(8.0f)                   // ?? ´õ ºü¸¥ ±â¿ï±â ¹İÀÀ (ÀüÅõ±â±Ş)
+	, tiltSpeed(8.0f)                   //  ë” ë¹ ë¥¸ ê¸°ìš¸ê¸° ë°˜ì‘ (ì „íˆ¬ê¸°ê¸‰)
 	, mainBladeRotation(0.0f)
-	, mainBladeSpeed(2500.0f)           // ?? ´õ ºü¸¥ ºí·¹ÀÌµå È¸Àü
+	, mainBladeSpeed(2500.0f)           //  ë” ë¹ ë¥¸ ë¸”ë ˆì´ë“œ íšŒì „
 	, tailBladeRotation(0.0f)
 	, tailBladeSpeed(2500.0f)
-	, gravity(9.81f)                    // ? Çö½Ç Áß·Â
-	, maxSpeed(101.4f)                  // ?? 365 km/h = 101.4 m/s (¾ÆÆÄÄ¡±Ş)
-	, accelerationRate(25.0f)           // ?? °­·ÂÇÑ °¡¼Ó (¾à 4ÃÊ¿¡ ÃÖ°í¼Óµµ)
-	, drag(1.2f)                        // ?? ³·Àº °ø±âÀúÇ× (À¯¼±Çü ¼³°è)
-	, maxTiltAngle(35.0f)               // ?? °ø°İÀûÀÎ ±â¿ï±â (ÀüÅõ±âµ¿)
+	, gravity(9.81f)                    //  í˜„ì‹¤ ì¤‘ë ¥
+	, maxSpeed(101.4f)                  // 365 km/h = 101.4 m/s (ì•„íŒŒì¹˜ê¸‰)
+	, accelerationRate(25.0f)           //  ê°•ë ¥í•œ ê°€ì† (ì•½ 4ì´ˆì— ìµœê³ ì†ë„)
+	, drag(1.2f)                        //  ë‚®ì€ ê³µê¸°ì €í•­ (ìœ ì„ í˜• ì„¤ê³„)
+	, maxTiltAngle(35.0f)               //  ê³µê²©ì ì¸ ê¸°ìš¸ê¸° (ì „íˆ¬ê¸°ë™)
 	, liftForce(0.0f)
-	, maxLiftForce(60.0f)               // ?? °­·ÂÇÑ ¾ç·Â (ºü¸¥ »ó½Â/ÇÏ°­)
+	, maxLiftForce(60.0f)               //  ê°•ë ¥í•œ ì–‘ë ¥ (ë¹ ë¥¸ ìƒìŠ¹/í•˜ê°•)
 	, debugRotationX(0.0f)
 	, debugRotationY(0.0f)
 	, debugRotationZ(0.0f)
 	, vaoBody(0), vboBody(0), eboBody(0)
 	, vaoBlade(0), vboBlade(0), eboBlade(0)
 	, vaoTail(0), vboTail(0), eboTail(0)
+	, vaoCannon(0), vboCannon(0), eboCannon(0)
+	, cannonOffset(0.0f, -5.0f, 15.0f)
 {
 }
 
 Helicopter::~Helicopter()
 {
-	// ¹Ì»çÀÏ ¸Ş¸ğ¸® ÇØÁ¦
+	// ë¯¸ì‚¬ì¼ ë©”ëª¨ë¦¬ í•´ì œ
 	for (auto* missile : missiles) {
 		delete missile;
 	}
@@ -53,7 +55,7 @@ void Helicopter::Initialize()
 	acceleration = glm::vec3(0.0f);
 	yRotation = 0.0f;
 
-	// ÃÊ±â ¹Ì»çÀÏ »ı¼º (Çï¸®ÄßÅÍ¿¡ ºÎÂøµÈ »óÅÂ)
+	// ì´ˆê¸° ë¯¸ì‚¬ì¼ ìƒì„± (í—¬ë¦¬ì½¥í„°ì— ë¶€ì°©ëœ ìƒíƒœ)
 	for (int i = 0; i < maxMissiles; ++i) {
 		Missile* missile = new Missile();
 		missile->Initialize();
@@ -65,7 +67,8 @@ void Helicopter::Initialize()
 
 void Helicopter::LoadModels(GLuint vaoB, GLuint vboB, GLuint eboB,
 	GLuint vaoBl, GLuint vboBl, GLuint eboBl,
-	GLuint vaoT, GLuint vboT, GLuint eboT)
+	GLuint vaoT, GLuint vboT, GLuint eboT,
+	GLuint vaoC, GLuint vboC, GLuint eboC)
 {
 	vaoBody = vaoB;
 	vboBody = vboB;
@@ -79,83 +82,99 @@ void Helicopter::LoadModels(GLuint vaoB, GLuint vboB, GLuint eboB,
 	vboTail = vboT;
 	eboTail = eboT;
 
-	// FBX ·Îµå
+	vaoCannon = vaoC;
+	vboCannon = vboC;
+	eboCannon = eboC;
+
+
+	// FBX ë¡œë“œ
 	if (!LoadFBX("HeliBlade.FBX", &bladeModel)) {
-		std::cerr << "HeliBlade FBX ·Îµå ½ÇÆĞ." << std::endl;
+		std::cerr << "HeliBlade FBX ë¡œë“œ ì‹¤íŒ¨." << std::endl;
 	}
 	else {
 		UpdateModelBuffers(&bladeModel, vaoBlade, vboBlade, eboBlade);
+		std::cout << "HeliBlade ë¡œë“œ ì„±ê³µ: " << bladeModel.vertices.size() / 11 << " vertices" << std::endl;
 	}
 
 	if (!LoadFBX("HeliBody.FBX", &bodyModel)) {
-		std::cerr << "HeliBody FBX ·Îµå ½ÇÆĞ." << std::endl;
+		std::cerr << "HeliBody FBX ë¡œë“œ ì‹¤íŒ¨." << std::endl;
 	}
 	else {
 		UpdateModelBuffers(&bodyModel, vaoBody, vboBody, eboBody);
+		std::cout << "HeliBody ë¡œë“œ ì„±ê³µ: " << bodyModel.vertices.size() / 11 << " vertices" << std::endl;
 	}
 
 	if (!LoadFBX("HeliTail.FBX", &tailModel)) {
-		std::cerr << "HeliTail FBX ·Îµå ½ÇÆĞ." << std::endl;
+		std::cerr << "HeliTail FBX ë¡œë“œ ì‹¤íŒ¨." << std::endl;
 	}
 	else {
 		UpdateModelBuffers(&tailModel, vaoTail, vboTail, eboTail);
+		std::cout << "HeliTail ë¡œë“œ ì„±ê³µ: " << tailModel.vertices.size() / 11 << " vertices" << std::endl;
 	}
+	if (!LoadFBX("HeliCannon.FBX", &CannonModel)) {
+		std::cerr << "HeliTail FBX ë¡œë“œ ì‹¤íŒ¨." << std::endl;
+	}
+	else {
+		UpdateModelBuffers(&CannonModel, vaoCannon, vboCannon, eboCannon);
+		std::cout << "HeliCannon ë¡œë“œ ì„±ê³µ: " << CannonModel.vertices.size() / 11 << " vertices" << std::endl;
+	}
+	
 }
 
 void Helicopter::Update(float deltaTime)
 {
-	// ºí·¹ÀÌµå È¸Àü
+	// ë¸”ë ˆì´ë“œ íšŒì „
 	mainBladeRotation += mainBladeSpeed * deltaTime;
 	tailBladeRotation += tailBladeSpeed * deltaTime;
 
-	// ÀÔ·Â Ã³¸®
+	// ì…ë ¥ ì²˜ë¦¬
 	ProcessInput(deltaTime);
 
-	// ¹°¸® ¾÷µ¥ÀÌÆ®
+	// ë¬¼ë¦¬ ì—…ë°ì´íŠ¸
 	UpdatePhysics(deltaTime);
 
-	// ¹æÇâ ¾÷µ¥ÀÌÆ®
+	// ë°©í–¥ ì—…ë°ì´íŠ¸
 	UpdateOrientation(deltaTime);
 
-	// ¹Ì»çÀÏ ¾÷µ¥ÀÌÆ®
+	// ë¯¸ì‚¬ì¼ ì—…ë°ì´íŠ¸
 	UpdateMissiles(deltaTime);
 	UpdateMissilePositions();
 }
 
 void Helicopter::ProcessInput(float deltaTime)
 {
-	// ÇöÀç Çï±âÀÇ È¸Àü ¹æÇâ º¤ÅÍ °è»ê
+	// í˜„ì¬ í—¬ê¸°ì˜ íšŒì „ ë°©í–¥ ë²¡í„° ê³„ì‚°
 	float yawRad = glm::radians(yRotation);
 	glm::vec3 forwardDir = glm::vec3(cos(yawRad), 0.0f, -sin(yawRad));
 	glm::vec3 rightDir = glm::vec3(sin(yawRad), 0.0f, cos(yawRad));
 
-	// ÀüÁø
+	// ì „ì§„
 	if (Input::GetKey(eKeyCode::W))
 	{
 		acceleration += forwardDir * accelerationRate;
 		targetPitch = -maxTiltAngle;
 	}
-	// ÈÄÁø
+	// í›„ì§„
 	if (Input::GetKey(eKeyCode::S))
 	{
 		acceleration -= forwardDir * accelerationRate;
 		targetPitch = maxTiltAngle;
 	}
 
-	// ÁÂÃø ÀÌµ¿
+	// ì¢Œì¸¡ ì´ë™
 	if (Input::GetKey(eKeyCode::A))
 	{
 		acceleration -= rightDir * accelerationRate;
 		targetRoll = -maxTiltAngle;
 	}
-	// ¿ìÃø ÀÌµ¿
+	// ìš°ì¸¡ ì´ë™
 	if (Input::GetKey(eKeyCode::D))
 	{
 		acceleration += rightDir * accelerationRate;
 		targetRoll = maxTiltAngle;
 	}
 
-	// ±â¿ï±â º¹¿ø
+	// ê¸°ìš¸ê¸° ë³µì›
 	if (!Input::GetKey(eKeyCode::W) && !Input::GetKey(eKeyCode::S))
 	{
 		targetPitch = 0.0f;
@@ -165,7 +184,7 @@ void Helicopter::ProcessInput(float deltaTime)
 		targetRoll = 0.0f;
 	}
 
-	// °íµµ Á¦¾î
+	// ê³ ë„ ì œì–´
 	if (Input::GetKey(eKeyCode::SPACE))
 	{
 		liftForce = maxLiftForce;
@@ -176,10 +195,10 @@ void Helicopter::ProcessInput(float deltaTime)
 	}
 	else
 	{
-		liftForce = gravity; // È£¹ö¸µ
+		liftForce = gravity; // í˜¸ë²„ë§
 	}
 
-	// ¹Ì»çÀÏ ¹ß»ç (F Å°)
+	// ë¯¸ì‚¬ì¼ ë°œì‚¬ (F í‚¤)
 	if (Input::GetKeyDown(eKeyCode::F))
 	{
 		FireMissile();
@@ -188,51 +207,51 @@ void Helicopter::ProcessInput(float deltaTime)
 
 void Helicopter::UpdatePhysics(float deltaTime)
 {
-	// 1. °ø±â ÀúÇ× Àû¿ë
+	// 1. ê³µê¸° ì €í•­ ì ìš©
 	glm::vec3 dragForce = -velocity * drag;
 	acceleration += dragForce * deltaTime;
 
-	// 2. ¼Óµµ ¾÷µ¥ÀÌÆ®
+	// 2. ì†ë„ ì—…ë°ì´íŠ¸
 	velocity += acceleration * deltaTime;
 
-	// 3. ÃÖ´ë ¼Óµµ Á¦ÇÑ
+	// 3. ìµœëŒ€ ì†ë„ ì œí•œ
 	float currentSpeed = glm::length(velocity);
 	if (currentSpeed > maxSpeed) {
 		velocity = glm::normalize(velocity) * maxSpeed;
 	}
 
-	// 4. À§Ä¡ ¾÷µ¥ÀÌÆ®
+	// 4. ìœ„ì¹˜ ì—…ë°ì´íŠ¸
 	position += velocity * deltaTime;
 
-	// 5. Áß·Â°ú ¾ç·Â Àû¿ë
+	// 5. ì¤‘ë ¥ê³¼ ì–‘ë ¥ ì ìš©
 	float netVerticalForce = liftForce - gravity;
 	position.y += netVerticalForce * deltaTime;
 
-	// Áö¸é Ãæµ¹ ¹æÁö
+	// ì§€ë©´ ì¶©ëŒ ë°©ì§€
 	if (position.y < 0.0f) {
 		position.y = 0.0f;
 		velocity.y = 0.0f;
 	}
 
-	// 6. ±â¿ï±â ºÎµå·´°Ô º¸°£
+	// 6. ê¸°ìš¸ê¸° ë¶€ë“œëŸ½ê²Œ ë³´ê°„
 	currentPitch = glm::mix(currentPitch, targetPitch, tiltSpeed * deltaTime);
 	currentRoll = glm::mix(currentRoll, targetRoll, tiltSpeed * deltaTime);
 
-	// 7. °¡¼Óµµ ÃÊ±âÈ­
+	// 7. ê°€ì†ë„ ì´ˆê¸°í™”
 	acceleration = glm::vec3(0.0f);
 }
 
 void Helicopter::UpdateOrientation(float deltaTime)
 {
-	// Ä«¸Ş¶ó¿ë È¸Àü ¸ÅÆ®¸¯½º: YÃà È¸Àü(yaw)¸¸ Àû¿ë
+	// ì¹´ë©”ë¼ìš© íšŒì „ ë§¤íŠ¸ë¦­ìŠ¤: Yì¶• íšŒì „(yaw)ë§Œ ì ìš©
 	glm::mat4 rotationMat = glm::mat4(1.0f);
 	rotationMat = glm::rotate(rotationMat, glm::radians(yRotation), glm::vec3(0.0f, 1.0f, 0.0f));
 
-	// Çï±âÀÇ ±âº» ¹æÇâ º¤ÅÍ
+	// í—¬ê¸°ì˜ ê¸°ë³¸ ë°©í–¥ ë²¡í„°
 	glm::vec3 baseForward = glm::vec3(-1.0f, 0.0f, 0.0f);
 	glm::vec3 baseUp = glm::vec3(0.0f, 1.0f, 0.0f);
 
-	// ±âÀúº¤ÅÍ ¾÷µ¥ÀÌÆ® (YÃà È¸Àü¸¸ ¹İ¿µ)
+	// ê¸°ì €ë²¡í„° ì—…ë°ì´íŠ¸ (Yì¶• íšŒì „ë§Œ ë°˜ì˜)
 	forward = glm::vec3(rotationMat * glm::vec4(baseForward, 0.0f));
 	up = glm::vec3(rotationMat * glm::vec4(baseUp, 0.0f));
 	right = glm::cross(forward, up);
@@ -244,12 +263,13 @@ glm::mat4 Helicopter::GetHelicopterTransform() const
 	worldModelMat = glm::translate(worldModelMat, position);
 	worldModelMat = glm::rotate(worldModelMat, glm::radians(yRotation), glm::vec3(0.0f, 1.0f, 0.0f));
 
-	// ¹°¸® ±â¹İ ±â¿ï±â Àû¿ë
+	// ë¬¼ë¦¬ ê¸°ë°˜ ê¸°ìš¸ê¸° ì ìš©
 	worldModelMat = glm::rotate(worldModelMat, glm::radians(currentRoll), glm::vec3(1.0f, 0.0f, 0.0f));
 	worldModelMat = glm::rotate(worldModelMat, glm::radians(currentPitch), glm::vec3(0.0f, 0.0f, 1.0f));
 
-	// µğ¹ö±× È¸Àü
+	// ë””ë²„ê·¸ íšŒì „
 	worldModelMat = glm::rotate(worldModelMat, glm::radians(debugRotationX), glm::vec3(1.0f, 0.0f, 0.0f));
+	worldModelMat = glm::rotate(worldModelMat, glm::radians(debugRotationY), glm::vec3(0.0f, 1.0f, 0.0f));
 	worldModelMat = glm::rotate(worldModelMat, glm::radians(debugRotationZ), glm::vec3(0.0f, 0.0f, 1.0f));
 
 	return worldModelMat;
@@ -269,7 +289,7 @@ void Helicopter::UpdateMissilePositions()
 
 	glm::mat4 heliTransform = GetHelicopterTransform();
 
-	// ¹Ì»çÀÏµéÀ» Çï¸®ÄßÅÍ ¾Æ·¡ÂÊ¿¡ ÀÏ·Ä·Î ¹èÄ¡
+	// ë¯¸ì‚¬ì¼ë“¤ì„ í—¬ë¦¬ì½¥í„° ì•„ë˜ìª½ì— ì¼ë ¬ë¡œ ë°°ì¹˜
 	float totalWidth = (attachedMissiles.size() - 1) * missileSpacing;
 	float startOffset = -totalWidth * 0.5f;
 
@@ -280,20 +300,20 @@ void Helicopter::UpdateMissilePositions()
 
 		attachedMissiles[i]->SetPosition(glm::vec3(worldPos));
 
-		// Çï¸®ÄßÅÍÀÇ ±âÀúº¤ÅÍ forward ¹æÇâ¿¡ ÇÇÄ¡¸¦ ¹İ¿µ
+		// í—¬ë¦¬ì½¥í„°ì˜ ê¸°ì €ë²¡í„° forward ë°©í–¥ì— í”¼ì¹˜ë¥¼ ë°˜ì˜
 		float pitchRad = glm::radians(currentPitch);
 
-		// forward º¤ÅÍ¸¦ ±âÁØÀ¸·Î ÇÇÄ¡ Àû¿ë
-		glm::vec3 baseForward = glm::normalize(forward); // ±âÀúº¤ÅÍÀÇ forward »ç¿ë
-		glm::vec3 baseUp = glm::normalize(up);      // ±âÀúº¤ÅÍÀÇ up »ç¿ë
+		// forward ë²¡í„°ë¥¼ ê¸°ì¤€ìœ¼ë¡œ í”¼ì¹˜ ì ìš©
+		glm::vec3 baseForward = glm::normalize(forward); // ê¸°ì €ë²¡í„°ì˜ forward ì‚¬ìš©
+		glm::vec3 baseUp = glm::normalize(up);      // ê¸°ì €ë²¡í„°ì˜ up ì‚¬ìš©
 
-		// ÇÇÄ¡ È¸ÀüÀ» À§ÇÑ Ãà (right º¤ÅÍ)
+		// í”¼ì¹˜ íšŒì „ì„ ìœ„í•œ ì¶• (right ë²¡í„°)
 		glm::vec3 rightAxis = glm::normalize(glm::cross(baseForward, baseUp));
 
-		// ÇÇÄ¡ È¸Àü ¸ÅÆ®¸¯½º »ı¼º
+		// í”¼ì¹˜ íšŒì „ ë§¤íŠ¸ë¦­ìŠ¤ ìƒì„±
 		glm::mat4 pitchRotation = glm::rotate(glm::mat4(1.0f), pitchRad, rightAxis);
 
-		// forward º¤ÅÍ¿¡ ÇÇÄ¡ Àû¿ë
+		// forward ë²¡í„°ì— í”¼ì¹˜ ì ìš©
 		glm::vec4 pitchedForward = pitchRotation * glm::vec4(baseForward, 0.0f);
 		glm::vec3 missileDirection = glm::normalize(glm::vec3(pitchedForward));
 
@@ -305,46 +325,46 @@ void Helicopter::FireMissile()
 {
 	if (attachedMissiles.empty()) return;
 
-	// Ã¹ ¹øÂ° ¹Ì»çÀÏÀ» ¹ß»ç
+	// ì²« ë²ˆì§¸ ë¯¸ì‚¬ì¼ì„ ë°œì‚¬
 	Missile* missileToFire = attachedMissiles.front();
 	attachedMissiles.erase(attachedMissiles.begin());
 
-	// ¹ß»ç À§Ä¡: Çï¸®ÄßÅÍ Àü¹æ ¾à°£ ¾ÕÂÊ¿¡¼­ ¹ß»ç
+	// ë°œì‚¬ ìœ„ì¹˜: í—¬ë¦¬ì½¥í„° ì „ë°© ì•½ê°„ ì•ìª½ì—ì„œ ë°œì‚¬
 	glm::mat4 heliTransform = GetHelicopterTransform();
-	glm::vec3 forwardOffset = glm::vec3(5.0f, 0.0f, 0.0f); // Çï¸®ÄßÅÍ Àü¹æÀ¸·Î 5 ´ÜÀ§
+	glm::vec3 forwardOffset = glm::vec3(5.0f, 0.0f, 0.0f); // í—¬ë¦¬ì½¥í„° ì „ë°©ìœ¼ë¡œ 5 ë‹¨ìœ„
 	glm::vec4 launchPosWorld = heliTransform * glm::vec4(forwardOffset, 1.0f);
 	glm::vec3 launchPos = glm::vec3(launchPosWorld);
 
-	// ¹ß»ç ¹æÇâ: Çï¸®ÄßÅÍÀÇ ±âÀúº¤ÅÍ forward ¹æÇâ¿¡ ÇÇÄ¡ ¹İ¿µ
+	// ë°œì‚¬ ë°©í–¥: í—¬ë¦¬ì½¥í„°ì˜ ê¸°ì €ë²¡í„° forward ë°©í–¥ì— í”¼ì¹˜ ë°˜ì˜
 	float pitchRad = - glm::radians(currentPitch);
 
-	// forward º¤ÅÍ¸¦ ±âÁØÀ¸·Î ÇÇÄ¡ Àû¿ë
-	glm::vec3 baseForward = glm::normalize(forward); // ±âÀúº¤ÅÍÀÇ forward »ç¿ë
-	glm::vec3 baseUp = glm::normalize(up);   // ±âÀúº¤ÅÍÀÇ up »ç¿ë
+	// forward ë²¡í„°ë¥¼ ê¸°ì¤€ìœ¼ë¡œ í”¼ì¹˜ ì ìš©
+	glm::vec3 baseForward = glm::normalize(forward); // ê¸°ì €ë²¡í„°ì˜ forward ì‚¬ìš©
+	glm::vec3 baseUp = glm::normalize(up);   // ê¸°ì €ë²¡í„°ì˜ up ì‚¬ìš©
 
-	// ÇÇÄ¡ È¸ÀüÀ» À§ÇÑ Ãà (right º¤ÅÍ)
+	// í”¼ì¹˜ íšŒì „ì„ ìœ„í•œ ì¶• (right ë²¡í„°)
 	glm::vec3 rightAxis = glm::normalize(glm::cross(baseForward, baseUp));
 
-	// ÇÇÄ¡ È¸Àü ¸ÅÆ®¸¯½º »ı¼º
+	// í”¼ì¹˜ íšŒì „ ë§¤íŠ¸ë¦­ìŠ¤ ìƒì„±
 	glm::mat4 pitchRotation = glm::rotate(glm::mat4(1.0f), pitchRad, rightAxis);
 
-	// forward º¤ÅÍ¿¡ ÇÇÄ¡ Àû¿ë
+	// forward ë²¡í„°ì— í”¼ì¹˜ ì ìš©
 	glm::vec4 pitchedForward = pitchRotation * glm::vec4(baseForward, 0.0f);
 	glm::vec3 launchDir = -glm::normalize(glm::vec3(pitchedForward));
 
 	missileToFire->Launch(launchPos, launchDir);
 	missiles.push_back(missileToFire);
 
-	std::cout << "¹Ì»çÀÏ ¹ß»ç! ³²Àº ¹Ì»çÀÏ: " << attachedMissiles.size() << std::endl;
+	std::cout << "ë¯¸ì‚¬ì¼ ë°œì‚¬! ë‚¨ì€ ë¯¸ì‚¬ì¼: " << attachedMissiles.size() << std::endl;
 }
 
 void Helicopter::UpdateMissiles(float deltaTime)
 {
-	// ¹ß»çµÈ ¹Ì»çÀÏµé ¾÷µ¥ÀÌÆ®
+	// ë°œì‚¬ëœ ë¯¸ì‚¬ì¼ë“¤ ì—…ë°ì´íŠ¸
 	for (auto it = missiles.begin(); it != missiles.end();) {
 		(*it)->Update(deltaTime);
 
-		// ºñÈ°¼ºÈ­µÈ ¹Ì»çÀÏ Á¦°Å
+		// ë¹„í™œì„±í™”ëœ ë¯¸ì‚¬ì¼ ì œê±°
 		if (!(*it)->IsActive()) {
 			delete* it;
 			it = missiles.erase(it);
@@ -357,12 +377,12 @@ void Helicopter::UpdateMissiles(float deltaTime)
 
 void Helicopter::RenderMissiles(GLuint shaderID, const glm::mat4& view, const glm::mat4& proj)
 {
-	// ºÎÂøµÈ ¹Ì»çÀÏµé ·»´õ¸µ
+	// ë¶€ì°©ëœ ë¯¸ì‚¬ì¼ë“¤ ë Œë”ë§
 	for (auto* missile : attachedMissiles) {
 		missile->Render(shaderID, view, proj);
 	}
 
-	// ¹ß»çµÈ ¹Ì»çÀÏµé ·»´õ¸µ
+	// ë°œì‚¬ëœ ë¯¸ì‚¬ì¼ë“¤ ë Œë”ë§
 	for (auto* missile : missiles) {
 		missile->Render(shaderID, view, proj);
 	}
@@ -377,13 +397,13 @@ void Helicopter::Render(GLuint shaderID, bool wireframeMode, float glassAlpha, f
 	GLint useNormalMapLoc = glGetUniformLocation(shaderID, "useNormalMap");
 	GLint useTextureLoc = glGetUniformLocation(shaderID, "useTexture");
 
-	// Çï¸®ÄßÅÍ´Â ÅØ½ºÃ³¸¦ »ç¿ë
+	// í—¬ë¦¬ì½¥í„°ëŠ” í…ìŠ¤ì²˜ë¥¼ ì‚¬ìš©
 	glUniform1f(useTextureLoc, 1.0f);
 
-	// Çï±â ÀüÃ¼ ¸ğµ¨ ¸ÅÆ®¸¯½º
+	// í—¬ê¸° ì „ì²´ ëª¨ë¸ ë§¤íŠ¸ë¦­ìŠ¤
 	glm::mat4 worldModelMat = GetHelicopterTransform();
 
-	// ¸öÃ¼ ·»´õ¸µ
+	// ëª¸ì²´ ë Œë”ë§
 	if (bodyModel.loaded && !bodyModel.indices.empty())
 	{
 		glUniform1i(useNormalMapLoc, bodyModel.normalMap != nullptr ? 1 : 0);
@@ -432,7 +452,7 @@ void Helicopter::Render(GLuint shaderID, bool wireframeMode, float glassAlpha, f
 		glBindTexture(GL_TEXTURE_2D, 0);
 	}
 
-	// ¸ŞÀÎ ºí·¹ÀÌµå ·»´õ¸µ
+	// ë©”ì¸ ë¸”ë ˆì´ë“œ ë Œë”ë§
 	if (bladeModel.loaded && !bladeModel.indices.empty())
 	{
 		glUniform1f(alphaValueLoc, 1.0f);
@@ -474,7 +494,7 @@ void Helicopter::Render(GLuint shaderID, bool wireframeMode, float glassAlpha, f
 		glBindTexture(GL_TEXTURE_2D, 0);
 	}
 
-	// Å×ÀÏ ºí·¹ÀÌµå ·»´õ¸µ
+	// í…Œì¼ ë¸”ë ˆì´ë“œ ë Œë”ë§
 	if (tailModel.loaded && !tailModel.indices.empty())
 	{
 		glUniform1f(alphaValueLoc, 1.0f);
@@ -518,4 +538,51 @@ void Helicopter::Render(GLuint shaderID, bool wireframeMode, float glassAlpha, f
 		glActiveTexture(GL_TEXTURE1);
 		glBindTexture(GL_TEXTURE_2D, 0);
 	}
+
+	// í…Œì¼ ë¸”ë ˆì´ë“œ ë Œë”ë§
+	if (CannonModel.loaded && !CannonModel.indices.empty())
+	{
+		glUniform1f(alphaValueLoc, 1.0f);
+		glUniform1i(useNormalMapLoc, CannonModel.normalMap != nullptr ? 1 : 0);
+
+		glm::mat4 modelMat = worldModelMat;
+		modelMat = glm::translate(modelMat, glm::vec3(cannonOffset));
+
+		modelMat = glm::scale(modelMat, glm::vec3(modelScale));
+		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(modelMat));
+
+		glBindVertexArray(vaoCannon);
+		if (wireframeMode) {
+			glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+		}
+		else {
+			glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+		}
+
+		for (size_t i = 0; i < CannonModel.meshes.size(); ++i) {
+			const auto& meshInfo = CannonModel.meshes[i];
+
+			if (meshInfo.materialIndex < CannonModel.textureList.size() &&
+				CannonModel.textureList[meshInfo.materialIndex]) {
+				CannonModel.textureList[meshInfo.materialIndex]->UseTexture(0);
+				glUniform1i(textureLoc, 0);
+			}
+
+			if (CannonModel.normalMap) {
+				CannonModel.normalMap->UseTexture(1);
+				glUniform1i(normalMapLoc, 1);
+			}
+
+			glDrawElements(GL_TRIANGLES, meshInfo.indexCount, GL_UNSIGNED_INT,
+				(void*)(meshInfo.indexStart * sizeof(GLuint)));
+		}
+
+		glBindVertexArray(0);
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, 0);
+		glActiveTexture(GL_TEXTURE1);
+		glBindTexture(GL_TEXTURE_2D, 0);
+	}
+
+
 }

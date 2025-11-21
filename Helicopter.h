@@ -10,9 +10,10 @@ public:
     
     // 초기화
     void Initialize();
-    void LoadModels(GLuint vaoBody, GLuint vboBody, GLuint eboBody,
-                    GLuint vaoBlade, GLuint vboBlade, GLuint eboBlade,
-                    GLuint vaoTail, GLuint vboTail, GLuint eboTail);
+    void LoadModels(GLuint vaoB, GLuint vboB, GLuint eboB,
+        GLuint vaoBl, GLuint vboBl, GLuint eboBl,
+        GLuint vaoT, GLuint vboT, GLuint eboT,
+        GLuint vaoC, GLuint vboC, GLuint eboC);
     
     // 업데이트
     void Update(float deltaTime);
@@ -44,6 +45,10 @@ public:
     }
     void SetYaw(float yaw) { yRotation = yaw; }
     
+    // 기관포 오프셋 getter/setter
+    glm::vec3& GetCannonOffset() { return cannonOffset; }
+    void SetCannonOffset(const glm::vec3& offset) { cannonOffset = offset; }
+    
     // 물리 파라미터 접근
     float& GetMaxSpeed() { return maxSpeed; }
     float& GetAccelerationRate() { return accelerationRate; }
@@ -62,11 +67,13 @@ private:
     FBXModel bodyModel;
     FBXModel bladeModel;
     FBXModel tailModel;
+    FBXModel CannonModel;
     
     // 버퍼 ID
     GLuint vaoBody, vboBody, eboBody;
     GLuint vaoBlade, vboBlade, eboBlade;
     GLuint vaoTail, vboTail, eboTail;
+	GLuint vaoCannon, vboCannon, eboCannon;
     
     // 위치 및 방향
     glm::vec3 position;
@@ -105,6 +112,9 @@ private:
     float debugRotationX;
     float debugRotationY;
     float debugRotationZ;
+    
+    // 기관포 오프셋 (바디 기준 상대 위치)
+    glm::vec3 cannonOffset = glm::vec3(0.0f, -5.0f, 15.0f); // 초기값: 바디 앞쪽 약간 아래
     
     // 미사일 시스템
     std::vector<Missile*> missiles;
