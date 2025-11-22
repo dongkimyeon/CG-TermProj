@@ -123,7 +123,7 @@ bool LoadFBX(const char* filename, FBXModel* fbxModel)
 
     std::cout << "\n=== 파일: " << filename << " ===" << std::endl;
     std::cout << "머티리얼 개수: " << scene->mNumMaterials << std::endl;
-    
+
     for (unsigned int i = 0; i < scene->mNumMaterials; i++) {
         aiMaterial* material = scene->mMaterials[i];
         aiString matName;
@@ -131,26 +131,7 @@ bool LoadFBX(const char* filename, FBXModel* fbxModel)
 
         std::cout << "\n[Material " << i << "]" << std::endl;
         std::cout << "  이름: " << matName.C_Str() << std::endl;
-
-        unsigned int diffuseCount = material->GetTextureCount(aiTextureType_DIFFUSE);
-        std::cout << "  Diffuse 텍스처 개수: " << diffuseCount << std::endl;
-
-        for (unsigned int j = 0; j < diffuseCount; j++) {
-            aiString texPath;
-            if (material->GetTexture(aiTextureType_DIFFUSE, j, &texPath) == AI_SUCCESS) {
-                std::cout << "    - Diffuse[" << j << "]: " << texPath.C_Str() << std::endl;
-            }
-        }
-
-        unsigned int specularCount = material->GetTextureCount(aiTextureType_SPECULAR);
-        if (specularCount > 0) {
-            std::cout << "  Specular 텍스처 개수: " << specularCount << std::endl;
-        }
-
-        unsigned int normalCount = material->GetTextureCount(aiTextureType_NORMALS);
-        if (normalCount > 0) {
-            std::cout << "  Normal 텍스처 개수: " << normalCount << std::endl;
-        }
+     
     }
     std::cout << "====================\n" << std::endl;
 
@@ -162,7 +143,7 @@ bool LoadFBX(const char* filename, FBXModel* fbxModel)
 
         for (unsigned int i = 0; i < mesh->mNumVertices; i++) {
             glm::vec3 pos(mesh->mVertices[i].x, mesh->mVertices[i].y, mesh->mVertices[i].z);
-            
+
             // 좌표계 변환: Y-up -> Z-up
             glm::mat4 coordTransform = glm::rotate(glm::mat4(1.0f), glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
             pos = glm::vec3(coordTransform * glm::vec4(pos, 1.0f));
@@ -197,91 +178,12 @@ bool LoadFBX(const char* filename, FBXModel* fbxModel)
 
     fbxModel->center = CalculateModelCenter(fbxModel->vertices);
     fbxModel->loaded = true;
-    std::cout << "FBX 로드 성공: " << scene->mNumMeshes << " meshes combined." << std::endl;
+    std::cout << "FBX 로드 완료: " << scene->mNumMeshes << " meshes combined." << std::endl;
     std::cout << "Total Vertices: " << fbxModel->vertices.size() << ", Total Indices: " << fbxModel->indices.size() << std::endl;
 
-    // 텍스처 로딩
-    fbxModel->textureList.resize(scene->mNumMaterials);
-    for (size_t i = 0; i < scene->mNumMaterials; i++) {
-        aiMaterial* material = scene->mMaterials[i];
-        fbxModel->textureList[i] = nullptr;
-
-        aiString matName;
-        material->Get(AI_MATKEY_NAME, matName);
-        std::string materialName = matName.C_Str();
-
-        aiString texPath;
-        bool hasTexture = false;
-        std::string textureFile;
-
-        if (material->GetTexture(aiTextureType_DIFFUSE, 0, &texPath) == AI_SUCCESS) {
-            std::string fullPath = texPath.C_Str();
-            size_t lastSlash = fullPath.find_last_of("/\\");
-
-            if (lastSlash != std::string::npos) {
-                textureFile = fullPath.substr(lastSlash + 1);
-            }
-            else {
-                textureFile = fullPath;
-            }
-
-            size_t extPos = textureFile.find_last_of(".");
-            if (extPos != std::string::npos) {
-                std::string ext = textureFile.substr(extPos);
-                if (ext == ".TGA" || ext == ".tga") {
-                    textureFile = textureFile.substr(0, extPos) + ".png";
-                }
-            }
-            hasTexture = true;
-        }
-
-        if (materialName == "MI_West_Heli_AH64D_Main") {
-            fbxModel->textureList[i] = new Texture("HeliTexture.png");
-            std::cout << "Material " << i << " (" << materialName << ")에 HeliTexture.png 할당" << std::endl;
-        }
-        else if (materialName == "MI_West_Heli_AH64D_Glass_" && hasTexture) {
-            fbxModel->textureList[i] = new Texture(textureFile.c_str());
-            std::cout << "Material " << i << " (" << materialName << ")에 " << textureFile << " 할당" << std::endl;
-        }
-        else {
-            fbxModel->textureList[i] = new Texture("HeliTexture.png");
-            std::cout << "Material " << i << " (" << materialName << ")에 HeliTexture.png 할당 (기본값)" << std::endl;
-        }
-
-        if (!fbxModel->textureList[i]->LoadTexture()) {
-            std::cerr << "텍스처 로드 실패: Material " << i << std::endl;
-            delete fbxModel->textureList[i];
-            fbxModel->textureList[i] = nullptr;
-        }
-        else {
-            std::cout << "텍스처 로드 성공: Material " << i << std::endl;
-        }
-    }
-
-    fbxModel->normalMap = new Texture("T_West_Heli_AH64D_N.png");
-    if(fbxModel->normalMap->LoadTexture())
-    {
-        std::cout << "노말 맵 텍스처 로드 성공" << std::endl;
-    }
-    else
-    {
-        std::cerr << "노말 맵 텍스처 로드 실패" << std::endl;
-        delete fbxModel->normalMap;
-        fbxModel->normalMap = nullptr;
-    }
-
-    for (size_t i = 0; i < fbxModel->textureList.size(); ++i) {
-        if (fbxModel->textureList[i]) {
-            std::cout << "Material " << i << " Texture ID: " << fbxModel->textureList[i] << std::endl;
-        }
-        else {
-            std::cout << "Material " << i << ": No Texture" << std::endl;
-        }
-    }
 
     return fbxModel->loaded;
 }
-
 glm::vec3 CalculateModelCenter(const std::vector<glm::vec3>& vertices) {
     if (vertices.empty()) return glm::vec3(0.0f);
     glm::vec3 center(0.0f);

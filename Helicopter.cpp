@@ -196,38 +196,61 @@ void Helicopter::Initialize()
 
 void Helicopter::LoadModels()
 {
-	// FBX 로드
-	if (!LoadFBX("HeliBlade.FBX", &bladeModel)) {
+	// FBX 로드 - Helicopter 폴더의 Models 하위 폴더에서 로드
+	if (!LoadFBX("Helicopter/Models/HeliBlade.FBX", &bladeModel)) {
 		std::cerr << "HeliBlade FBX 로드 실패." << std::endl;
 	}
 	else {
+		bladeModel.textureList.resize(1);
+		bladeModel.textureList[0] = new Texture("Helicopter/Textures/HeliTexture.png");
+		bladeModel.textureList[0]->LoadTexture();
+		bladeModel.normalMap = new Texture("Helicopter/Textures/T_West_Heli_AH64D_N.png");
+		bladeModel.normalMap->LoadTexture();
 		UpdateModelBuffers(&bladeModel, vaoBlade, vboBlade, eboBlade);
 		std::cout << "HeliBlade 로드 성공: " << bladeModel.vertices.size() / 11 << " vertices" << std::endl;
 	}
 
-	if (!LoadFBX("HeliBody.FBX", &bodyModel)) {
+	if (!LoadFBX("Helicopter/Models/HeliBody.FBX", &bodyModel)) {
 		std::cerr << "HeliBody FBX 로드 실패." << std::endl;
 	}
 	else {
+		bodyModel.textureList.resize(2);
+		bodyModel.textureList[0] = new Texture("Helicopter/Textures/HeliTexture.png");
+		bodyModel.textureList[0]->LoadTexture();
+		bodyModel.textureList[1] = new Texture("Helicopter/Textures/GlassTexture.png");
+		bodyModel.textureList[1]->LoadTexture();
+		bodyModel.normalMap = new Texture("Helicopter/Textures/T_West_Heli_AH64D_N.png");
+		bodyModel.normalMap->LoadTexture();
 		UpdateModelBuffers(&bodyModel, vaoBody, vboBody, eboBody);
+
 		std::cout << "HeliBody 로드 성공: " << bodyModel.vertices.size() / 11 << " vertices" << std::endl;
 	}
 
-	if (!LoadFBX("HeliTail.FBX", &tailModel)) {
+	if (!LoadFBX("Helicopter/Models/HeliTail.FBX", &tailModel)) {
 		std::cerr << "HeliTail FBX 로드 실패." << std::endl;
 	}
-	else {
+	else { 
+		tailModel.textureList.resize(1);
+		tailModel.textureList[0] = new Texture("Helicopter/Textures/HeliTexture.png");
+		tailModel.textureList[0]->LoadTexture();
+		tailModel.normalMap = new Texture("Helicopter/Textures/T_West_Heli_AH64D_N.png");
+		tailModel.normalMap->LoadTexture();
 		UpdateModelBuffers(&tailModel, vaoTail, vboTail, eboTail);
 		std::cout << "HeliTail 로드 성공: " << tailModel.vertices.size() / 11 << " vertices" << std::endl;
 	}
-	if (!LoadFBX("HeliCannon.FBX", &CannonModel)) {
+
+	if (!LoadFBX("Helicopter/Models/HeliCannon.FBX", &CannonModel)) {
 		std::cerr << "HeliCannon FBX 로드 실패." << std::endl;
 	}
 	else {
+		CannonModel.textureList.resize(1);
+		CannonModel.textureList[0] = new Texture("Helicopter/Textures/HeliTexture.png");
+		CannonModel.textureList[0]->LoadTexture();
+		CannonModel.normalMap = new Texture("Helicopter/Textures/T_West_Heli_AH64D_N.png");
+		CannonModel.normalMap->LoadTexture();
 		UpdateModelBuffers(&CannonModel, vaoCannon, vboCannon, eboCannon);
 		std::cout << "HeliCannon 로드 성공: " << CannonModel.vertices.size() / 11 << " vertices" << std::endl;
 	}
-	
 }
 
 void Helicopter::Update(float deltaTime)

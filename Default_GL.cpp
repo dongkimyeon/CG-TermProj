@@ -139,8 +139,6 @@ int main(int argc, char** argv) {
 void WhellFunc(int wheel, int dir, int x, int y)
 {
     if (camera) {
-        // dir > 0: 휠을 위로 (줌 인)
-        // dir < 0: 휠을 아래로 (줌 아웃)
         camera->Zoom(dir);
         glutPostRedisplay();  // 화면 갱신
     }
@@ -211,16 +209,15 @@ void DrawScene()
 
     // 헬리콥터 렌더링
     if (helicopter) {
-      // 텍스처 사용 설정
         glUniform1f(useTextureLoc, 1.0f);
   
         helicopter->Render(shaderProgramID, wireframeMode, glassAlpha, modelScale);
         
- // 미사일 렌더링 (별도 상태로 처리)
+
         helicopter->RenderMissiles(shaderProgramID, view, proj);
         
-        // 텍스처 사용 상태 복원
-  glUniform1f(useTextureLoc, 1.0f);
+      
+        glUniform1f(useTextureLoc, 1.0f);
     }
 
     // 땅 렌더링
