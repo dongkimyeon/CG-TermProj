@@ -46,6 +46,133 @@ Helicopter::~Helicopter()
 	for (auto* missile : attachedMissiles) {
 		delete missile;
 	}
+	
+	// 버퍼 정리
+	CleanupBuffers();
+}
+
+void Helicopter::InitBuffers()
+{
+	const GLsizei stride = 11 * sizeof(GLfloat);
+	
+	// Body 버퍼
+	glGenVertexArrays(1, &vaoBody);
+	glBindVertexArray(vaoBody);
+
+	glGenBuffers(1, &vboBody);
+	glBindBuffer(GL_ARRAY_BUFFER, vboBody);
+	glBufferData(GL_ARRAY_BUFFER, 0, nullptr, GL_STATIC_DRAW);
+
+	glGenBuffers(1, &eboBody);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, eboBody);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, 0, nullptr, GL_STATIC_DRAW);
+	
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, (void*)0);
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, stride, (void*)(3 * sizeof(GLfloat)));
+	glEnableVertexAttribArray(1);
+	glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, stride, (void*)(5 * sizeof(GLfloat)));
+	glEnableVertexAttribArray(2);
+	glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, stride, (void*)(8 * sizeof(GLfloat)));
+	glEnableVertexAttribArray(3);
+	glVertexAttrib4f(4, 0.0f, 0.0f, 0.0f, 0.0f);
+
+	glBindVertexArray(0);
+
+	// Blade 버퍼
+	glGenVertexArrays(1, &vaoBlade);
+	glBindVertexArray(vaoBlade);
+
+	glGenBuffers(1, &vboBlade);
+	glBindBuffer(GL_ARRAY_BUFFER, vboBlade);
+	glBufferData(GL_ARRAY_BUFFER, 0, nullptr, GL_STATIC_DRAW);
+
+	glGenBuffers(1, &eboBlade);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, eboBlade);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, 0, nullptr, GL_STATIC_DRAW);
+
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, (void*)0);
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, stride, (void*)(3 * sizeof(GLfloat)));
+	glEnableVertexAttribArray(1);
+	glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, stride, (void*)(5 * sizeof(GLfloat)));
+	glEnableVertexAttribArray(2);
+	glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, stride, (void*)(8 * sizeof(GLfloat)));
+	glEnableVertexAttribArray(3);
+	glVertexAttrib4f(4, 0.0f, 0.0f, 0.0f, 0.0f);
+
+	glBindVertexArray(0);
+
+	// Tail 버퍼
+	glGenVertexArrays(1, &vaoTail);
+	glBindVertexArray(vaoTail);
+
+	glGenBuffers(1, &vboTail);
+	glBindBuffer(GL_ARRAY_BUFFER, vboTail);
+	glBufferData(GL_ARRAY_BUFFER, 0, nullptr, GL_STATIC_DRAW);
+
+	glGenBuffers(1, &eboTail);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, eboTail);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, 0, nullptr, GL_STATIC_DRAW);
+
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, (void*)0);
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, stride, (void*)(3 * sizeof(GLfloat)));
+	glEnableVertexAttribArray(1);
+	glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, stride, (void*)(5 * sizeof(GLfloat)));
+	glEnableVertexAttribArray(2);
+	glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, stride, (void*)(8 * sizeof(GLfloat)));
+	glEnableVertexAttribArray(3);
+	glVertexAttrib4f(4, 0.0f, 0.0f, 0.0f, 0.0f);
+
+	glBindVertexArray(0);
+
+	// Cannon 버퍼
+	glGenVertexArrays(1, &vaoCannon);
+	glBindVertexArray(vaoCannon);
+
+	glGenBuffers(1, &vboCannon);
+	glBindBuffer(GL_ARRAY_BUFFER, vboCannon);
+	glBufferData(GL_ARRAY_BUFFER, 0, nullptr, GL_STATIC_DRAW);
+
+	glGenBuffers(1, &eboCannon);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, eboCannon);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, 0, nullptr, GL_STATIC_DRAW);
+
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, (void*)0);
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, stride, (void*)(3 * sizeof(GLfloat)));
+	glEnableVertexAttribArray(1);
+	glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, stride, (void*)(5 * sizeof(GLfloat)));
+	glEnableVertexAttribArray(2);
+	glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, stride, (void*)(8 * sizeof(GLfloat)));
+	glEnableVertexAttribArray(3);
+	glVertexAttrib4f(4, 0.0f, 0.0f, 0.0f, 0.0f);
+
+	glBindVertexArray(0);
+}
+
+void Helicopter::CleanupBuffers()
+{
+	// Body 버퍼 삭제
+	if (vboBody != 0) glDeleteBuffers(1, &vboBody);
+	if (eboBody != 0) glDeleteBuffers(1, &eboBody);
+	if (vaoBody != 0) glDeleteVertexArrays(1, &vaoBody);
+	
+	// Blade 버퍼 삭제
+	if (vboBlade != 0) glDeleteBuffers(1, &vboBlade);
+	if (eboBlade != 0) glDeleteBuffers(1, &eboBlade);
+	if (vaoBlade != 0) glDeleteVertexArrays(1, &vaoBlade);
+	
+	// Tail 버퍼 삭제
+	if (vboTail != 0) glDeleteBuffers(1, &vboTail);
+	if (eboTail != 0) glDeleteBuffers(1, &eboTail);
+	if (vaoTail != 0) glDeleteVertexArrays(1, &vaoTail);
+	
+	// Cannon 버퍼 삭제
+	if (vboCannon != 0) glDeleteBuffers(1, &vboCannon);
+	if (eboCannon != 0) glDeleteBuffers(1, &eboCannon);
+	if (vaoCannon != 0) glDeleteVertexArrays(1, &vaoCannon);
 }
 
 void Helicopter::Initialize()
@@ -55,6 +182,8 @@ void Helicopter::Initialize()
 	acceleration = glm::vec3(0.0f);
 	yRotation = 0.0f;
 
+	// 버퍼 초기화
+	InitBuffers();
 
 	for (int i = 0; i < maxMissiles; ++i) {
 		Missile* missile = new Missile();
@@ -65,28 +194,8 @@ void Helicopter::Initialize()
 	UpdateMissilePositions();
 }
 
-void Helicopter::LoadModels(GLuint vaoB, GLuint vboB, GLuint eboB,
-	GLuint vaoBl, GLuint vboBl, GLuint eboBl,
-	GLuint vaoT, GLuint vboT, GLuint eboT,
-	GLuint vaoC, GLuint vboC, GLuint eboC)
+void Helicopter::LoadModels()
 {
-	vaoBody = vaoB;
-	vboBody = vboB;
-	eboBody = eboB;
-
-	vaoBlade = vaoBl;
-	vboBlade = vboBl;
-	eboBlade = eboBl;
-
-	vaoTail = vaoT;
-	vboTail = vboT;
-	eboTail = eboT;
-
-	vaoCannon = vaoC;
-	vboCannon = vboC;
-	eboCannon = eboC;
-
-
 	// FBX 로드
 	if (!LoadFBX("HeliBlade.FBX", &bladeModel)) {
 		std::cerr << "HeliBlade FBX 로드 실패." << std::endl;
@@ -112,7 +221,7 @@ void Helicopter::LoadModels(GLuint vaoB, GLuint vboB, GLuint eboB,
 		std::cout << "HeliTail 로드 성공: " << tailModel.vertices.size() / 11 << " vertices" << std::endl;
 	}
 	if (!LoadFBX("HeliCannon.FBX", &CannonModel)) {
-		std::cerr << "HeliTail FBX 로드 실패." << std::endl;
+		std::cerr << "HeliCannon FBX 로드 실패." << std::endl;
 	}
 	else {
 		UpdateModelBuffers(&CannonModel, vaoCannon, vboCannon, eboCannon);
@@ -584,6 +693,4 @@ void Helicopter::Render(GLuint shaderID, bool wireframeMode, float glassAlpha, f
 		glActiveTexture(GL_TEXTURE1);
 		glBindTexture(GL_TEXTURE_2D, 0);
 	}
-
-
 }

@@ -10,10 +10,7 @@ public:
     
     // 초기화
     void Initialize();
-    void LoadModels(GLuint vaoB, GLuint vboB, GLuint eboB,
-        GLuint vaoBl, GLuint vboBl, GLuint eboBl,
-        GLuint vaoT, GLuint vboT, GLuint eboT,
-        GLuint vaoC, GLuint vboC, GLuint eboC);
+    void LoadModels();
     
     // 업데이트
     void Update(float deltaTime);
@@ -62,6 +59,8 @@ private:
                      GLuint shaderID, bool wireframe, float alpha);
     glm::vec3 GetMissileAttachmentPosition() const;
     glm::mat4 GetHelicopterTransform() const;
+    void InitBuffers();  // 버퍼 초기화 메서드 추가
+    void CleanupBuffers();  // 버퍼 정리 메서드 추가
     
     // 모델
     FBXModel bodyModel;

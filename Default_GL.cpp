@@ -24,12 +24,6 @@ void Timer(int value);
 GLint width = 1280, height = 720;
 GLuint shaderProgramID;
 
-// 모델별 VAO/VBO/EBO 
-GLuint VAO_Body, VBO_Body, EBO_Body;
-GLuint VAO_Blade, VBO_Blade, EBO_Blade;
-GLuint VAO_Tail, VBO_Tail, EBO_Tail;
-GLuint VAO_Cannon, VBO_Cannon, EBO_Cannon;
-
 //스카이박스 관련
 GLuint skyboxVAO, skyboxVBO;
 GLuint skyboxShaderProgramID;
@@ -101,10 +95,7 @@ int main(int argc, char** argv) {
     // 헬리콥터 초기화
     helicopter = new Helicopter();
     helicopter->Initialize();
-    helicopter->LoadModels(VAO_Body, VBO_Body, EBO_Body,
-                          VAO_Blade, VBO_Blade, EBO_Blade,
-                          VAO_Tail, VBO_Tail, EBO_Tail,
-                          VAO_Cannon, VBO_Cannon, EBO_Cannon);
+    helicopter->LoadModels();
     
     // 땅 초기화
     mGround = new Ground();
@@ -496,110 +487,6 @@ void InitBuffers() {
 
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
-
-    glBindVertexArray(0);
-
-    const GLsizei stride = 11 * sizeof(GLfloat);
-    
-    // Body 버퍼
-    glGenVertexArrays(1, &VAO_Body);
-    glBindVertexArray(VAO_Body);
-
-    glGenBuffers(1, &VBO_Body);
-    glBindBuffer(GL_ARRAY_BUFFER, VBO_Body);
-    glBufferData(GL_ARRAY_BUFFER, 0, nullptr, GL_STATIC_DRAW);
-
-    glGenBuffers(1, &EBO_Body);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO_Body);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, 0, nullptr, GL_STATIC_DRAW);
-    
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, (void*)0);
-  glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, stride, (void*)(3 * sizeof(GLfloat)));
-    glEnableVertexAttribArray(1);
-    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, stride, (void*)(5 * sizeof(GLfloat)));
-    glEnableVertexAttribArray(2);
-    glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, stride, (void*)(8 * sizeof(GLfloat)));
-    glEnableVertexAttribArray(3);
-    
-    // 파티클용 색상 속성 기본값 설정
-    glVertexAttrib4f(4, 0.0f, 0.0f, 0.0f, 0.0f);
-
-    glBindVertexArray(0);
-
-    // Blade 버퍼
-    glGenVertexArrays(1, &VAO_Blade);
-    glBindVertexArray(VAO_Blade);
-
-    glGenBuffers(1, &VBO_Blade);
-    glBindBuffer(GL_ARRAY_BUFFER, VBO_Blade);
-    glBufferData(GL_ARRAY_BUFFER, 0, nullptr, GL_STATIC_DRAW);
-
-    glGenBuffers(1, &EBO_Blade);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO_Blade);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, 0, nullptr, GL_STATIC_DRAW);
-
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, (void*)0);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, stride, (void*)(3 * sizeof(GLfloat)));
-    glEnableVertexAttribArray(1);
-    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, stride, (void*)(5 * sizeof(GLfloat)));
-    glEnableVertexAttribArray(2);
-    glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, stride, (void*)(8 * sizeof(GLfloat)));
-    glEnableVertexAttribArray(3);
-    
-// 파티클용 색상 속성 기본값 설정
-    glVertexAttrib4f(4, 0.0f, 0.0f, 0.0f, 0.0f);
-
-    glBindVertexArray(0);
-
-    // Tail 버퍼
-    glGenVertexArrays(1, &VAO_Tail);
-    glBindVertexArray(VAO_Tail);
-
-    glGenBuffers(1, &VBO_Tail);
-    glBindBuffer(GL_ARRAY_BUFFER, VBO_Tail);
-  glBufferData(GL_ARRAY_BUFFER, 0, nullptr, GL_STATIC_DRAW);
-
-    glGenBuffers(1, &EBO_Tail);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO_Tail);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, 0, nullptr, GL_STATIC_DRAW);
-
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, (void*)0);
-    glEnableVertexAttribArray(0);
- glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, stride, (void*)(3 * sizeof(GLfloat)));
-    glEnableVertexAttribArray(1);
-    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, stride, (void*)(5 * sizeof(GLfloat)));
-    glEnableVertexAttribArray(2);
-    glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, stride, (void*)(8 * sizeof(GLfloat)));
-    glEnableVertexAttribArray(3);
-    
-  // 파티클용 색상 속성 기본값 설정
-    glVertexAttrib4f(4, 0.0f, 0.0f, 0.0f, 0.0f);
-
-	// Cannon 버퍼
-    glGenVertexArrays(1, &VAO_Cannon);
-    glBindVertexArray(VAO_Cannon);
-
-    glGenBuffers(1, &VBO_Cannon);
-    glBindBuffer(GL_ARRAY_BUFFER, VBO_Cannon);
-    glBufferData(GL_ARRAY_BUFFER, 0, nullptr, GL_STATIC_DRAW);
-
-    glGenBuffers(1, &EBO_Cannon);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO_Cannon);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, 0, nullptr, GL_STATIC_DRAW);
-
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, (void*)0);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, stride, (void*)(3 * sizeof(GLfloat)));
-    glEnableVertexAttribArray(1);
-    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, stride, (void*)(5 * sizeof(GLfloat)));
-    glEnableVertexAttribArray(2);
-    glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, stride, (void*)(8 * sizeof(GLfloat)));
-    glEnableVertexAttribArray(3);
-    
-    // 파티클용 색상 속성 기본값 설정
-    glVertexAttrib4f(4, 0.0f, 0.0f, 0.0f, 0.0f);
 
     glBindVertexArray(0);
 }
