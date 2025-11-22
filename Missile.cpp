@@ -24,8 +24,9 @@ void Missile::Initialize()
 	CreateLightGeometry();
 	SetupLightBuffers();
 	
-	// 더 많은 파티클로 트레일 시스템 초기화 (기존 500에서 1500으로 증가)
+	// 더 많은 파티클로 트레일 시스템 초기화 (기존500에서1500으로 증가)
 	smokeTrail = ParticleSystem(1500);
+	smokeTrail.initialize();
 }
 
 void Missile::CreateCubeGeometry()
@@ -357,8 +358,8 @@ void Missile::Render(GLuint shaderProgramID, const glm::mat4& view, const glm::m
 		glUniform1f(useTextureLoc, 1.0f);
 	}
 	
-	// 연기 파티클 렌더링
-	smokeTrail.render();
+	// 연기 파티클 렌더링 (view/proj 넘김)
+	smokeTrail.render(view, proj);
 }
 
 void Missile::RenderMissileLight(GLuint shaderProgramID, const glm::mat4& view, const glm::mat4& proj)
