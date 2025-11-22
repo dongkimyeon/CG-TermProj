@@ -56,14 +56,14 @@ private:
     glm::vec3 velocity;
     float speed = 100.0f;  // 속도 증가
     bool isActive = false;
-    
+
     // 색상 - 노란색으로 변경
     glm::vec3 missileColor = glm::vec3(1.0f, 1.0f, 0.0f); // 노란색
     
-    // 조명 관련
-    glm::vec3 lightColor = glm::vec3(1.0f, 1.0f, 0.0f); // 노란색 조명
-    float lightIntensity = 2.0f;
-    float lightOffset = -12.0f; // 미사일 뒤쪽 오프셋
+    // 조명 관련 - 더 밝고 잘 보이는 값들로 수정
+    glm::vec3 lightColor = glm::vec3(1.0f, 0.8f, 0.0f); // 노란색-주황색 혼합
+    float lightIntensity = 4.0f; // 2.0f에서 4.0f로 증가
+    float lightOffset = -8.0f; // 미사일 뒤쪽 오프셋 (더 가까이)
     float lightPulseTimer = 0.0f;
     
     // 파티클 시스템
