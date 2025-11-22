@@ -35,16 +35,16 @@ void Particle::update(GLfloat deltaTime)
 	// 회전 업데이트
 	rot += angularVel * deltaTime;
 	
-	// 생명 주기 비율 계산
+	// 생존 주기 계산 비율
 	float lifeRatio = age / life;
 	
-	// 연기 효과: 시간에 따라 투명도 감소 및 크기 증가
-	color.a = (1.0f - lifeRatio) * 0.8f; // 최대 투명도를 0.8로 제한
-	size = initialSize * (1.0f + lifeRatio * 2.0f); // 크기가 점점 커짐 (연기 확산)
+	// 트레일 효과: 시간이 지날 때 서서히 사라지고 크기 확산
+	color.a = (1.0f - lifeRatio) * 0.9f; // 최대 불투명도 0.9로 설정 (더 진하게)
+	size = initialSize * (1.0f + lifeRatio * 1.5f); // 크기가 더 서서히 커짐 (트레일 밀집도 향상)
 	
-	// 중력이나 바람 효과 (선택적)
-	vel.y -= 0.5f * deltaTime; // 약간의 중력
+	// 중력이나 바람 효과 (감소) - 트레일이 더 일관되게 보이도록
+	vel.y -= 0.2f * deltaTime; // 약간의 중력
 	
-	// 속도 감소 (공기 저항)
-	vel *= 0.98f;
+	// 속도 감소 (공기 저항) - 트레일 지속성을 위해 감소량을 줄임
+	vel *= 0.995f;
 }
