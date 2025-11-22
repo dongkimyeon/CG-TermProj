@@ -45,14 +45,14 @@ void ParticleSystem::setupBuffers()
 
 void ParticleSystem::emitParticle(const glm::vec3& position, const glm::vec3& baseVelocity)
 {
-	// 랜덤 생성기 (C++14 호환)
+	// 난수 생성기 (C++14 호환)
 	static std::random_device rd;
 	static std::mt19937 gen(rd());
 	static std::uniform_real_distribution<float> dis(-1.0f, 1.0f);
-	static std::uniform_real_distribution<float> lifeDis(2.0f, 4.0f);
-	static std::uniform_real_distribution<float> sizeDis(1.0f, 3.0f);
+	static std::uniform_real_distribution<float> lifeDis(3.0f, 6.0f); // 더 긴 수명으로 트레일 지속성 향상
+	static std::uniform_real_distribution<float> sizeDis(2.0f, 4.0f); // 더 큰 크기로 가시성 향상
 	
-	// 죽은 파티클 찾기 또는 새 파티클 추가
+	// 기존 파티클 찾기 또는 새 파티클 추가
 	Particle* particle = nullptr;
 	
 	// 죽은 파티클 재사용
@@ -65,7 +65,7 @@ void ParticleSystem::emitParticle(const glm::vec3& position, const glm::vec3& ba
 		}
 	}
 	
-	// 새 파티클 생성 (최대 개수 내에서)
+	// 새 파티클 생성 (최대 수를 넘지않게)
 	if (particle == nullptr && particles.size() < maxParticles)
 	{
 		particles.emplace_back();
@@ -74,29 +74,29 @@ void ParticleSystem::emitParticle(const glm::vec3& position, const glm::vec3& ba
 	
 	if (particle != nullptr)
 	{
-		// 연기 파티클 초기화 - 더 보이기 쉽게 수정
+		// 트레일용 파티클 초기화 - 더 일관된 움직임을 위해 속도 조정
 		glm::vec3 randomVel = baseVelocity + glm::vec3(
-			dis(gen) * 5.0f,  // x축 랜덤
-			std::abs(dis(gen)) * 2.0f + 0.5f,  // y축 랜덤 (항상 위쪽)
-			dis(gen) * 5.0f   // z축 랜덤
+			dis(gen) * 3.0f,  // x축 변화 (감소)
+			std::abs(dis(gen)) * 1.0f + 0.2f,  // y축 변화 (감소, 항상 양수)
+			dis(gen) * 3.0f   // z축 변화 (감소)
 		);
 		
-		// 연기 색상 (훨씬 밝게 수정)
-		float grayVariation = 0.8f + dis(gen) * 0.2f; // 0.8 ~ 1.0 범위 (밝은 회색)
+		// 연기 색상 (더 진한 색상으로 가시성 향상)
+		float grayVariation = 0.6f + dis(gen) * 0.3f; // 0.6 ~ 0.9 범위 (더 진한 회색)
 		glm::vec4 smokeColor = glm::vec4(grayVariation, grayVariation, grayVariation, 1.0f);
 		
 		particle->initialize(
-			position + glm::vec3(dis(gen) * 2.0f, dis(gen) * 1.0f, dis(gen) * 2.0f), // 약간의 위치 변화
+			position + glm::vec3(dis(gen) * 1.0f, dis(gen) * 0.5f, dis(gen) * 1.0f), // 더 작은 랜덤 위치 변화
 			randomVel,
 			smokeColor,
-			lifeDis(gen),  // 2-4초 생명
-			sizeDis(gen),  // 1.0-3.0 크기
-			dis(gen) * 180.0f  // 회전 속도
+			lifeDis(gen),  // 3-6초 수명 (더 긴 지속시간)
+			sizeDis(gen),  // 2.0-4.0 크기 (더 큰 크기)
+			dis(gen) * 90.0f  // 회전 속도 (감소)
 		);
 		
 		static int debugCount = 0;
 		debugCount++;
-		if (debugCount % 100 == 0) {
+		if (debugCount % 200 == 0) {
 			std::cout << "파티클 생성됨! 총 " << particles.size() << "개, 활성: " << getActiveParticleCount() << "개" << std::endl;
 		}
 	}
