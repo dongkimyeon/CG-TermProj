@@ -514,13 +514,16 @@ void InitBuffers() {
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, 0, nullptr, GL_STATIC_DRAW);
     
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, (void*)0);
-    glEnableVertexAttribArray(0);
+  glEnableVertexAttribArray(0);
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, stride, (void*)(3 * sizeof(GLfloat)));
     glEnableVertexAttribArray(1);
     glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, stride, (void*)(5 * sizeof(GLfloat)));
     glEnableVertexAttribArray(2);
     glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, stride, (void*)(8 * sizeof(GLfloat)));
     glEnableVertexAttribArray(3);
+    
+    // 파티클용 색상 속성 기본값 설정
+    glVertexAttrib4f(4, 0.0f, 0.0f, 0.0f, 0.0f);
 
     glBindVertexArray(0);
 
@@ -544,6 +547,9 @@ void InitBuffers() {
     glEnableVertexAttribArray(2);
     glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, stride, (void*)(8 * sizeof(GLfloat)));
     glEnableVertexAttribArray(3);
+    
+// 파티클용 색상 속성 기본값 설정
+    glVertexAttrib4f(4, 0.0f, 0.0f, 0.0f, 0.0f);
 
     glBindVertexArray(0);
 
@@ -553,7 +559,7 @@ void InitBuffers() {
 
     glGenBuffers(1, &VBO_Tail);
     glBindBuffer(GL_ARRAY_BUFFER, VBO_Tail);
-    glBufferData(GL_ARRAY_BUFFER, 0, nullptr, GL_STATIC_DRAW);
+  glBufferData(GL_ARRAY_BUFFER, 0, nullptr, GL_STATIC_DRAW);
 
     glGenBuffers(1, &EBO_Tail);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO_Tail);
@@ -561,12 +567,15 @@ void InitBuffers() {
 
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, (void*)0);
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, stride, (void*)(3 * sizeof(GLfloat)));
+ glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, stride, (void*)(3 * sizeof(GLfloat)));
     glEnableVertexAttribArray(1);
     glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, stride, (void*)(5 * sizeof(GLfloat)));
     glEnableVertexAttribArray(2);
     glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, stride, (void*)(8 * sizeof(GLfloat)));
     glEnableVertexAttribArray(3);
+    
+  // 파티클용 색상 속성 기본값 설정
+    glVertexAttrib4f(4, 0.0f, 0.0f, 0.0f, 0.0f);
 
 	// Cannon 버퍼
     glGenVertexArrays(1, &VAO_Cannon);
@@ -588,6 +597,9 @@ void InitBuffers() {
     glEnableVertexAttribArray(2);
     glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, stride, (void*)(8 * sizeof(GLfloat)));
     glEnableVertexAttribArray(3);
+    
+    // 파티클용 색상 속성 기본값 설정
+    glVertexAttrib4f(4, 0.0f, 0.0f, 0.0f, 0.0f);
 
     glBindVertexArray(0);
 }
