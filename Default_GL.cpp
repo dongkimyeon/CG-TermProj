@@ -9,6 +9,8 @@
 #include "Camera.h"
 #include "Helicopter.h"
 #include "AA.h"
+#include <random>
+
 // 함수 선언
 void InitBuffers();
 GLvoid DrawScene();
@@ -19,6 +21,7 @@ int main(int argc, char** argv);
 void WhellFunc(int whell, int dir, int x, int y);
 void Motion(int x, int y);
 void Timer(int value);
+void InitializeAAUnits();
 
 // 전역 변수
 GLint width = 1280, height = 720;
@@ -32,7 +35,8 @@ GLuint cubemapTexture;
 // 객체
 Camera* camera = nullptr;
 Helicopter* helicopter = nullptr;
-AA* aaUnit = nullptr;
+AA** aaUnits = nullptr;
+const int NUM_AA_UNITS = 10;
 
 Ground* mGround = nullptr;
 
@@ -99,13 +103,12 @@ int main(int argc, char** argv) {
     helicopter->Initialize();
     helicopter->LoadModels();
 
-    aaUnit = new AA();
-    aaUnit->Initialize();
-    aaUnit->LoadModel();
-
     // 땅 초기화
     mGround = new Ground();
     mGround->Initialize();
+
+    // AA 유닛 초기화 (10대)
+    InitializeAAUnits();
 
     // 스카이박스 큐브맵 로드
     std::vector<std::string> faces = {
@@ -133,9 +136,21 @@ int main(int argc, char** argv) {
 
     glutMainLoop();
 
+    // 정리
     delete camera;
     delete helicopter;
     delete mGround;
+    
+    if (aaUnits) {
+        for (int i = 0; i < NUM_AA_UNITS; ++i) {
+            delete aaUnits[i];
+        }
+        delete[] aaUnits;
+        
+        // ⭐ 공유 모델 정리
+        AA::CleanupSharedModel();
+    }
+    
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGLUT_Shutdown();
     ImGui::DestroyContext();
@@ -226,11 +241,18 @@ void DrawScene()
         glUniform1f(useTextureLoc, 1.0f);
     }
 
-    if (aaUnit) {
+    // AA 유닛 렌더링 (10대 모두)
+    if (aaUnits) {
         glUniform1f(useTextureLoc, 1.0f);
-        aaUnit->Render(shaderProgramID, wireframeMode, glassAlpha, modelScale);
+        
+        for (int i = 0; i < NUM_AA_UNITS; ++i) {
+            if (aaUnits[i]) {
+                aaUnits[i]->Render(shaderProgramID, wireframeMode, glassAlpha, modelScale);
+            }
+        }
+        
         glUniform1f(useTextureLoc, 1.0f);
-	}
+    }
 
     // 땅 렌더링
     if (mGround)
@@ -498,4 +520,42 @@ void InitBuffers() {
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
 
     glBindVertexArray(0);
+}
+
+void InitializeAAUnits()
+{
+    // AA 유닛 배열 생성
+    aaUnits = new AA*[NUM_AA_UNITS];
+    
+    // ⭐ 공유 모델을 먼저 한 번만 로드
+    AA::LoadSharedModel();
+    
+    // 랜덤 생성기 초기화
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    
+    // 맵 크기 기준 (Ground 크기 참고: -5000 ~ 5000)
+    std::uniform_real_distribution<float> distX(-1300.0f, 1300.0f);
+    std::uniform_real_distribution<float> distZ(-1300.0f, 1300.0f);
+    
+    std::cout << "\n=== AA 유닛 배치 시작 ===" << std::endl;
+    
+    for (int i = 0; i < NUM_AA_UNITS; ++i) {
+        aaUnits[i] = new AA();
+        aaUnits[i]->Initialize();
+        aaUnits[i]->InitBuffers();  // LoadModel() 대신 InitBuffers()만 호출
+        
+        // 랜덤 위치 생성
+        float randomX = distX(gen);
+        float randomZ = distZ(gen);
+        float y = 0.0f;
+        
+        glm::vec3 randomPos(randomX, y, randomZ);
+        aaUnits[i]->SetPosition(randomPos);
+        
+        std::cout << "AA Unit " << i << " 배치: (" 
+                  << randomX << ", " << y << ", " << randomZ << ")" << std::endl;
+    }
+    
+    std::cout << "=== AA 유닛 " << NUM_AA_UNITS << "대 배치 완료 ===" << std::endl;
 }
