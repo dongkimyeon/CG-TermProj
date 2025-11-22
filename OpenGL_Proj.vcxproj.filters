@@ -135,6 +135,9 @@
     <ClInclude Include="ParticleSystem.h">
       <Filter>소스 파일\Particle</Filter>
     </ClInclude>
+    <ClInclude Include="AA.h">
+      <Filter>소스 파일\AA</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Default_GL.cpp">
@@ -193,6 +196,9 @@
     </ClCompile>
     <ClCompile Include="ParticleSystem.cpp">
       <Filter>소스 파일\Particle</Filter>
+    </ClCompile>
+    <ClCompile Include="AA.cpp">
+      <Filter>소스 파일\AA</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

@@ -34,7 +34,7 @@ public:
     void UpdateMissiles(float deltaTime);
     void RenderMissiles(GLuint shaderID, const glm::mat4& view, const glm::mat4& proj);
     
-    // Setter (디버그용)
+    // Setter
     void SetDebugRotation(float x, float y, float z) {
         debugRotationX = x;
         debugRotationY = y;
@@ -55,8 +55,6 @@ private:
     void UpdatePhysics(float deltaTime);
     void UpdateOrientation(float deltaTime);
     void UpdateMissilePositions();
-    void RenderModel(const FBXModel& model, GLuint vao, const glm::mat4& transform, 
-                     GLuint shaderID, bool wireframe, float alpha);
     glm::vec3 GetMissileAttachmentPosition() const;
     glm::mat4 GetHelicopterTransform() const;
     void InitBuffers();  // 버퍼 초기화 메서드 추가

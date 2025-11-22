@@ -139,6 +139,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="AA.h" />
     <ClInclude Include="Camera.h" />
     <ClInclude Include="CommonInclude.h" />
     <ClInclude Include="FBXModel.h" />
@@ -166,6 +167,7 @@
     <ClInclude Include="Time.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="AA.cpp" />
     <ClCompile Include="Camera.cpp" />
     <ClCompile Include="Default_GL.cpp" />
     <ClCompile Include="FBXModel.cpp" />

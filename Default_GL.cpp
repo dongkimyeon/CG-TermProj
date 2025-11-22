@@ -8,7 +8,7 @@
 #include "ShaderManager.h"
 #include "Camera.h"
 #include "Helicopter.h"
-
+#include "AA.h"
 // 함수 선언
 void InitBuffers();
 GLvoid DrawScene();
@@ -32,6 +32,8 @@ GLuint cubemapTexture;
 // 객체
 Camera* camera = nullptr;
 Helicopter* helicopter = nullptr;
+AA* aaUnit = nullptr;
+
 Ground* mGround = nullptr;
 
 // 마우스 입력
@@ -96,7 +98,11 @@ int main(int argc, char** argv) {
     helicopter = new Helicopter();
     helicopter->Initialize();
     helicopter->LoadModels();
-    
+
+    aaUnit = new AA();
+    aaUnit->Initialize();
+    aaUnit->LoadModel();
+
     // 땅 초기화
     mGround = new Ground();
     mGround->Initialize();
@@ -219,6 +225,12 @@ void DrawScene()
       
         glUniform1f(useTextureLoc, 1.0f);
     }
+
+    if (aaUnit) {
+        glUniform1f(useTextureLoc, 1.0f);
+        aaUnit->Render(shaderProgramID, wireframeMode, glassAlpha, modelScale);
+        glUniform1f(useTextureLoc, 1.0f);
+	}
 
     // 땅 렌더링
     if (mGround)

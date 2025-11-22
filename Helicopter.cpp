@@ -1,6 +1,7 @@
 ﻿#include "Helicopter.h"
 #include "Input.h"
 #include "Time.h"
+#include "AA.h"
 
 Helicopter::Helicopter()
 	: position(glm::vec3(0.0f))
@@ -519,6 +520,8 @@ void Helicopter::RenderMissiles(GLuint shaderID, const glm::mat4& view, const gl
 		missile->Render(shaderID, view, proj);
 	}
 }
+
+
 
 void Helicopter::Render(GLuint shaderID, bool wireframeMode, float glassAlpha, float modelScale)
 {
