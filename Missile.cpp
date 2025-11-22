@@ -3,7 +3,7 @@
 Missile::Missile()
 	: VAO(0), VBO(0), EBO(0), lightVAO(0), lightVBO(0), lightEBO(0),
 	  position(0.0f), direction(0.0f, 0.0f, 1.0f), velocity(0.0f), 
-	  isActive(false), smokeTrail(500), particleEmissionTimer(0.0f), lightPulseTimer(0.0f)
+	  isActive(false), smokeTrail(500), particleEmissionTimer(0.0f)
 {
 }
 
@@ -37,17 +37,17 @@ void Missile::CreateCubeGeometry()
 		// 앞면 (Z+)
 		-halfWidth, -halfHeight,  halfDepth,   0.0f, 0.0f,   0.0f, 0.0f, 1.0f,   1.0f, 0.0f, 0.0f, // 0
 		 halfWidth, -halfHeight,  halfDepth,   1.0f, 0.0f,   0.0f, 0.0f, 1.0f,   1.0f, 0.0f, 0.0f, // 1
-		 halfWidth,  halfHeight,  halfDepth,   1.0f, 1.0f,   0.0f, 0.0f, 1.0f,1.0f, 0.0f, 0.0f, // 2
+		 halfWidth,  halfHeight,  halfDepth,   1.0f, 1.0f,   0.0f, 0.0f, 1.0f,   1.0f, 0.0f, 0.0f, // 2
 		-halfWidth,  halfHeight,  halfDepth,   0.0f, 1.0f,   0.0f, 0.0f, 1.0f,   1.0f, 0.0f, 0.0f, // 3
 
 		// 뒷면 (Z-)
 		-halfWidth, -halfHeight, -halfDepth,   1.0f, 0.0f,   0.0f, 0.0f, -1.0f,  -1.0f, 0.0f, 0.0f, // 4
-		-halfWidth,  halfHeight, -halfDepth,   1.0f, 1.0f,   0.0f, 0.0f, -1.0f,  -1.0f, 0.0f, 0.0f, // 5
+		-halfWidth,  halfHeight, -halfDepth, 1.0f, 1.0f,   0.0f, 0.0f, -1.0f,  -1.0f, 0.0f, 0.0f, // 5
 		 halfWidth,  halfHeight, -halfDepth,   0.0f, 1.0f,   0.0f, 0.0f, -1.0f,  -1.0f, 0.0f, 0.0f, // 6
-		 halfWidth, -halfHeight, -halfDepth,   0.0f, 0.0f,   0.0f, 0.0f, -1.0f,  -1.0f, 0.0f, 0.0f, // 7
+		 halfWidth, -halfHeight, -halfDepth, 0.0f, 0.0f,   0.0f, 0.0f, -1.0f,  -1.0f, 0.0f, 0.0f, // 7
 
 		// 왼쪽면 (X-)
-		-halfWidth, -halfHeight, -halfDepth,   0.0f, 0.0f,   -1.0f, 0.0f, 0.0f,  0.0f, 0.0f, 1.0f, // 8
+		-halfWidth, -halfHeight, -halfDepth,   0.0f, 0.0f, -1.0f, 0.0f, 0.0f,  0.0f, 0.0f, 1.0f, // 8
 		-halfWidth, -halfHeight,  halfDepth,   1.0f, 0.0f,   -1.0f, 0.0f, 0.0f,  0.0f, 0.0f, 1.0f, // 9
 		-halfWidth,  halfHeight,  halfDepth,   1.0f, 1.0f,   -1.0f, 0.0f, 0.0f,  0.0f, 0.0f, 1.0f, // 10
 		-halfWidth,  halfHeight, -halfDepth,   0.0f, 1.0f,   -1.0f, 0.0f, 0.0f,  0.0f, 0.0f, 1.0f, // 11
@@ -56,13 +56,13 @@ void Missile::CreateCubeGeometry()
 		 halfWidth, -halfHeight, -halfDepth,   1.0f, 0.0f,   1.0f, 0.0f, 0.0f,   0.0f, 0.0f, -1.0f, // 12
 		 halfWidth,  halfHeight, -halfDepth,   1.0f, 1.0f,   1.0f, 0.0f, 0.0f,   0.0f, 0.0f, -1.0f, // 13
 		 halfWidth,  halfHeight,  halfDepth,   0.0f, 1.0f,   1.0f, 0.0f, 0.0f,   0.0f, 0.0f, -1.0f, // 14
-		 halfWidth, -halfHeight,  halfDepth,   0.0f, 0.0f,   1.0f, 0.0f, 0.0f,0.0f, 0.0f, -1.0f, // 15
+		 halfWidth, -halfHeight,  halfDepth,   0.0f, 0.0f,   1.0f, 0.0f, 0.0f,   0.0f, 0.0f, -1.0f, // 15
 
 		// 윗면 (Y+)
 		-halfWidth,  halfHeight, -halfDepth,   0.0f, 1.0f,   0.0f, 1.0f, 0.0f,   1.0f, 0.0f, 0.0f, // 16
 		-halfWidth,  halfHeight,  halfDepth,   0.0f, 0.0f,   0.0f, 1.0f, 0.0f,   1.0f, 0.0f, 0.0f, // 17
-		 halfWidth,  halfHeight,  halfDepth,   1.0f, 0.0f,0.0f, 1.0f, 0.0f,   1.0f, 0.0f, 0.0f, // 18
-		 halfWidth,  halfHeight, -halfDepth,   1.0f, 1.0f,   0.0f, 1.0f, 0.0f,   1.0f, 0.0f, 0.0f, // 19
+		 halfWidth,  halfHeight,  halfDepth,   1.0f, 0.0f,   0.0f, 1.0f, 0.0f,   1.0f, 0.0f, 0.0f, // 18
+		 halfWidth,  halfHeight, -halfDepth,   1.0f, 1.0f,   0.0f, 1.0f, 0.0f, 1.0f, 0.0f, 0.0f, // 19
 
 		// 아랫면 (Y-)
 		-halfWidth, -halfHeight, -halfDepth,   0.0f, 0.0f,   0.0f, -1.0f, 0.0f,  1.0f, 0.0f, 0.0f, // 20
@@ -94,8 +94,8 @@ void Missile::CreateCubeGeometry()
 
 void Missile::CreateLightGeometry()
 {
-	// 조명을 위한 작은 구체 (간단한 육면체로 대체)
-	float lightSize = 2.0f;
+	// 조명을 위한 더 큰 구체 (더 잘 보이도록)
+	float lightSize = 6.0f; // 큰 크기 설정
 	float halfSize = lightSize * 0.5f;
 
 	// 큰 배열을 정적으로 선언하여 스택 사용량 줄이기
@@ -131,7 +131,7 @@ void Missile::CreateLightGeometry()
 		 halfSize,  halfSize, -halfSize,   1.0f, 1.0f,   0.0f, 1.0f, 0.0f,   1.0f, 0.0f, 0.0f, // 19
 
 		// 아랫면 (Y-)
-		-halfSize, -halfSize, -halfSize,   0.0f, 0.0f,   0.0f, -1.0f, 0.0f,  1.0f, 0.0f, 0.0f, // 20
+		-halfSize, -halfSize, -halfSize, 0.0f, 0.0f,   0.0f, -1.0f, 0.0f,  1.0f, 0.0f, 0.0f, // 20
 		 halfSize, -halfSize, -halfSize,   1.0f, 0.0f,   0.0f, -1.0f, 0.0f,  1.0f, 0.0f, 0.0f, // 21
 		 halfSize, -halfSize,  halfSize,   1.0f, 1.0f,   0.0f, -1.0f, 0.0f,  1.0f, 0.0f, 0.0f, // 22
 		-halfSize, -halfSize,  halfSize,   0.0f, 1.0f,   0.0f, -1.0f, 0.0f,  1.0f, 0.0f, 0.0f  // 23
@@ -245,9 +245,8 @@ void Missile::Update(float deltaTime)
 		velocity = direction * speed;
 		position += velocity * deltaTime;
 
-		// 조명 펄스 효과
-		lightPulseTimer += deltaTime * 8.0f; // 빠른 펄스
-		lightIntensity = 2.0f + sin(lightPulseTimer) * 0.5f; // 1.5 ~ 2.5 범위
+		// 펄스 효과 제거 - 일정한 조명 밝기 유지
+		lightIntensity = 4.0f; // 고정된 밝기
 
 		// 연기 파티클 생성 - 더 자주 생성하도록 수정
 		particleEmissionTimer += deltaTime;
@@ -364,6 +363,18 @@ void Missile::RenderMissileLight(GLuint shaderProgramID, const glm::mat4& view, 
 {
 	if (!isActive) return;
 
+	// 상태 저장
+	GLboolean depthTestEnabled;
+	GLboolean blendEnabled;
+	GLint srcBlend, dstBlend;
+	GLboolean depthMask;
+
+	glGetBooleanv(GL_DEPTH_TEST, &depthTestEnabled);
+	glGetBooleanv(GL_BLEND, &blendEnabled);
+	glGetIntegerv(GL_BLEND_SRC_ALPHA, &srcBlend);
+	glGetIntegerv(GL_BLEND_DST_ALPHA, &dstBlend);
+	glGetBooleanv(GL_DEPTH_WRITEMASK, &depthMask);
+
 	GLint modelLoc = glGetUniformLocation(shaderProgramID, "model");
 	GLint viewLoc = glGetUniformLocation(shaderProgramID, "view");
 	GLint projLoc = glGetUniformLocation(shaderProgramID, "proj");
@@ -374,13 +385,19 @@ void Missile::RenderMissileLight(GLuint shaderProgramID, const glm::mat4& view, 
 	// 조명 위치 계산
 	glm::vec3 lightPos = GetLightPosition();
 	
-	// 조명 모델 행렬 생성
+	// 조명 모델 행렬 생성 (펄스 효과 없이 일정한 크기)
 	glm::mat4 lightModel = glm::mat4(1.0f);
 	lightModel = glm::translate(lightModel, lightPos);
-	lightModel = glm::scale(lightModel, glm::vec3(lightIntensity)); // 펄스 효과로 크기 변화
+	lightModel = glm::scale(lightModel, glm::vec3(lightIntensity)); // 고정된 크기
 
-	// 조명 색상 (밝은 노란색)
-	glm::vec3 brightLightColor = lightColor * lightIntensity;
+	// 조명 색상 (밝은 노란색-주황색 혼합)
+	glm::vec3 brightLightColor = glm::vec3(1.0f, 0.8f, 0.0f) * lightIntensity;
+
+	// 조명 특별 렌더링 설정
+	glDisable(GL_DEPTH_TEST); // 깊이 테스트 완전히 비활성화하여 항상 보이도록
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE); // Additive blending
+	glDepthMask(GL_FALSE);
 
 	// 행렬 및 색상 설정
 	glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(lightModel));
@@ -390,19 +407,19 @@ void Missile::RenderMissileLight(GLuint shaderProgramID, const glm::mat4& view, 
 	glUniform1f(useTextureLoc, 0.0f);
 	glUniform1f(alphaValueLoc, 1.0f);
 
-	// 블렌딩 설정 (발광 효과)
-	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE); // Additive blending
-	glDepthMask(GL_FALSE);
-
-	// 조명 렌더링 (경고 수정: size_t를 GLsizei로 안전하게 변환)
+	// 조명을 한 번만 렌더링
 	glBindVertexArray(lightVAO);
 	glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(lightIndices.size()), GL_UNSIGNED_INT, 0);
 	glBindVertexArray(0);
 
-	// 블렌딩 상태 복원
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	glDepthMask(GL_TRUE);
+	// 상태 복원
+	if (depthTestEnabled) glEnable(GL_DEPTH_TEST);
+	else glDisable(GL_DEPTH_TEST);
+	
+	if (!blendEnabled) glDisable(GL_BLEND);
+	else glBlendFunc(srcBlend, dstBlend);
+	
+	glDepthMask(depthMask);
 }
 
 void Missile::Launch(const glm::vec3& startPos, const glm::vec3& dir)
@@ -412,7 +429,6 @@ void Missile::Launch(const glm::vec3& startPos, const glm::vec3& dir)
 	velocity = direction * speed;
 	isActive = true;
 	particleEmissionTimer = 0.0f;
-	lightPulseTimer = 0.0f;
 	smokeTrail.clear();
 }
 
