@@ -79,7 +79,9 @@ void ParticleSystem::setupCubeGeometry() {
 void ParticleSystem::emitParticle(const glm::vec3& pos, const glm::vec3& vel) {
     if (particles.size() >= maxParticles) return;
     Particle p;
-    p.initialize(pos, vel, glm::vec4(0.6f, 0.6f, 0.6f, 0.6f), 2.0f, 0.8f, 0.0f);
+    // 수명을 6.0f에서 18.0f로 증가 (3배 더 증가)
+    // 초기 크기를 0.8f에서 2.4f로 증가 (3배 더 크게)
+    p.initialize(pos, vel, glm::vec4(0.9f, 0.9f, 0.9f, 0.9f), 18.0f, 2.4f, 0.0f);
     particles.push_back(p);
 }
 

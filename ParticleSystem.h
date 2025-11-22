@@ -15,7 +15,8 @@ private:
 	std::vector<glm::vec4> instanceData; // xyz position, w scale
 
 public:
-	ParticleSystem(size_t maxCount=1000);
+	// 더 큰 파티클과 더 긴 수명을 위해 파티클 수를 2500에서 4000으로 증가
+	ParticleSystem(size_t maxCount=4000);
 	void initialize();
 	void emitParticle(const glm::vec3& pos, const glm::vec3& vel);
 	void update(float dt);
