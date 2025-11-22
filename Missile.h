@@ -70,5 +70,6 @@ private:
     ParticleSystem smokeTrail;
     float particleEmissionTimer;
     const float particleEmissionRate = 0.02f; // 50 파티클/초
+    float trailSpacing = 2.5f; // 궤적 연기 간격 (선형 배치용)
 };
 
