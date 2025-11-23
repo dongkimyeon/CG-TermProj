@@ -181,7 +181,8 @@ void DrawScene()
             helicopter->GetUp(),
             helicopter->GetForward(),
             helicopter->GetPitch(),    // 피치 추가
-            helicopter->GetRoll());    // 롤 추가
+            helicopter->GetRoll(),     // 롤 추가
+            helicopter->GetCannonWorldPosition());  // 기관포 월드 위치 추가
     }
 
     // 씬 클리어
@@ -359,10 +360,25 @@ void DrawScene()
             camera->SetCameraMode(currentMode);
         }
 
+        // Gunner View 모드일 때만 오프셋 조정 가능
+        if (currentMode == 2) {
+            ImGui::Separator();
+            ImGui::Text("Gunner Offset");
+            glm::vec3& offset = camera->GetGunnerOffset();
+            
+            if (ImGui::SliderFloat("Forward/Back", &offset.x, -50.0f, 50.0f)) {
+                camera->SetGunnerOffset(offset);
+            }
+            if (ImGui::SliderFloat("Up/Down", &offset.y, -30.0f, 30.0f)) {
+                camera->SetGunnerOffset(offset);
+            }
+            if (ImGui::SliderFloat("Left/Right", &offset.z, -30.0f, 30.0f)) {
+                camera->SetGunnerOffset(offset);
+            }
+        }
 
         ImGui::Separator();
     }
-
 
     ImGui::Separator();  
 

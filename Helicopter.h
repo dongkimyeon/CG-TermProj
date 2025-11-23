@@ -51,7 +51,7 @@ public:
     void SetCannonOffset(const glm::vec3& offset) { cannonOffset = offset; }
 	glm::vec3& GetCannonHingePos() { return cannonHingePos; }
 	void SetCannonHingePos(const glm::vec3& pos) { cannonHingePos = pos; }  
-
+    glm::vec3 GetCannonWorldPosition() const;
 
     // 물리 파라미터 접근
     float& GetMaxSpeed() { return maxSpeed; }

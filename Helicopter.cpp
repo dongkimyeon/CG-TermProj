@@ -35,6 +35,8 @@ Helicopter::Helicopter()
 	, vaoTail(0), vboTail(0), eboTail(0)
 	, vaoCannon(0), vboCannon(0), eboCannon(0)
 	, cannonOffset(28.0f, -16.5f, 0.0f)
+	, cannonPitch(0.0f)
+	, cannonYaw(0.0f)
 {
 }
 
@@ -416,6 +418,19 @@ glm::vec3 Helicopter::GetMissileAttachmentPosition() const
 	return glm::vec3(worldAttachmentPos);
 }
 
+glm::vec3 Helicopter::GetCannonWorldPosition() const
+{
+	// 헬리콥터의 월드 변환 매트릭스
+	glm::mat4 heliTransform = GetHelicopterTransform();
+	
+	// 기관포 힌지의 월드 위치 계산
+	// cannonOffset + cannonHingePos = 기관포 힌지의 로컬 위치
+	glm::vec3 hingeLocalPos = cannonOffset + cannonHingePos;
+	glm::vec4 hingeWorldPos = heliTransform * glm::vec4(hingeLocalPos, 1.0f);
+	
+	return glm::vec3(hingeWorldPos);
+}
+
 void Helicopter::UpdateMissilePositions()
 {
 	if (attachedMissiles.empty()) return;
@@ -684,8 +699,8 @@ void Helicopter::Render(GLuint shaderID, bool wireframeMode, float glassAlpha, f
 		modelMat = glm::translate(modelMat, glm::vec3(cannonOffset));
 		
 		modelMat = glm::translate(modelMat, cannonHingePos);
+		modelMat = glm::rotate(modelMat, glm::radians(cannonYaw), glm::vec3(0.0f, 1.0f, 0.0f));
 		modelMat = glm::rotate(modelMat, glm::radians(cannonPitch), glm::vec3(0.0f, 0.0f, 1.0f));
-		modelMat = glm::rotate(modelMat, glm::radians(cannonYaw), glm::vec3(0.0f, 1.0f, 0.0f)); 
 		modelMat = glm::translate(modelMat, -cannonHingePos);
 		modelMat = glm::scale(modelMat, glm::vec3(modelScale));
 		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(modelMat));

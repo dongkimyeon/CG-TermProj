@@ -9,7 +9,7 @@ public:
     void Initialize(const glm::vec3& position, float distance, float height);
 
     
-    void Update(float deltaTime, const glm::vec3& targetPosition, const glm::vec3& targetUp, const glm::vec3& targetForward, float helicopterPitch = 0.0f, float helicopterRoll = 0.0f);
+    void Update(float deltaTime, const glm::vec3& targetPosition, const glm::vec3& targetUp, const glm::vec3& targetForward, float helicopterPitch = 0.0f, float helicopterRoll = 0.0f, const glm::vec3& cannonWorldPos = glm::vec3(0.0f));
 
     // 마우스 입력 처리
     void ProcessMouseDrag(int deltaX, int deltaY, float& heliYawRotation, float& heliCannonYaw, float& heliCannonPitch);
@@ -20,10 +20,14 @@ public:
     glm::vec3 GetTarget() const { return target; }
     glm::vec3 GetUp() const { return up; }
     float GetDistance() const { return distance; }
-    int GetCameraMode() const { return cameraMode; }
+    int GetCameraMode() const { return cameraMode;  }
 	glm::vec3& GetGunnerOffset() { return gunnerOffset; }
     // Setter
-    void SetCameraMode(int mode) { cameraMode = mode; }
+    void SetCameraMode(int mode) { 
+		targetCameraXAngle = 0.0f;
+		targetCameraYAngle = 0.0f;
+        cameraMode = mode; 
+    }
     void SetPosition(const glm::vec3& pos) { position = pos; }
     void SetHeight(float h) { height = h; }
     void SetDistance(float d) { distance = d; }

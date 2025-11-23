@@ -11,7 +11,7 @@ Camera::Camera()
     , cameraMode(0)
     , targetCameraXAngle(0.0f)
     , targetCameraYAngle(0.0f)
-	, gunnerOffset(glm::vec3(30.0f, -15.0f, 0.0f)) // 기관포 뷰 기본 오프셋
+	, gunnerOffset(glm::vec3(7.7f, 1.8f, 0.0f)) // 기관포 뷰 기본 오프셋
 {
 }
 
@@ -32,7 +32,7 @@ void Camera::Initialize(const glm::vec3& pos, float dist, float h)
         << ", 각도: " << glm::degrees(cameraAngle) << "도" << std::endl;
 }
 
-void Camera::Update(float deltaTime, const glm::vec3& targetPosition, const glm::vec3& targetUp, const glm::vec3& targetForward, float helicopterPitch, float helicopterRoll)
+void Camera::Update(float deltaTime, const glm::vec3& targetPosition, const glm::vec3& targetUp, const glm::vec3& targetForward, float helicopterPitch, float helicopterRoll, const glm::vec3& cannonWorldPos)
 {
     switch (cameraMode) {
     case 0: // 3인칭 뷰
@@ -87,11 +87,46 @@ void Camera::Update(float deltaTime, const glm::vec3& targetPosition, const glm:
     }
     case 2: // 기관포 사수 뷰
     {
-        position = targetPosition + gunnerOffset;
+        // Right 벡터 계산
+        glm::vec3 right = glm::normalize(glm::cross(-targetForward, targetUp));
 
-        // 약간 아래를 향하도록
-        target = targetPosition - targetForward * 100.0f - targetUp * 20.0f;
-        up = targetUp;
+        // 1. 헬리콥터의 피치/롤 회전 매트릭스
+        float pitchRad = glm::radians(helicopterPitch);
+        glm::mat4 heliPitchRotation = glm::rotate(glm::mat4(1.0f), pitchRad, right);
+
+        float rollRad = glm::radians(helicopterRoll);
+        glm::mat4 heliRollRotation = glm::rotate(glm::mat4(1.0f), rollRad, -targetForward);
+
+        // 헬리콥터 전체 회전 (롤 -> 피치)
+        glm::mat4 heliRotation = heliRollRotation * heliPitchRotation;
+
+        // 2. 기관포 자체 회전 (헬리콥터 회전 이후 추가 회전)
+        glm::mat4 cannonYawRotation = glm::rotate(glm::mat4(1.0f), targetCameraXAngle, targetUp);
+        glm::mat4 cannonPitchRotation = glm::rotate(glm::mat4(1.0f), targetCameraYAngle, right);
+
+        // 최종 회전 = 헬리콥터 회전 + 기관포 회전
+        glm::mat4 totalRotation = heliRotation * cannonYawRotation * cannonPitchRotation;
+
+        // 3. 카메라 위치 계산 (기관포 위치 기준)
+        glm::vec3 localOffset = -targetForward * gunnerOffset.x
+            + targetUp * gunnerOffset.y
+            + right * gunnerOffset.z;
+
+        glm::vec4 rotatedOffset = totalRotation * glm::vec4(localOffset, 0.0f);
+        position = cannonWorldPos + glm::vec3(rotatedOffset);
+
+        // 4. 시선 방향 계산
+        glm::vec3 baseForward = -targetForward;
+        glm::vec4 finalForward = totalRotation * glm::vec4(baseForward, 0.0f);
+        glm::vec3 lookDirection = glm::normalize(glm::vec3(finalForward));
+
+        // 카메라 타겟 = 현재 위치 + 시선 방향 * 거리
+        target = position + lookDirection * 100.0f;
+
+        // 5. Up 벡터 계산
+        glm::vec4 rotatedUp = totalRotation * glm::vec4(targetUp, 0.0f);
+        up = glm::normalize(glm::vec3(rotatedUp));
+
         break;
     }
     }
@@ -112,10 +147,22 @@ void Camera::ProcessMouseDrag(int deltaX, int deltaY, float& heliYawRotation, fl
         if (targetCameraYAngle > maxAngle) targetCameraYAngle = maxAngle;
         if (targetCameraYAngle < -maxAngle) targetCameraYAngle = -maxAngle;
     }
-    else // 기관포 뷰 
+    else // 기관포 뷰 (cameraMode == 2)
     {
-        heliCannonYaw += deltaX * rotationSpeed * 100.0f;
-        heliCannonPitch -= deltaY * rotationSpeed * 100.0f;
+        // 마우스 움직임을 기관포의 Yaw/Pitch로 변환
+        float sensitivity = rotationSpeed * 100.0f;
+        
+        // Yaw: 좌우 회전 (헬리콥터 기준 Y축)
+        heliCannonYaw -= deltaX * sensitivity;
+        
+        // Pitch: 상하 회전 (헬리콥터 기준 Z축)
+        heliCannonPitch -= deltaY * sensitivity;
+        
+        float maxPitch = 0.0f;
+		if (heliCannonPitch > maxPitch) heliCannonPitch = maxPitch;
+
+        targetCameraXAngle = glm::radians(heliCannonYaw);
+        targetCameraYAngle = glm::radians(heliCannonPitch);
     }
   
 }
