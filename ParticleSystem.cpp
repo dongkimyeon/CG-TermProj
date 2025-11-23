@@ -1,262 +1,129 @@
 #include "ParticleSystem.h"
-#include <random>
+
 #include <algorithm>
 #include <iostream>
 
-ParticleSystem::ParticleSystem(GLuint maxParticleCount)
-	: maxParticles(maxParticleCount), emissionRate(50.0f), timeSinceLastEmission(0.0f),
-	  VAO(0), VBO(0)
-{
-	particles.reserve(maxParticles);
-	vertexData.reserve(maxParticles * 7); // 위치(3) + 색상(4) per vertex
-	setupBuffers();
-	std::cout << "ParticleSystem 생성됨 - 최대 파티클: " << maxParticles << std::endl;
+ParticleSystem::ParticleSystem(size_t maxCount)
+    : maxParticles(maxCount) {
+    particles.reserve(maxParticles);
+    instanceData.reserve(maxParticles);
 }
 
-ParticleSystem::~ParticleSystem()
-{
-	if (VAO != 0) glDeleteVertexArrays(1, &VAO);
-	if (VBO != 0) glDeleteBuffers(1, &VBO);
+void ParticleSystem::initialize() {
+    setupCubeGeometry();
+    // 인스턴스 버퍼
+    glGenBuffers(1, &instanceVBO);
+    glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
+    glBufferData(GL_ARRAY_BUFFER, maxParticles * sizeof(glm::vec4), nullptr, GL_DYNAMIC_DRAW);
+    glBindVertexArray(cubeVAO);
+    glEnableVertexAttribArray(4);
+    glVertexAttribPointer(4, 4, GL_FLOAT, GL_FALSE, sizeof(glm::vec4), (void*)0);
+    glVertexAttribDivisor(4, 1);
+    glBindVertexArray(0);
+
+    // 확장자 원래 형태(.vert/.frag)로 복구
+    particleShaderProgram = LoadShaders("Shaders/particle_instanced.vert", "Shaders/particle_instanced.frag");
+    if (!particleShaderProgram) {
+        std::cerr << "Particle shader load failed" << std::endl;
+    }
 }
 
-void ParticleSystem::setupBuffers()
-{
-	glGenVertexArrays(1, &VAO);
-	glGenBuffers(1, &VBO);
-	
-	glBindVertexArray(VAO);
-	glBindBuffer(GL_ARRAY_BUFFER, VBO);
-	
-	// 동적 버퍼로 설정
-	glBufferData(GL_ARRAY_BUFFER, maxParticles * 7 * sizeof(GLfloat), nullptr, GL_DYNAMIC_DRAW);
-	
-	// 위치 (location 0)
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 7 * sizeof(GLfloat), (void*)0);
-	glEnableVertexAttribArray(0);
-	
-	// 색상 (location 4) - aColor 위치
-	glVertexAttribPointer(4, 4, GL_FLOAT, GL_FALSE, 7 * sizeof(GLfloat), (void*)(3 * sizeof(GLfloat)));
-	glEnableVertexAttribArray(4);
-	
-	glBindVertexArray(0);
-	
-	std::cout << "ParticleSystem VAO/VBO 설정 완료" << std::endl;
+void ParticleSystem::setupCubeGeometry() {
+    if (cubeVAO) return;
+    // 단위 큐브 (중심 기준 약간 작게)
+    const float s = 0.5f;
+    GLfloat verts[] = {
+        // pos              // uv(더미) // normal(더미) // tangent(더미)
+        -s,-s,-s, 0,0, 0,0,-1, 1,0,0,
+         s,-s,-s, 0,0, 0,0,-1, 1,0,0,
+         s, s,-s, 0,0, 0,0,-1, 1,0,0,
+        -s, s,-s, 0,0, 0,0,-1, 1,0,0,
+        -s,-s, s, 0,0, 0,0, 1, 1,0,0,
+         s,-s, s, 0,0, 0,0, 1, 1,0,0,
+         s, s, s, 0,0, 0,0, 1, 1,0,0,
+        -s, s, s, 0,0, 0,0, 1, 1,0,0
+    };
+    GLuint idx[] = {
+        0,1,2, 2,3,0, // back
+        4,5,6, 6,7,4, // front
+        0,4,7, 7,3,0, // left
+        1,5,6, 6,2,1, // right
+        3,2,6, 6,7,3, // top
+        0,1,5, 5,4,0  // bottom
+    };
+    glGenVertexArrays(1, &cubeVAO);
+    glBindVertexArray(cubeVAO);
+
+    glGenBuffers(1, &cubeVBO);
+    glBindBuffer(GL_ARRAY_BUFFER, cubeVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(verts), verts, GL_STATIC_DRAW);
+
+    glGenBuffers(1, &cubeEBO);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, cubeEBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(idx), idx, GL_STATIC_DRAW);
+
+    GLsizei stride = 11 * sizeof(GLfloat);
+    glEnableVertexAttribArray(0); // position
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, (void*)0);
+    glEnableVertexAttribArray(1); // uv (미사용)
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, stride, (void*)(3 * sizeof(GLfloat)));
+    glEnableVertexAttribArray(2); // normal (더미)
+    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, stride, (void*)(5 * sizeof(GLfloat)));
+    glEnableVertexAttribArray(3); // tangent (더미)
+    glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, stride, (void*)(8 * sizeof(GLfloat)));
+
+    // 색상/인스턴스용 4번은 initialize에서 생성
+    glBindVertexArray(0);
 }
 
-void ParticleSystem::emitParticle(const glm::vec3& position, const glm::vec3& baseVelocity)
-{
-	// 난수 생성기 (C++14 호환)
-	static std::random_device rd;
-	static std::mt19937 gen(rd());
-	static std::uniform_real_distribution<float> dis(-1.0f, 1.0f);
-	static std::uniform_real_distribution<float> lifeDis(3.0f, 6.0f); // 더 긴 수명으로 트레일 지속성 향상
-	static std::uniform_real_distribution<float> sizeDis(2.0f, 4.0f); // 더 큰 크기로 가시성 향상
-	
-	// 기존 파티클 찾기 또는 새 파티클 추가
-	Particle* particle = nullptr;
-	
-	// 죽은 파티클 재사용
-	for (auto& p : particles)
-	{
-		if (p.isDead())
-		{
-			particle = &p;
-			break;
-		}
-	}
-	
-	// 새 파티클 생성 (최대 수를 넘지않게)
-	if (particle == nullptr && particles.size() < maxParticles)
-	{
-		particles.emplace_back();
-		particle = &particles.back();
-	}
-	
-	if (particle != nullptr)
-	{
-		// 트레일용 파티클 초기화 - 더 일관된 움직임을 위해 속도 조정
-		glm::vec3 randomVel = baseVelocity + glm::vec3(
-			dis(gen) * 3.0f,  // x축 변화 (감소)
-			std::abs(dis(gen)) * 1.0f + 0.2f,  // y축 변화 (감소, 항상 양수)
-			dis(gen) * 3.0f   // z축 변화 (감소)
-		);
-		
-		// 연기 색상 (더 진한 색상으로 가시성 향상)
-		float grayVariation = 0.6f + dis(gen) * 0.3f; // 0.6 ~ 0.9 범위 (더 진한 회색)
-		glm::vec4 smokeColor = glm::vec4(grayVariation, grayVariation, grayVariation, 1.0f);
-		
-		particle->initialize(
-			position + glm::vec3(dis(gen) * 1.0f, dis(gen) * 0.5f, dis(gen) * 1.0f), // 더 작은 랜덤 위치 변화
-			randomVel,
-			smokeColor,
-			lifeDis(gen),  // 3-6초 수명 (더 긴 지속시간)
-			sizeDis(gen),  // 2.0-4.0 크기 (더 큰 크기)
-			dis(gen) * 90.0f  // 회전 속도 (감소)
-		);
-		
-		static int debugCount = 0;
-		debugCount++;
-		if (debugCount % 200 == 0) {
-			std::cout << "파티클 생성됨! 총 " << particles.size() << "개, 활성: " << getActiveParticleCount() << "개" << std::endl;
-		}
-	}
+void ParticleSystem::emitParticle(const glm::vec3& pos, const glm::vec3& vel) {
+    if (particles.size() >= maxParticles) return;
+    Particle p;
+    // 수명을 6.0f에서 18.0f로 증가 (3배 더 증가)
+    // 초기 크기를 0.8f에서 2.4f로 증가 (3배 더 크게)
+    p.initialize(pos, vel, glm::vec4(0.9f, 0.9f, 0.9f, 0.9f), 18.0f, 2.4f, 0.0f);
+    particles.push_back(p);
 }
 
-void ParticleSystem::update(GLfloat deltaTime)
-{
-	// 모든 파티클 업데이트
-	for (auto& particle : particles)
-	{
-		if (particle.isAlive())
-		{
-			particle.update(deltaTime);
-		}
-	}
-	
-	timeSinceLastEmission += deltaTime;
-	
-	// 죽은 파티클 정리 (가끔씩만 실행하여 성능 최적화)
-	static float cleanupTimer = 0.0f;
-	cleanupTimer += deltaTime;
-	if (cleanupTimer > 2.0f) // 2초마다 정리
-	{
-		int beforeSize = particles.size();
-		particles.erase(
-			std::remove_if(particles.begin(), particles.end(),
-				[](const Particle& p) { return p.isDead(); }),
-			particles.end()
-		);
-		int afterSize = particles.size();
-		if (beforeSize != afterSize) {
-			std::cout << "죽은 파티클 정리: " << (beforeSize - afterSize) << "개 제거" << std::endl;
-		}
-		cleanupTimer = 0.0f;
-	}
-	
-	// 버텍스 데이터 업데이트
-	updateVertexData();
+void ParticleSystem::update(float dt) {
+    for (auto& p : particles) p.update(dt);
+    particles.erase(std::remove_if(particles.begin(), particles.end(),
+        [](const Particle& p) { return p.isDead(); }),
+        particles.end());
 }
 
-void ParticleSystem::updateVertexData()
-{
-	vertexData.clear();
-	
-	for (const auto& particle : particles)
-	{
-		if (particle.isAlive())
-		{
-			// 위치 데이터
-			vertexData.push_back(particle.pos.x);
-			vertexData.push_back(particle.pos.y);
-			vertexData.push_back(particle.pos.z);
-			
-			// 색상 데이터 (RGBA)
-			vertexData.push_back(particle.color.r);
-			vertexData.push_back(particle.color.g);
-			vertexData.push_back(particle.color.b);
-			vertexData.push_back(particle.color.a);
-		}
-	}
+void ParticleSystem::updateInstanceBuffer() {
+    instanceData.clear();
+    instanceData.reserve(particles.size());
+    for (auto& p : particles)
+        instanceData.emplace_back(p.pos.x, p.pos.y, p.pos.z, p.size);
+    glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
+    if (!instanceData.empty())
+        glBufferSubData(GL_ARRAY_BUFFER, 0, instanceData.size() * sizeof(glm::vec4), instanceData.data());
 }
 
-void ParticleSystem::render()
-{
-	if (particles.empty()) return;
-	
-	int activeCount = getActiveParticleCount();
-	if (activeCount == 0) return;
-	
-	// 현재 셰이더 프로그램 가져오기
-	GLint currentProgram;
-	glGetIntegerv(GL_CURRENT_PROGRAM, &currentProgram);
-	
-	if (currentProgram == 0) return; // 셰이더 프로그램이 없으면 렌더링하지 않음
-	
-	// 상태 저장
-	GLboolean depthMask;
-	GLboolean blend;
-	GLboolean cullFace;
-	GLboolean pointSprite;
-	
-	glGetBooleanv(GL_DEPTH_WRITEMASK, &depthMask);
-	glGetBooleanv(GL_BLEND, &blend);
-	glGetBooleanv(GL_CULL_FACE, &cullFace);
-	glGetBooleanv(GL_PROGRAM_POINT_SIZE, &pointSprite);
-	
-	// 파티클 렌더링을 위한 OpenGL 상태 설정
-	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	glDepthMask(GL_FALSE); // 깊이 버퍼 쓰기 비활성화
-	glDisable(GL_CULL_FACE); // 면 제거 비활성화
-	
-	// 점 크기 설정
-	glEnable(GL_PROGRAM_POINT_SIZE);
-	
-	// 셰이더 uniform 설정
-	GLint useTextureLoc = glGetUniformLocation(currentProgram, "useTexture");
-	GLint alphaValueLoc = glGetUniformLocation(currentProgram, "alphaValue");
-	
-	GLfloat savedUseTexture = 1.0f;
-	GLfloat savedAlpha = 1.0f;
-	
-	if (useTextureLoc != -1) {
-		glGetUniformfv(currentProgram, useTextureLoc, &savedUseTexture);
-		glUniform1f(useTextureLoc, 0.0f); // 텍스처 사용 안 함
-	}
-	if (alphaValueLoc != -1) {
-		glGetUniformfv(currentProgram, alphaValueLoc, &savedAlpha);
-		glUniform1f(alphaValueLoc, 1.0f); // 기본 알파값
-	}
-	
-	// 버퍼 업데이트 및 렌더링
-	glBindVertexArray(VAO);
-	glBindBuffer(GL_ARRAY_BUFFER, VBO);
-	
-	if (!vertexData.empty()) {
-		glBufferSubData(GL_ARRAY_BUFFER, 0, vertexData.size() * sizeof(GLfloat), vertexData.data());
-		
-		// 모든 파티클을 한 번에 점으로 렌더링
-		int activeParticles = vertexData.size() / 7; // 7 floats per particle
-		glDrawArrays(GL_POINTS, 0, activeParticles);
-		
-		static int debugRenderCount = 0;
-		debugRenderCount++;
-		if (debugRenderCount % 300 == 0) {
-			std::cout << "파티클 렌더링: " << activeParticles << "개 점으로 렌더링됨" << std::endl;
-		}
-	}
-	
-	glBindVertexArray(0);
-	
-	// 상태 복원
-	if (useTextureLoc != -1) {
-		glUniform1f(useTextureLoc, savedUseTexture);
-	}
-	if (alphaValueLoc != -1) {
-		glUniform1f(alphaValueLoc, savedAlpha);
-	}
-	
-	// OpenGL 상태 복원
-	if (!pointSprite) glDisable(GL_PROGRAM_POINT_SIZE);
-	if (cullFace) glEnable(GL_CULL_FACE);
-	glDepthMask(depthMask);
-	if (!blend) glDisable(GL_BLEND);
+void ParticleSystem::render(const glm::mat4& view, const glm::mat4& proj) {
+    if (!particleShaderProgram || particles.empty()) return;
+    updateInstanceBuffer();
+    glUseProgram(particleShaderProgram);
+    GLint viewLoc = glGetUniformLocation(particleShaderProgram, "uView");
+    GLint projLoc = glGetUniformLocation(particleShaderProgram, "uProj");
+    glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
+    glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(proj));
+
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glDepthMask(GL_FALSE);
+
+    glBindVertexArray(cubeVAO);
+    glDrawElementsInstanced(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0,
+        static_cast<GLsizei>(instanceData.size()));
+    glBindVertexArray(0);
+
+    glDepthMask(GL_TRUE);
+    glDisable(GL_BLEND);
 }
 
-void ParticleSystem::clear()
-{
-	particles.clear();
-	vertexData.clear();
-	std::cout << "ParticleSystem 클리어됨" << std::endl;
-}
-
-int ParticleSystem::getActiveParticleCount() const
-{
-	int count = 0;
-	for (const auto& particle : particles)
-	{
-		if (particle.isAlive())
-			count++;
-	}
-	return count;
+void ParticleSystem::clear() {
+    particles.clear();
 }

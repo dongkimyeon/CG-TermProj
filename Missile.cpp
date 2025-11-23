@@ -24,8 +24,9 @@ void Missile::Initialize()
 	CreateLightGeometry();
 	SetupLightBuffers();
 	
-	// 더 많은 파티클로 트레일 시스템 초기화 (기존 500에서 1500으로 증가)
+	// 더 많은 파티클로 트레일 시스템 초기화 (기존500에서1500으로 증가)
 	smokeTrail = ParticleSystem(1500);
+	smokeTrail.initialize();
 }
 
 void Missile::CreateCubeGeometry()
@@ -256,67 +257,28 @@ void Missile::Update(float deltaTime)
 
 		// 연기 파티클 생성 - 경로를 따라 생성
 		particleEmissionTimer += deltaTime;
-		float emissionInterval = 0.005f; // 0.005초마다 파티클 생성 (200 파티클/초)
+		float emissionInterval = 0.01f; // 간격 늘림 (더 균등한 선형 궤적)
 		
 		while (particleEmissionTimer >= emissionInterval)
 		{
-			// 미사일이 이동한 경로를 따라 파티클 생성
 			glm::vec3 movementVector = position - previousPosition;
 			float movementDistance = glm::length(movementVector);
+			glm::vec3 moveDir = movementDistance > 0.0f ? movementVector / movementDistance : direction;
 			
-			// 경로를 따라 여러 지점에서 파티클 생성
-			int numTrailPoints = static_cast<int>(movementDistance / 2.0f) + 1; // 2 단위마다 파티클 생성
-			numTrailPoints = glm::clamp(numTrailPoints, 1, 10); // 최소 1개, 최대 10개
+			// 이동 거리 기준으로 일정 간격으로 파티클 배치
+			float spacing = trailSpacing; // 헤더에 정의된 선형 간격
+			int numTrailPoints = (movementDistance > 0.0f) ? std::max(1, (int)(movementDistance / spacing) + 1) : 1;
 			
 			for (int i = 0; i < numTrailPoints; ++i)
 			{
-				// 경로를 따라 보간된 위치 계산
 				float t = (numTrailPoints > 1) ? float(i) / float(numTrailPoints - 1) : 0.0f;
 				glm::vec3 interpolatedPos = glm::mix(previousPosition, position, t);
-				
-				// 미사일 뒤쪽에서 연기 파티클 생성 (여러 개)
-				for (int j = 0; j < 3; ++j) // 각 지점에서 3개씩 생성
-				{
-					// 미사일 뒤쪽 위치 계산 (미사일의 길이를 고려)
-					glm::vec3 smokePosition = interpolatedPos - direction * (height * 0.6f);
-					
-					// 약간의 랜덤 위치 변화 (더 작은 범위로 조정하여 더 밀집된 트레일)
-					smokePosition += glm::vec3(
-						(rand() / float(RAND_MAX) - 0.5f) * 3.0f,
-						(rand() / float(RAND_MAX) - 0.5f) * 1.5f,
-						(rand() / float(RAND_MAX) - 0.5f) * 3.0f
-					);
-					
-					// 연기 속도 (미사일 방향의 반대 + 작은 랜덤으로 더 일관된 트레일)
-					glm::vec3 smokeVelocity = -direction * (speed * 0.2f) + glm::vec3(
-						(rand() / float(RAND_MAX) - 0.5f) * 15.0f,
-						(rand() / float(RAND_MAX) - 0.5f) * 8.0f,
-						(rand() / float(RAND_MAX) - 0.5f) * 15.0f
-					);
-					
-					smokeTrail.emitParticle(smokePosition, smokeVelocity);
-				}
+				// 미사일 뒤쪽(방향 반대로 height 일부)으로 오프셋
+				glm::vec3 smokePosition = interpolatedPos - direction * (height * 0.6f);
+				// 선형 궤적: 난수 오프셋 제거, 약간 위로 뜨는 느낌만 추가
+				glm::vec3 smokeVelocity = glm::vec3(0.0f, 5.0f, 0.0f); // 약간 상승
+				smokeTrail.emitParticle(smokePosition, smokeVelocity);
 			}
-			
-			// 추가로 미사일 현재 위치에서도 파티클 생성 (더 밀집된 효과)
-			for (int k = 0; k < 5; ++k)
-			{
-				glm::vec3 currentSmokePosition = position - direction * (height * 0.6f);
-				currentSmokePosition += glm::vec3(
-					(rand() / float(RAND_MAX) - 0.5f) * 2.0f,
-					(rand() / float(RAND_MAX) - 0.5f) * 1.0f,
-					(rand() / float(RAND_MAX) - 0.5f) * 2.0f
-				);
-				
-				glm::vec3 currentSmokeVelocity = -direction * (speed * 0.25f) + glm::vec3(
-					(rand() / float(RAND_MAX) - 0.5f) * 10.0f,
-					(rand() / float(RAND_MAX) - 0.5f) * 5.0f,
-					(rand() / float(RAND_MAX) - 0.5f) * 10.0f
-				);
-				
-				smokeTrail.emitParticle(currentSmokePosition, currentSmokeVelocity);
-			}
-			
 			particleEmissionTimer -= emissionInterval;
 		}
 		
@@ -396,8 +358,8 @@ void Missile::Render(GLuint shaderProgramID, const glm::mat4& view, const glm::m
 		glUniform1f(useTextureLoc, 1.0f);
 	}
 	
-	// 연기 파티클 렌더링
-	smokeTrail.render();
+	// 연기 파티클 렌더링 (view/proj 넘김)
+	smokeTrail.render(view, proj);
 }
 
 void Missile::RenderMissileLight(GLuint shaderProgramID, const glm::mat4& view, const glm::mat4& proj)

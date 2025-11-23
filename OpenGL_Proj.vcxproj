@@ -190,6 +190,8 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="fragment.glsl" />
+    <None Include="Shaders\particle_instanced.frag" />
+    <None Include="Shaders\particle_instanced.vert" />
     <None Include="skyboxFrag.glsl" />
     <None Include="skyboxVertex.glsl" />
     <None Include="vertex3D.glsl" />
