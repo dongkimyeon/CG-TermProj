@@ -350,7 +350,7 @@ void DrawScene()
     // 카메라 모드 전환
     if (camera) {
         ImGui::Separator();
-        ImGui::Text("Camera Mode");
+        ImGui::Text("Camera");
 
         const char* modes[] = { "3rd Person", "Cockpit View", "Gunner View" };
         int currentMode = camera->GetCameraMode();
@@ -359,9 +359,12 @@ void DrawScene()
             camera->SetCameraMode(currentMode);
         }
 
+
         ImGui::Separator();
     }
 
+
+    ImGui::Separator();  
 
     if (ImGui::Button("wired frame"))
     {
@@ -453,8 +456,12 @@ void Motion(int x, int y) {
             int deltaY = y - lastMouseY;
 
             float yaw = helicopter->GetYaw();
-            camera->ProcessMouseDrag(deltaX, deltaY, yaw);
+            float cannonYaw = helicopter->GetCannonYaw();
+            float cannonPitch = helicopter->GetCannonPitch();
+            camera->ProcessMouseDrag(deltaX, deltaY, yaw, cannonYaw, cannonPitch);
             helicopter->SetYaw(yaw);
+			helicopter->SetCannonYaw(cannonYaw);
+			helicopter->SetCannonPitch(cannonPitch);
 
             lastMouseX = x;
             lastMouseY = y;
@@ -524,10 +531,9 @@ void InitBuffers() {
 
 void InitializeAAUnits()
 {
-    // AA 유닛 배열 생성
     aaUnits = new AA*[NUM_AA_UNITS];
     
-    // ⭐ 공유 모델을 먼저 한 번만 로드
+
     AA::LoadSharedModel();
     
     // 랜덤 생성기 초기화
@@ -548,7 +554,7 @@ void InitializeAAUnits()
         // 랜덤 위치 생성
         float randomX = distX(gen);
         float randomZ = distZ(gen);
-        float y = 0.0f;
+        float y = 5.0f;
         
         glm::vec3 randomPos(randomX, y, randomZ);
         aaUnits[i]->SetPosition(randomPos);

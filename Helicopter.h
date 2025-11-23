@@ -28,6 +28,9 @@ public:
     float GetYaw() const { return yRotation; }
     float GetPitch() const { return currentPitch; }
     float GetRoll() const { return currentRoll; }
+	float GetCannonPitch() const { return cannonPitch; }
+	float GetCannonYaw() const { return cannonYaw; }
+
     
     // 미사일 관련
     void FireMissile();
@@ -41,11 +44,15 @@ public:
         debugRotationZ = z;
     }
     void SetYaw(float yaw) { yRotation = yaw; }
-    
+	void SetCannonPitch(float pitch) { cannonPitch = pitch; }
+	void SetCannonYaw(float yaw) { cannonYaw = yaw; }
     // 기관포 오프셋 getter/setter
     glm::vec3& GetCannonOffset() { return cannonOffset; }
     void SetCannonOffset(const glm::vec3& offset) { cannonOffset = offset; }
-    
+	glm::vec3& GetCannonHingePos() { return cannonHingePos; }
+	void SetCannonHingePos(const glm::vec3& pos) { cannonHingePos = pos; }  
+
+
     // 물리 파라미터 접근
     float& GetMaxSpeed() { return maxSpeed; }
     float& GetAccelerationRate() { return accelerationRate; }
@@ -112,8 +119,10 @@ private:
     
     // 기관포 오프셋 
     glm::vec3 cannonOffset = glm::vec3(0.0f, -5.0f, 15.0f); // 초기값: 바디 앞쪽 약간 아래
-	float cannonPitch = -45.0f; // 기관포 피치 각도
-    float cannonYaw = -45.0f;    // 기관포 요 각도
+	float cannonPitch = 0.0f; // 기관포 피치 각도
+    float cannonYaw = 0.0f;    // 기관포 요 각도
+    glm::vec3 cannonHingePos = glm::vec3(-2.2f, 0.0f, 0.0f);
+
     // 미사일 시스템
     std::vector<Missile*> missiles;
     std::vector<Missile*> attachedMissiles;  // 헬리콥터에 붙어있는 미사일

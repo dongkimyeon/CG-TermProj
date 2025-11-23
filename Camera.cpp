@@ -11,6 +11,7 @@ Camera::Camera()
     , cameraMode(0)
     , targetCameraXAngle(0.0f)
     , targetCameraYAngle(0.0f)
+	, gunnerOffset(glm::vec3(30.0f, -15.0f, 0.0f)) // 기관포 뷰 기본 오프셋
 {
 }
 
@@ -86,8 +87,6 @@ void Camera::Update(float deltaTime, const glm::vec3& targetPosition, const glm:
     }
     case 2: // 기관포 사수 뷰
     {
-        // 기관포 위치 (헬리콥터 앞쪽 아래)
-        glm::vec3 gunnerOffset = -targetForward * 20.0f - targetUp * 12.5f;
         position = targetPosition + gunnerOffset;
 
         // 약간 아래를 향하도록
@@ -98,21 +97,27 @@ void Camera::Update(float deltaTime, const glm::vec3& targetPosition, const glm:
     }
 }
 
-void Camera::ProcessMouseDrag(int deltaX, int deltaY, float& heliYawRotation)
+void Camera::ProcessMouseDrag(int deltaX, int deltaY, float& heliYawRotation, float& heliCannonYaw, float& heliCannonPitch)
 {
-    // 마우스 좌우 움직임으로 헬기 Yaw 회전 제어
-    heliYawRotation += deltaX * rotationSpeed * 100.0f;
 
-    // 카메라는 헬기를 따라가도록 설정
-    targetCameraXAngle -= deltaX * rotationSpeed;
+    if (cameraMode == 0 || cameraMode == 1)
+    {
+        heliYawRotation += deltaX * rotationSpeed * 100.0f;
 
-    // 카메라 고도각 업데이트
-    targetCameraYAngle += deltaY * rotationSpeed;
+        targetCameraXAngle -= deltaX * rotationSpeed;
 
-    // 고도각 제한 (-89도 ~ 89도)
-    const float maxAngle = glm::radians(89.0f);
-    if (targetCameraYAngle > maxAngle) targetCameraYAngle = maxAngle;
-    if (targetCameraYAngle < -maxAngle) targetCameraYAngle = -maxAngle;
+        targetCameraYAngle += deltaY * rotationSpeed;
+
+        const float maxAngle = glm::radians(89.0f);
+        if (targetCameraYAngle > maxAngle) targetCameraYAngle = maxAngle;
+        if (targetCameraYAngle < -maxAngle) targetCameraYAngle = -maxAngle;
+    }
+    else // 기관포 뷰 
+    {
+        heliCannonYaw += deltaX * rotationSpeed * 100.0f;
+        heliCannonPitch -= deltaY * rotationSpeed * 100.0f;
+    }
+  
 }
 
 void Camera::Zoom(int direction)

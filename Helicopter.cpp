@@ -674,7 +674,7 @@ void Helicopter::Render(GLuint shaderID, bool wireframeMode, float glassAlpha, f
 		glBindTexture(GL_TEXTURE_2D, 0);
 	}
 
-	// 테일 블레이드 렌더링
+	// 기관포 렌더링
 	if (CannonModel.loaded && !CannonModel.indices.empty())
 	{
 		glUniform1f(alphaValueLoc, 1.0f);
@@ -682,8 +682,11 @@ void Helicopter::Render(GLuint shaderID, bool wireframeMode, float glassAlpha, f
 
 		glm::mat4 modelMat = worldModelMat;
 		modelMat = glm::translate(modelMat, glm::vec3(cannonOffset));
+		
+		modelMat = glm::translate(modelMat, cannonHingePos);
 		modelMat = glm::rotate(modelMat, glm::radians(cannonPitch), glm::vec3(0.0f, 0.0f, 1.0f));
 		modelMat = glm::rotate(modelMat, glm::radians(cannonYaw), glm::vec3(0.0f, 1.0f, 0.0f)); 
+		modelMat = glm::translate(modelMat, -cannonHingePos);
 		modelMat = glm::scale(modelMat, glm::vec3(modelScale));
 		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(modelMat));
 
