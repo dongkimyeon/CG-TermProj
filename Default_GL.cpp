@@ -32,6 +32,14 @@ GLuint skyboxVAO, skyboxVBO;
 GLuint skyboxShaderProgramID;
 GLuint cubemapTexture;
 
+// 후처리 관련
+GLuint postprocessShaderID;
+GLuint framebuffer;
+GLuint textureColorbuffer;
+GLuint rbo;
+GLuint quadVAO, quadVBO;
+bool enableNightVision = false;
+
 // 객체
 Camera* camera = nullptr;
 Helicopter* helicopter = nullptr;
@@ -89,6 +97,13 @@ int main(int argc, char** argv) {
     skyboxShaderProgramID = ShaderManager::CreateSkyboxShaderProgram();
     if (skyboxShaderProgramID == 0) {
         std::cerr << "스카이박스 셰이더 프로그램 생성 실패" << std::endl;
+        return -1;
+    }
+
+    // 후처리 셰이더 생성
+    postprocessShaderID = ShaderManager::CreateShaderProgram("postprocess_vertex.glsl", "postprocess_fragment.glsl");
+    if (postprocessShaderID == 0) {
+        std::cerr << "후처리 셰이더 프로그램 생성 실패" << std::endl;
         return -1;
     }
 
@@ -185,7 +200,8 @@ void DrawScene()
             helicopter->GetCannonWorldPosition());  // 기관포 월드 위치 추가
     }
 
-    // 씬 클리어
+    // ===== 1단계: 프레임버퍼에 씬 렌더링 =====
+    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
     glEnable(GL_DEPTH_TEST);
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -286,7 +302,25 @@ void DrawScene()
     glBindVertexArray(0);
     glDepthFunc(GL_LESS);
 
-    // ImGui 렌더링 
+    // ===== 2단계: 기본 프레임버퍼에 후처리 적용 =====
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glDisable(GL_DEPTH_TEST);
+    glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    glUseProgram(postprocessShaderID);
+    glBindVertexArray(quadVAO);
+    glBindTexture(GL_TEXTURE_2D, textureColorbuffer);
+    
+    // 야간투시 모드는 거너뷰일 때만 활성화
+    bool applyNightVision = enableNightVision && (camera && camera->GetCameraMode() == 2);
+    glUniform1i(glGetUniformLocation(postprocessShaderID, "enableNightVision"), applyNightVision);
+    glUniform1f(glGetUniformLocation(postprocessShaderID, "time"), (float)glutGet(GLUT_ELAPSED_TIME) / 1000.0f);
+    
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+    glBindVertexArray(0);
+
+    // ===== 3단계: ImGui 렌더링 =====
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplGLUT_NewFrame();
     ImGui::NewFrame();
@@ -387,6 +421,19 @@ void DrawScene()
         wireframeMode = !wireframeMode;
     }
 
+    ImGui::Separator();
+    
+    // 야간투시 토글 (거너뷰일 때만 활성화)
+    if (camera && camera->GetCameraMode() == 2) {
+        ImGui::Text("Night Vision (Gunner View)");
+        if (ImGui::Checkbox("Enable Night Vision", &enableNightVision)) {
+            std::cout << "Night Vision: " << (enableNightVision ? "ON" : "OFF") << std::endl;
+        }
+    }
+    else {
+        ImGui::TextDisabled("Night Vision (Gunner View Only)");
+    }
+
     ImGui::End();
 
     ImGui::Render();
@@ -399,6 +446,14 @@ void Reshape(int w, int h) {
     glViewport(0, 0, w, h);
     width = w;
     height = h;
+    
+    // 프레임버퍼 텍스처 크기 재조정
+    glBindTexture(GL_TEXTURE_2D, textureColorbuffer);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+    
+    glBindRenderbuffer(GL_RENDERBUFFER, rbo);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width, height);
+    
     ImGui_ImplGLUT_ReshapeFunc(w, h);
 }
 
@@ -488,6 +543,53 @@ void Motion(int x, int y) {
 }
 
 void InitBuffers() {
+    // 프레임버퍼 생성
+    glGenFramebuffers(1, &framebuffer);
+    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+    
+    // 텍스처 생성 (컬러 버퍼)
+    glGenTextures(1, &textureColorbuffer);
+    glBindTexture(GL_TEXTURE_2D, textureColorbuffer);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textureColorbuffer, 0);
+    
+    // 렌더버퍼 생성 (깊이/스텐실)
+    glGenRenderbuffers(1, &rbo);
+    glBindRenderbuffer(GL_RENDERBUFFER, rbo);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width, height);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, rbo);
+    
+    // 프레임버퍼 완성 확인
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+        std::cerr << "프레임버퍼 생성 실패!" << std::endl;
+    }
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    
+    // 전체 화면 쿼드 생성
+    float quadVertices[] = {
+        // 위치       // 텍스처 좌표
+        -1.0f,  1.0f, 0.0f, 1.0f,
+        -1.0f, -1.0f, 0.0f, 0.0f,
+         1.0f, -1.0f, 1.0f, 0.0f,
+
+        -1.0f,  1.0f, 0.0f, 1.0f,
+         1.0f, -1.0f, 1.0f, 0.0f,
+         1.0f,  1.0f, 1.0f, 1.0f
+    };
+    
+    glGenVertexArrays(1, &quadVAO);
+    glGenBuffers(1, &quadVBO);
+    glBindVertexArray(quadVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), &quadVertices, GL_STATIC_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
+    glBindVertexArray(0);
+    
     // 스카이박스 버텍스
     float skyboxVertices[] = {
         -1.0f,  1.0f, -1.0f,
