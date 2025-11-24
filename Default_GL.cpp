@@ -64,6 +64,8 @@ bool wireframeMode = false;
 float glassAlpha = 0.5f;
 float crosshairSize = 22.0f;
 float crosshairDistance = 315.0f;
+
+
 //디버그 회전 
 float xModelRotation = 0.0f;
 float yModelRotation = 0.0f;
@@ -307,7 +309,7 @@ void DrawScene()
     glBindVertexArray(0);
     glDepthFunc(GL_LESS);
 
-    // ===== 크로스헤어 렌더링 (3인칭 뷰일 때만, 프레임버퍼 내부에서) =====
+    // ===== 크로스헤어 렌더링 =====
     if (camera && (camera->GetCameraMode() == 0 || camera->GetCameraMode() == 1) && helicopter) {
         // 깊이 테스트 끄기
         glDisable(GL_DEPTH_TEST);
