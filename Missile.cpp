@@ -112,7 +112,7 @@ void Missile::CreateLightGeometry()
 
 		// 뒷면 (Z-)
 		-halfSize, -halfSize, -halfSize,   1.0f, 0.0f,   0.0f, 0.0f, -1.0f,  -1.0f, 0.0f, 0.0f, // 4
-		-halfSize,  halfSize, -halfSize,   1.0f, 1.0f,   0.0f, 0.0f, -1.0f,  -1.0f, 0.0f, 0.0f, // 5
+		-halfSize,  halfSize, -halfSize, 1.0f, 1.0f,   0.0f, 0.0f, -1.0f,  -1.0f, 0.0f, 0.0f, // 5
 		 halfSize,  halfSize, -halfSize,   0.0f, 1.0f,   0.0f, 0.0f, -1.0f,  -1.0f, 0.0f, 0.0f, // 6
 		 halfSize, -halfSize, -halfSize,   0.0f, 0.0f,   0.0f, 0.0f, -1.0f,  -1.0f, 0.0f, 0.0f, // 7
 
@@ -396,8 +396,6 @@ void Missile::RenderMissileLight(GLuint shaderProgramID, const glm::mat4& view, 
 	// 조명 색상 (밝은 노란색-주황색 혼합)
 	glm::vec3 brightLightColor = glm::vec3(1.0f, 0.8f, 0.0f) * lightIntensity;
 
-	// 조명 특별 렌더링 설정
-	//glDisable(GL_DEPTH_TEST); // 깊이 테스트 완전히 비활성화하여 항상 보이도록
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE); // Additive blending
 	glDepthMask(GL_TRUE);
@@ -443,4 +441,10 @@ void Missile::SetPosition(const glm::vec3& pos)
 void Missile::SetDirection(const glm::vec3& dir)
 {
 	direction = glm::normalize(dir);
+}
+
+bool Missile::IsFinished() const
+{
+	// Missile is finished when it's inactive AND the particle system has no live particles
+	return (!isActive) && (!smokeTrail.hasLiveParticles());
 }

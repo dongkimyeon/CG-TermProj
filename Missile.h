@@ -24,6 +24,9 @@ public:
     bool IsActive() const { return isActive; }
     void Deactivate() { isActive = false; }
     
+    // Return true when missile is inactive and its particle system has no live particles
+    bool IsFinished() const;
+    
     // 조명 관련
     glm::vec3 GetLightPosition() const;
     glm::vec3 GetLightColor() const { return lightColor; }
@@ -54,7 +57,7 @@ private:
     glm::vec3 position;
     glm::vec3 direction;
     glm::vec3 velocity;
-    float speed = 100.0f;  // 속도 증가
+    float speed = 1000.0f;  // 속도 증가
     bool isActive = false;
 
     // 색상 - 노란색으로 변경
