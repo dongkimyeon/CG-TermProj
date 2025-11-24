@@ -3,7 +3,7 @@
 Ground::Ground()
 	: VAO(0), VBO(0), EBO(0), textureID(0), size(1000.0f), gridResolution(100), groundTexture("T_RockyGround_A.png"), 
     normalMap("T_RockyGround_NA.png"),
-    heightMap("heightMap.png"), heightMapWidth(0), heightMapHeight(0), numStrips(0), numTrisPerStrip(0), heightScale(1.0f)
+    heightMap("heightMap.png"), heightMapWidth(0), heightMapHeight(0), numStrips(0), numTrisPerStrip(0), heightScale(3.7f)
 {
 }
 

@@ -400,7 +400,7 @@ void Missile::RenderMissileLight(GLuint shaderProgramID, const glm::mat4& view, 
 	glDisable(GL_DEPTH_TEST); // 깊이 테스트 완전히 비활성화하여 항상 보이도록
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE); // Additive blending
-	glDepthMask(GL_FALSE);
+	glDepthMask(GL_TRUE);
 
 	// 행렬 및 색상 설정
 	glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(lightModel));

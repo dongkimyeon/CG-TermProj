@@ -113,7 +113,7 @@ void ParticleSystem::render(const glm::mat4& view, const glm::mat4& proj) {
 
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    glDepthMask(GL_FALSE);
+    glDepthMask(GL_TRUE);
 
     glBindVertexArray(cubeVAO);
     glDrawElementsInstanced(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0,

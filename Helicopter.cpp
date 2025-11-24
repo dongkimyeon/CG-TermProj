@@ -4,7 +4,7 @@
 #include "AA.h"
 
 Helicopter::Helicopter()
-	: position(glm::vec3(0.0f))
+	: position(glm::vec3(0.0f, 180.0f,0.0f))
 	, velocity(glm::vec3(0.0f))
 	, acceleration(glm::vec3(0.0f))
 	, forward(glm::vec3(0.0f, 0.0f, 1.0f))
@@ -180,7 +180,7 @@ void Helicopter::CleanupBuffers()
 
 void Helicopter::Initialize()
 {
-	position = glm::vec3(0.0f, 0.0f, 0.0f);
+	position = glm::vec3(0.0f, 180.0f,0.0f);
 	velocity = glm::vec3(0.0f);
 	acceleration = glm::vec3(0.0f);
 	yRotation = 0.0f;
