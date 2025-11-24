@@ -355,8 +355,118 @@ GLvoid DrawScene()
     ImGui_ImplGLUT_NewFrame();
     ImGui::NewFrame();
 
-    // (기존 ImGui 코드 그대로 유지)
-    // ... ImGui 내용 생략 (변경 없음) ...
+    ImGui::SetNextWindowPos(
+        ImVec2((float)width, 0.0f),
+        ImGuiCond_FirstUseEver,
+        ImVec2(1.0f, 0.0f)
+    );
+    ImGui::SetNextWindowSize(ImVec2(250, 150), ImGuiCond_FirstUseEver);
+
+    ImGui::Begin("Debug Controls");
+
+    float fps = 1.0f / Time::DeltaTime();
+    ImGui::Text("FPS: %.1f", fps);
+    
+    // 카메라 정보
+    if (camera) {
+        ImGui::Separator();
+        ImGui::Text("Camera");
+        ImGui::Text("Distance: %.1f", camera->GetDistance());
+        ImGui::Text("(Mouse Wheel to Zoom)");
+        ImGui::Separator();
+    }
+
+    // Ground HeightMap Control
+    if (mGround) {
+        ImGui::Separator();
+        ImGui::Text("Terrain Controls");
+        
+        if (ImGui::SliderFloat("Height Scale", &currentScale, 0.0f, 1000.0f)) {
+			mGround->ControlHeightmap(currentScale);
+        }
+        ImGui::Separator();
+    }
+
+    if (helicopter) {
+        ImGui::Separator();
+        glm::vec3 pos = helicopter->GetPosition();
+        glm::vec3 vel = helicopter->GetVelocity();
+        ImGui::Text("Position: (%.1f, %.1f, %.1f)", pos.x, pos.y, pos.z);
+        ImGui::Text("Velocity: (%.1f, %.1f, %.1f)", vel.x, vel.y, vel.z);
+        ImGui::Text("Speed: %.1f", glm::length(vel));
+        ImGui::Separator();
+        ImGui::Text("Pitch: %.1f", helicopter->GetPitch());
+        ImGui::Text("Roll: %.1f", helicopter->GetRoll());
+        
+        ImGui::Separator();
+
+        ImGui::SliderFloat("Model RotationX", &xModelRotation, -180.0f, 180.0f);
+        ImGui::SliderFloat("Model RotationY", &yModelRotation, -180.0f, 180.0f);
+        ImGui::SliderFloat("Model RotationZ", &zModelRotation, -180.0f, 180.0f);
+        helicopter->SetDebugRotation(xModelRotation, yModelRotation, zModelRotation);
+        ImGui::Separator();
+
+        ImGui::SliderFloat("Max Speed", &helicopter->GetMaxSpeed(), 10.0f, 200.0f);
+        ImGui::SliderFloat("Acceleration", &helicopter->GetAccelerationRate(), 10.0f, 100.0f);
+        ImGui::SliderFloat("Max Tilt", &helicopter->GetMaxTiltAngle(), 10.0f, 60.0f);
+        ImGui::Separator();
+    }
+
+    // 카메라 모드 전환
+    if (camera) {
+        ImGui::Separator();
+        ImGui::Text("Camera");
+
+        const char* modes[] = { "3rd Person", "Cockpit View", "Gunner View" };
+        int currentMode = camera->GetCameraMode();
+
+        if (ImGui::Combo("View Mode", &currentMode, modes, IM_ARRAYSIZE(modes))) {
+            camera->SetCameraMode(currentMode);
+        }
+
+        // Gunner View 모드일 때만 오프셋 조정 가능
+        if (currentMode == 2) {
+            ImGui::Separator();
+            ImGui::Text("Gunner Offset");
+            glm::vec3& offset = camera->GetGunnerOffset();
+            
+            if (ImGui::SliderFloat("Forward/Back", &offset.x, -50.0f, 50.0f)) {
+                camera->SetGunnerOffset(offset);
+            }
+            if (ImGui::SliderFloat("Up/Down", &offset.y, -30.0f, 30.0f)) {
+                camera->SetGunnerOffset(offset);
+            }
+            if (ImGui::SliderFloat("Left/Right", &offset.z, -30.0f, 30.0f)) {
+                camera->SetGunnerOffset(offset);
+            }
+        }
+
+        ImGui::Separator();
+    }
+
+	ImGui::DragFloat("crosshair size", &crosshairSize, 0.1f, 1.0f, 100.0f);
+	ImGui::DragFloat("crosshair distance", &crosshairDistance, 1.0f, -200.0f, 400.0f);
+    ImGui::Separator();  
+
+    if (ImGui::Button("wired frame"))
+    {
+        wireframeMode = !wireframeMode;
+    }
+
+    ImGui::Separator();
+    
+    // 야간투시 토글 (거너뷰일 때만 활성화)
+    if (camera && camera->GetCameraMode() == 2) {
+        ImGui::Text("Night Vision (Gunner View)");
+        if (ImGui::Checkbox("Enable Night Vision", &enableNightVision)) {
+            std::cout << "Night Vision: " << (enableNightVision ? "ON" : "OFF") << std::endl;
+        }
+    }
+    else {
+        ImGui::TextDisabled("Night Vision (Gunner View Only)");
+    }
+
+    ImGui::End();
 
     ImGui::Render();
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
