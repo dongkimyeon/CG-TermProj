@@ -11,8 +11,10 @@ private:
 
 	GLuint cubeVAO=0, cubeVBO=0, cubeEBO=0;
 	GLuint instanceVBO=0;
+	GLuint instanceColorVBO=0; // 추가: 인스턴스별 색상 버퍼
 	GLuint particleShaderProgram=0;
 	std::vector<glm::vec4> instanceData; // xyz position, w scale
+	std::vector<glm::vec4> instanceColorData; // rgba per-instance
 
 public:
 	// 더 큰 파티클과 더 긴 수명을 위해 파티클 수를 2500에서 4000으로 증가
