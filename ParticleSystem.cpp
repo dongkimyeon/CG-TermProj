@@ -80,8 +80,9 @@ void ParticleSystem::setupCubeGeometry() {
 void ParticleSystem::emitParticle(const glm::vec3& pos, const glm::vec3& vel) {
     if (particles.size() >= maxParticles) return;
     Particle p;
-    // 크기를100% 증가시키고 색상을 진한 회색으로 변경
-    p.initialize(pos, vel, glm::vec4(1.0f, 1.0f, 1.0f,0.9f), 18.0f, 4.8f, 0.0f);
+    // 이전: glm::vec4(1.0f, 1.0f, 1.0f, 0.9f) (흰색, 높은 알파값)
+    // 수정: glm::vec4(0.5f, 0.5f, 0.5f, 0.2f) (회색, 낮은 알파값)
+    p.initialize(pos, vel, glm::vec4(0.5f, 0.5f, 0.5f, 0.2f), 18.0f, 4.8f, 0.0f);
     particles.push_back(p);
 }
 
@@ -116,8 +117,8 @@ void ParticleSystem::render(const glm::mat4& view, const glm::mat4& proj) {
     glUseProgram(particleShaderProgram);
     GLint viewLoc = glGetUniformLocation(particleShaderProgram, "uView");
     GLint projLoc = glGetUniformLocation(particleShaderProgram, "uProj");
-    glUniformMatrix4fv(viewLoc,1, GL_FALSE, glm::value_ptr(view));
-    glUniformMatrix4fv(projLoc,1, GL_FALSE, glm::value_ptr(proj));
+    glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
+    glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(proj));
 
     // Save GL state
     GLboolean depthTestEnabled;
@@ -135,7 +136,7 @@ void ParticleSystem::render(const glm::mat4& view, const glm::mat4& proj) {
     glEnable(GL_BLEND);
     // use premultiplied-alpha blending to match shader output (rgb already multiplied by alpha)
     glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
-    glDepthMask(GL_TRUE);
+    glDepthMask(GL_FALSE);
 
     glBindVertexArray(cubeVAO);
     // quad has 6 indices

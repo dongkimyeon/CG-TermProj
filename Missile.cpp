@@ -3,7 +3,7 @@
 Missile::Missile()
 	: VAO(0), VBO(0), EBO(0), lightVAO(0), lightVBO(0), lightEBO(0),
 	  position(0.0f), direction(0.0f, 0.0f, 1.0f), velocity(0.0f), 
-	  isActive(false), smokeTrail(500), particleEmissionTimer(0.0f)
+	  isActive(false), smokeTrail(300), particleEmissionTimer(0.0f)
 {
 }
 
