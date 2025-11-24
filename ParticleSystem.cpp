@@ -81,7 +81,7 @@ void ParticleSystem::emitParticle(const glm::vec3& pos, const glm::vec3& vel) {
     if (particles.size() >= maxParticles) return;
     Particle p;
     
-    p.initialize(pos, vel, glm::vec4(1.0f, 1.0f, 1.0f, 1.0f), 18.0f, 10.8f, 0.0f);
+    p.initialize(pos, vel, glm::vec4(1.0f, 1.0f, 1.0f, 1.0f), 18.0f, 20.8f, 0.0f);
     particles.push_back(p);
 }
 
@@ -131,9 +131,8 @@ void ParticleSystem::render(const glm::mat4& view, const glm::mat4& proj) {
     glGetIntegerv(GL_BLEND_DST_ALPHA, &dstBlend);
     glGetBooleanv(GL_DEPTH_WRITEMASK, &depthMask);
 
-
+	//glDisable(GL_DEPTH_TEST);
     glEnable(GL_BLEND);
-    // use premultiplied-alpha blending to match shader output (rgb already multiplied by alpha)
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glDepthMask(GL_FALSE);
 
