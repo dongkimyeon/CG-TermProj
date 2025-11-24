@@ -94,9 +94,8 @@ void ParticleSystem::setupCubeGeometry() {
 void ParticleSystem::emitParticle(const glm::vec3& pos, const glm::vec3& vel) {
     if (particles.size() >= maxParticles) return;
     Particle p;
-    // 수명을 6.0f에서 18.0f로 증가 (3배 더 증가)
-    // 초기 크기를 0.8f에서 2.4f로 증가 (3배 더 크게)
-    p.initialize(pos, vel, glm::vec4(0.9f, 0.9f, 0.9f, 0.9f), 18.0f, 2.4f, 0.0f);
+    // 크기를100% 증가시키고 색상을 진한 회색으로 변경
+    p.initialize(pos, vel, glm::vec4(0.2f,0.2f,0.2f,0.9f), 18.0f, 4.8f, 0.0f);
     particles.push_back(p);
 }
 
@@ -131,20 +130,36 @@ void ParticleSystem::render(const glm::mat4& view, const glm::mat4& proj) {
     glUseProgram(particleShaderProgram);
     GLint viewLoc = glGetUniformLocation(particleShaderProgram, "uView");
     GLint projLoc = glGetUniformLocation(particleShaderProgram, "uProj");
-    glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
-    glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(proj));
+    glUniformMatrix4fv(viewLoc,1, GL_FALSE, glm::value_ptr(view));
+    glUniformMatrix4fv(projLoc,1, GL_FALSE, glm::value_ptr(proj));
 
+    // Save GL state
+    GLboolean depthTestEnabled;
+    GLboolean blendEnabled;
+    GLint srcBlend, dstBlend;
+    GLboolean depthMask;
+
+    glGetBooleanv(GL_DEPTH_TEST, &depthTestEnabled);
+    glGetBooleanv(GL_BLEND, &blendEnabled);
+    glGetIntegerv(GL_BLEND_SRC_ALPHA, &srcBlend);
+    glGetIntegerv(GL_BLEND_DST_ALPHA, &dstBlend);
+    glGetBooleanv(GL_DEPTH_WRITEMASK, &depthMask);
+
+    // Ensure particles always visible: disable depth test, keep depth writes off, enable alpha blending
+    glDisable(GL_DEPTH_TEST);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glDepthMask(GL_FALSE);
 
     glBindVertexArray(cubeVAO);
-    glDrawElementsInstanced(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0,
+    glDrawElementsInstanced(GL_TRIANGLES,36, GL_UNSIGNED_INT,0,
         static_cast<GLsizei>(instanceData.size()));
     glBindVertexArray(0);
 
-    glDepthMask(GL_TRUE);
-    glDisable(GL_BLEND);
+    // Restore GL state
+    if (depthTestEnabled) glEnable(GL_DEPTH_TEST); else glDisable(GL_DEPTH_TEST);
+    if (!blendEnabled) glDisable(GL_BLEND); else glBlendFunc(srcBlend, dstBlend);
+    glDepthMask(depthMask);
 }
 
 void ParticleSystem::clear() {
