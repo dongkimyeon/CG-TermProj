@@ -3,7 +3,7 @@
 Missile::Missile()
 	: VAO(0), VBO(0), EBO(0), lightVAO(0), lightVBO(0), lightEBO(0),
 	  position(0.0f), direction(0.0f, 0.0f, 1.0f), velocity(0.0f), 
-	  isActive(false), smokeTrail(500), particleEmissionTimer(0.0f)
+	  isActive(false), smokeTrail(300), particleEmissionTimer(0.0f)
 {
 }
 
@@ -24,8 +24,8 @@ void Missile::Initialize()
 	CreateLightGeometry();
 	SetupLightBuffers();
 	
-	// 더 많은 파티클로 트레일 시스템 초기화 (기존500에서1500으로 증가)
-	smokeTrail = ParticleSystem(1500);
+	
+	smokeTrail = ParticleSystem(300);
 	smokeTrail.initialize();
 }
 
