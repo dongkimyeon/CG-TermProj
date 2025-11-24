@@ -397,7 +397,7 @@ void Missile::RenderMissileLight(GLuint shaderProgramID, const glm::mat4& view, 
 	glm::vec3 brightLightColor = glm::vec3(1.0f, 0.8f, 0.0f) * lightIntensity;
 
 	// 조명 특별 렌더링 설정
-	glDisable(GL_DEPTH_TEST); // 깊이 테스트 완전히 비활성화하여 항상 보이도록
+	//glDisable(GL_DEPTH_TEST); // 깊이 테스트 완전히 비활성화하여 항상 보이도록
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE); // Additive blending
 	glDepthMask(GL_TRUE);

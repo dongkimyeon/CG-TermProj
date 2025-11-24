@@ -146,7 +146,7 @@ void ParticleSystem::render(const glm::mat4& view, const glm::mat4& proj) {
     glGetBooleanv(GL_DEPTH_WRITEMASK, &depthMask);
 
     // Ensure particles always visible: disable depth test, keep depth writes off, enable alpha blending
-    glDisable(GL_DEPTH_TEST);
+    //glDisable(GL_DEPTH_TEST);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glDepthMask(GL_TRUE);
