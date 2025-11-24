@@ -17,6 +17,7 @@ uniform int useNormalMap;    // 노멀 맵 사용 여부
 uniform float alphaValue;         // 알파값
 uniform bool useTexture;          // 텍스처 사용 여부
 uniform vec3 aColor;
+uniform vec3 objectColor;  // 오브젝트 색상 (크로스헤어용)
 
 // Vertex 셰이더로부터 입력
 in vec2 UV;    // UV 좌표
@@ -31,50 +32,51 @@ void main()
 {
     // 파티클인지 확인 (vertexColor가 설정되어 있는 경우)
     if (vertexColor.a > 0.0 && !useTexture) {
-// 파티클 렌더링 - 원형 모양으로 렌더링
+        // 파티클 렌더링 - 원형 모양으로 렌더링
         vec2 coord = gl_PointCoord - vec2(0.5);  // 점 중심을 원점으로
-   float dist = length(coord);
-   
-        // 원형 모양 (부드러운 가장자리)
-   float alpha = 1.0 - smoothstep(0.0, 0.5, dist);
+        float dist = length(coord);
         
-    // 중심이 더 밝고 가장자리가 투명한 그라디언트
-float brightness = 1.0 - dist * 2.0;
+        // 원형 모양 (부드러운 가장자리)
+        float alpha = 1.0 - smoothstep(0.0, 0.5, dist);
+        
+        // 중심이 더 밝고 가장자리가 투명한 그라디언트
+        float brightness = 1.0 - dist * 2.0;
         brightness = max(0.0, brightness);
         
-      // 최종 색상 (밝은 회색/흰색)
-  vec3 finalColor = vertexColor.rgb * brightness;
-  color = vec4(finalColor, alpha * vertexColor.a);
+        // 최종 색상 (밝은 회색/흰색)
+        vec3 finalColor = vertexColor.rgb * brightness;
+        color = vec4(finalColor, alpha * vertexColor.a);
         
         return;
     }
     
     // 일반 오브젝트 렌더링
     // 1. 디퓨즈 텍스처에서 베이스 컬러값 얻기 (감마 공간에 있는 표준 방법)
-  vec4 texColor = texture(textureSampler, UV);
-  vec3 matDiff;
+    vec4 texColor = texture(textureSampler, UV);
+    vec3 matDiff;
 
     if (!useTexture) {
-        matDiff = aColor;
-   }
+        // objectColor가 설정되어 있으면 사용 (크로스헤어용)
+        matDiff = (objectColor != vec3(0.0)) ? objectColor : aColor;
+    }
     else
     {
         matDiff = texColor.rgb;
     }
     
     // 2. 스페큘러 재질
-   vec3 matSpec = vec3(1.0, 1.0, 1.0);
+    vec3 matSpec = vec3(1.0, 1.0, 1.0);
     
     // 3. 노멀 맵에서 노멀 (탄젠트 좌표에 있는 표준 방법만 사용)
     vec3 normal;
     if (useNormalMap == 1) {
         normal = normalize(2.0 * texture(normalMap, UV).xyz - 1.0);
- } 
+    } 
     else {
-   normal = vec3(0.0, 0.0, 1.0);
+        normal = vec3(0.0, 0.0, 1.0);
     }
     
-// 4. 탄젠트 공간에서 정규화
+    // 4. 탄젠트 공간에서 정규화
     vec3 viewDir = normalize(v_viewTS);
     vec3 lightDirTS = normalize(v_lightTs);
     

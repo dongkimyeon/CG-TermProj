@@ -32,6 +32,10 @@ GLuint skyboxVAO, skyboxVBO;
 GLuint skyboxShaderProgramID;
 GLuint cubemapTexture;
 
+//크로스헤어 관련
+GLuint crosshairVAO, crosshairVBO;
+GLuint crosshairShaderProgramID;
+
 // 후처리 관련
 GLuint postprocessShaderID;
 GLuint framebuffer;
@@ -58,7 +62,8 @@ float modelScale = 0.1f;
 int targetFrameDelay = 1;
 bool wireframeMode = false;
 float glassAlpha = 0.5f;
-
+float crosshairSize = 1.0f;
+float crosshairDistance = 50.0f;
 //디버그 회전 
 float xModelRotation = 0.0f;
 float yModelRotation = 0.0f;
@@ -104,6 +109,12 @@ int main(int argc, char** argv) {
     postprocessShaderID = ShaderManager::CreateShaderProgram("postprocess_vertex.glsl", "postprocess_fragment.glsl");
     if (postprocessShaderID == 0) {
         std::cerr << "후처리 셰이더 프로그램 생성 실패" << std::endl;
+        return -1;
+    }
+
+    crosshairShaderProgramID = ShaderManager::CreateShaderProgram("crosshairVertex.glsl", "crosshairFrag.glsl");
+    if (crosshairShaderProgramID == 0) {
+        std::cerr << "크로스헤어 셰이더 프로그램 생성 실패" << std::endl;
         return -1;
     }
 
@@ -162,7 +173,7 @@ int main(int argc, char** argv) {
         }
         delete[] aaUnits;
         
-        // ⭐ 공유 모델 정리
+        // 공유 모델 정리
         AA::CleanupSharedModel();
     }
     
@@ -302,6 +313,107 @@ void DrawScene()
     glBindVertexArray(0);
     glDepthFunc(GL_LESS);
 
+    // ===== 크로스헤어 렌더링 (3인칭 뷰일 때만, 프레임버퍼 내부에서) =====
+    if (camera && (camera->GetCameraMode() == 0 || camera->GetCameraMode() == 1) && helicopter) {
+        // 깊이 테스트 끄기
+        glDisable(GL_DEPTH_TEST);
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        
+        // 기본 3D 셰이더 사용 (vertex3D.glsl + fragment.glsl)
+        glUseProgram(shaderProgramID);
+        
+        // 헬리콥터의 현재 상태 가져오기
+        glm::vec3 heliPos = helicopter->GetPosition();
+        float yaw = helicopter->GetYaw();
+        float pitch = helicopter->GetPitch();
+        float roll = helicopter->GetRoll();
+        
+        // 헬리콥터 변환 매트릭스 직접 생성
+        glm::mat4 heliTransform = glm::mat4(1.0f);
+        heliTransform = glm::translate(heliTransform, heliPos);
+        heliTransform = glm::rotate(heliTransform, glm::radians(yaw), glm::vec3(0.0f, 1.0f, 0.0f));
+        heliTransform = glm::rotate(heliTransform, glm::radians(roll), glm::vec3(1.0f, 0.0f, 0.0f));
+        heliTransform = glm::rotate(heliTransform, glm::radians(pitch), glm::vec3(0.0f, 0.0f, 1.0f));
+        
+        // 헬리콥터의 로컬 전방 방향 벡터 (-1, 0, 0)를 월드 공간으로 변환
+        glm::vec3 localForward = glm::vec3(-1.0f, 0.0f, 0.0f);
+        glm::vec4 worldForward = heliTransform * glm::vec4(localForward, 0.0f);
+        glm::vec3 actualForward = glm::normalize(glm::vec3(worldForward));
+        
+        // 로컬 상하좌우 방향 벡터도 계산
+        glm::vec3 localUp = glm::vec3(0.0f, 1.0f, 0.0f);
+        glm::vec3 localRight = glm::vec3(0.0f, 0.0f, 1.0f);
+        glm::vec3 actualUp = glm::normalize(glm::vec3(heliTransform * glm::vec4(localUp, 0.0f)));
+        glm::vec3 actualRight = glm::normalize(glm::vec3(heliTransform * glm::vec4(localRight, 0.0f)));
+        
+        // 크로스헤어 중심점 (헬기 전방 50미터)
+        glm::vec3 crosshairCenter = heliPos + actualForward * -crosshairDistance;
+        
+    
+        // 십자 모양 선 정의 (4개의 선)
+        std::vector<glm::vec3> crosshairLines;
+        
+        // 수평선 (좌 -> 중심)
+        crosshairLines.push_back(crosshairCenter - actualRight * crosshairSize * 0.5f);
+        crosshairLines.push_back(crosshairCenter - actualRight * crosshairSize * 0.15f);
+        
+        // 수평선 (중심 -> 우)
+        crosshairLines.push_back(crosshairCenter + actualRight * crosshairSize * 0.15f);
+        crosshairLines.push_back(crosshairCenter + actualRight * crosshairSize * 0.5f);
+        
+        // 수직선 (하 -> 중심)
+        crosshairLines.push_back(crosshairCenter - actualUp * crosshairSize * 0.5f);
+        crosshairLines.push_back(crosshairCenter - actualUp * crosshairSize * 0.15f);
+        
+        // 수직선 (중심 -> 상)
+        crosshairLines.push_back(crosshairCenter + actualUp * crosshairSize * 0.15f);
+        crosshairLines.push_back(crosshairCenter + actualUp * crosshairSize * 0.5f);
+        
+        // 임시 VAO/VBO 생성하여 선 그리기
+        GLuint tempVAO, tempVBO;
+        glGenVertexArrays(1, &tempVAO);
+        glGenBuffers(1, &tempVBO);
+        
+        glBindVertexArray(tempVAO);
+        glBindBuffer(GL_ARRAY_BUFFER, tempVBO);
+        glBufferData(GL_ARRAY_BUFFER, crosshairLines.size() * sizeof(glm::vec3), 
+                     crosshairLines.data(), GL_DYNAMIC_DRAW);
+        
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)0);
+        glEnableVertexAttribArray(0);
+        
+        // 셰이더 유니폼 설정
+        GLint modelLoc = glGetUniformLocation(shaderProgramID, "model");
+        GLint viewLoc2 = glGetUniformLocation(shaderProgramID, "view");
+        GLint projLoc2 = glGetUniformLocation(shaderProgramID, "proj");
+        GLint colorLoc = glGetUniformLocation(shaderProgramID, "objectColor");
+        GLint useTextureLoc2 = glGetUniformLocation(shaderProgramID, "useTexture");
+        
+        glm::mat4 model = glm::mat4(1.0f);
+        
+        glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
+        glUniformMatrix4fv(viewLoc2, 1, GL_FALSE, glm::value_ptr(view));
+        glUniformMatrix4fv(projLoc2, 1, GL_FALSE, glm::value_ptr(proj));
+        glUniform3f(colorLoc, 0.0f, 1.0f, 0.0f); // 녹색
+        glUniform1f(useTextureLoc2, 0.0f); // 텍스처 사용 안함
+        
+        // 선 두께 설정
+        glLineWidth(3.0f);
+        
+        // 선 그리기
+        glDrawArrays(GL_LINES, 0, static_cast<GLsizei>(crosshairLines.size()));
+        
+        // 정리
+        glBindVertexArray(0);
+        glDeleteBuffers(1, &tempVBO);
+        glDeleteVertexArrays(1, &tempVAO);
+        
+        // 깊이 테스트 다시 켜기
+        glEnable(GL_DEPTH_TEST);
+        glDisable(GL_BLEND);
+    }
+
     // ===== 2단계: 기본 프레임버퍼에 후처리 적용 =====
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glDisable(GL_DEPTH_TEST);
@@ -414,6 +526,8 @@ void DrawScene()
         ImGui::Separator();
     }
 
+	ImGui::DragFloat("crosshair size", &crosshairSize, 0.1f, 1.0f, 100.0f);
+	ImGui::DragFloat("crosshair distance", &crosshairDistance, 1.0f, -200.0f, 400.0f);
     ImGui::Separator();  
 
     if (ImGui::Button("wired frame"))
@@ -645,13 +759,32 @@ void InitBuffers() {
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
 
     glBindVertexArray(0);
+
+    //크로스헤어 버퍼 생성
+    float crosshairVertices[] = {
+        // 위치 (십자가 모양)
+        -1.0f, -1.0f,
+        -1.0f,  1.0f,
+         1.0f,  1.0f,
+         1.0f, -1.0f
+    };
+    
+    glGenVertexArrays(1, &crosshairVAO);
+    glGenBuffers(1, &crosshairVBO);
+    glBindVertexArray(crosshairVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, crosshairVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(crosshairVertices), crosshairVertices, GL_STATIC_DRAW);
+    
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
+    
+    glBindVertexArray(0);
 }
 
 void InitializeAAUnits()
 {
     aaUnits = new AA*[NUM_AA_UNITS];
     
-
     AA::LoadSharedModel();
     
     // 랜덤 생성기 초기화

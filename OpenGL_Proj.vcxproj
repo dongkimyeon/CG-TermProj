@@ -189,6 +189,8 @@
     <ClCompile Include="Time.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="crosshairFrag.glsl" />
+    <None Include="crosshairVertex.glsl" />
     <None Include="fragment.glsl" />
     <None Include="postprocess_fragment.glsl" />
     <None Include="postprocess_vertex.glsl" />

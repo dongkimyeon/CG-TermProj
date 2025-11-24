@@ -50,7 +50,7 @@ void Camera::Update(float deltaTime, const glm::vec3& targetPosition, const glm:
         glm::vec3 right = glm::normalize(glm::cross(-targetForward, targetUp));
 
         // 조종석 기본 오프셋 (헬리콥터 로컬 좌표계)
-        glm::vec3 localCockpitOffset = glm::vec3(15.0f, 5.0f, 0.0f); // forward, up, right
+        glm::vec3 localCockpitOffset = glm::vec3(30.0f, 4.0f, 0.0f); // forward, up, right
 
         // 피치 회전 매트릭스
         float pitchRad = glm::radians(helicopterPitch);
