@@ -397,7 +397,7 @@ void DrawScene()
         glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
         glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
         glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(proj));
-        glUniform3f(colorLoc, 0.0f, 1.0f, 0.0f);  // 원하는 색상
+        glUniform3f(colorLoc, 0.0f, 1.0f, 0.0f);
 
         glLineWidth(3.0f);
         glDrawArrays(GL_LINES, 0, static_cast<GLsizei>(crosshairLines.size()));

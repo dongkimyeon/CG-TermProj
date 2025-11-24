@@ -396,9 +396,10 @@ void Missile::RenderMissileLight(GLuint shaderProgramID, const glm::mat4& view, 
 	// 조명 색상 (밝은 노란색-주황색 혼합)
 	glm::vec3 brightLightColor = glm::vec3(1.0f, 0.8f, 0.0f) * lightIntensity;
 
+	glDisable(GL_DEPTH_TEST);
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE); // Additive blending
-	glDepthMask(GL_TRUE);
+	glDepthMask(GL_FALSE);
 
 	// 행렬 및 색상 설정
 	glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(lightModel));
