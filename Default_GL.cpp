@@ -114,6 +114,12 @@ int main(int argc, char** argv) {
         return -1;
     }
 
+    crosshairShaderProgramID = ShaderManager::CreateShaderProgram(
+        "crosshair_vertex.glsl", "crosshair_fragment.glsl");
+    if (crosshairShaderProgramID == 0) {
+        std::cerr << "크로스헤어 셰이더 로드 실패" << std::endl;
+    }
+
     InitBuffers();
     
     // 카메라 초기화
@@ -379,33 +385,26 @@ void DrawScene()
         glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)0);
         glEnableVertexAttribArray(0);
         
-        // 셰이더 유니폼 설정
-        GLint modelLoc = glGetUniformLocation(shaderProgramID, "model");
-        GLint viewLoc2 = glGetUniformLocation(shaderProgramID, "view");
-        GLint projLoc2 = glGetUniformLocation(shaderProgramID, "proj");
-        GLint colorLoc = glGetUniformLocation(shaderProgramID, "objectColor");
-        GLint useTextureLoc2 = glGetUniformLocation(shaderProgramID, "useTexture");
-        
+
+        glUseProgram(crosshairShaderProgramID);
+
+        GLint modelLoc = glGetUniformLocation(crosshairShaderProgramID, "model");
+        GLint viewLoc = glGetUniformLocation(crosshairShaderProgramID, "view");
+        GLint projLoc = glGetUniformLocation(crosshairShaderProgramID, "proj");
+        GLint colorLoc = glGetUniformLocation(crosshairShaderProgramID, "crosshairColor");
+
         glm::mat4 model = glm::mat4(1.0f);
-        
         glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
-        glUniformMatrix4fv(viewLoc2, 1, GL_FALSE, glm::value_ptr(view));
-        glUniformMatrix4fv(projLoc2, 1, GL_FALSE, glm::value_ptr(proj));
-        glUniform3f(colorLoc, 0.0f, 1.0f, 0.0f); // 녹색
-        glUniform1f(useTextureLoc2, 0.0f); // 텍스처 사용 안함
-        
-        // 선 두께 설정
+        glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
+        glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(proj));
+        glUniform3f(colorLoc, 0.0f, 1.0f, 0.0f);  // 원하는 색상
+
         glLineWidth(3.0f);
-        
-        // 선 그리기
         glDrawArrays(GL_LINES, 0, static_cast<GLsizei>(crosshairLines.size()));
-        
-        // 정리
-        glBindVertexArray(0);
+
         glDeleteBuffers(1, &tempVBO);
         glDeleteVertexArrays(1, &tempVAO);
-        
-        // 깊이 테스트 다시 켜기
+
         glEnable(GL_DEPTH_TEST);
         glDisable(GL_BLEND);
     }
