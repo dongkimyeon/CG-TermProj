@@ -81,7 +81,7 @@ void ParticleSystem::emitParticle(const glm::vec3& pos, const glm::vec3& vel) {
     if (particles.size() >= maxParticles) return;
     Particle p;
     // 크기를100% 증가시키고 색상을 진한 회색으로 변경
-    p.initialize(pos, vel, glm::vec4(0.2f,0.2f,0.2f,0.9f), 18.0f, 4.8f, 0.0f);
+    p.initialize(pos, vel, glm::vec4(1.0f, 1.0f, 1.0f,0.9f), 18.0f, 4.8f, 0.0f);
     particles.push_back(p);
 }
 

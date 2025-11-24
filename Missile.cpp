@@ -24,8 +24,8 @@ void Missile::Initialize()
 	CreateLightGeometry();
 	SetupLightBuffers();
 	
-	// 더 많은 파티클로 트레일 시스템 초기화 (기존500에서1500으로 증가)
-	smokeTrail = ParticleSystem(1500);
+	
+	smokeTrail = ParticleSystem(300);
 	smokeTrail.initialize();
 }
 

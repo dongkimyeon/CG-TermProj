@@ -49,9 +49,9 @@ private:
     std::vector<GLuint> lightIndices;
     
     // 육면체 크기 (가로 5.0, 세로 20.0, 높이 5.0)
-    float width = 5.0f;
-    float height = 20.0f;
-    float depth = 5.0f;
+    float width = 3.0f;
+    float height = 10.0f;
+    float depth = 3.0f;
     
     // 미사일 상태
     glm::vec3 position;
@@ -65,7 +65,7 @@ private:
     
     // 조명 관련 - 더 밝고 잘 보이는 값들로 수정
     glm::vec3 lightColor = glm::vec3(1.0f, 0.8f, 0.0f); // 노란색-주황색 혼합
-    float lightIntensity = 4.0f; // 2.0f에서 4.0f로 증가
+    float lightIntensity = 1.0f; // 2.0f에서 4.0f로 증가
     float lightOffset = -8.0f; // 미사일 뒤쪽 오프셋 (더 가까이)
     float lightPulseTimer = 0.0f;
     
