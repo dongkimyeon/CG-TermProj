@@ -38,8 +38,8 @@ void main()
         
         // 8. 십자선 효과 (중앙)
         vec2 crosshair = abs(TexCoord - 0.5);
-        if ((crosshair.x < 0.002 && crosshair.y < 0.02) || 
-            (crosshair.y < 0.002 && crosshair.x < 0.02)) {
+        if ((crosshair.x < 0.001 && crosshair.y < 0.02) || 
+            (crosshair.y < 0.001 && crosshair.x < 0.02)) {
             color = vec3(1.0, 1.0, 1.0);
         }
         

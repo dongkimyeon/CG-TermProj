@@ -62,8 +62,8 @@ float modelScale = 0.1f;
 int targetFrameDelay = 1;
 bool wireframeMode = false;
 float glassAlpha = 0.5f;
-float crosshairSize = 1.0f;
-float crosshairDistance = 50.0f;
+float crosshairSize = 22.0f;
+float crosshairDistance = 315.0f;
 //디버그 회전 
 float xModelRotation = 0.0f;
 float yModelRotation = 0.0f;
@@ -109,12 +109,6 @@ int main(int argc, char** argv) {
     postprocessShaderID = ShaderManager::CreateShaderProgram("postprocess_vertex.glsl", "postprocess_fragment.glsl");
     if (postprocessShaderID == 0) {
         std::cerr << "후처리 셰이더 프로그램 생성 실패" << std::endl;
-        return -1;
-    }
-
-    crosshairShaderProgramID = ShaderManager::CreateShaderProgram("crosshairVertex.glsl", "crosshairFrag.glsl");
-    if (crosshairShaderProgramID == 0) {
-        std::cerr << "크로스헤어 셰이더 프로그램 생성 실패" << std::endl;
         return -1;
     }
 

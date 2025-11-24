@@ -17,7 +17,7 @@ uniform int useNormalMap;    // 노멀 맵 사용 여부
 uniform float alphaValue;         // 알파값
 uniform bool useTexture;          // 텍스처 사용 여부
 uniform vec3 aColor;
-uniform vec3 objectColor;  // 오브젝트 색상 (크로스헤어용)
+uniform vec3 objectColor;  // 오브젝트 색상 
 
 // Vertex 셰이더로부터 입력
 in vec2 UV;    // UV 좌표
