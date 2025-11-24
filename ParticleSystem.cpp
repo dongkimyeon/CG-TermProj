@@ -7,6 +7,7 @@ ParticleSystem::ParticleSystem(size_t maxCount)
     : maxParticles(maxCount) {
     particles.reserve(maxParticles);
     instanceData.reserve(maxParticles);
+    instanceColorData.reserve(maxParticles);
 }
 
 void ParticleSystem::initialize() {
@@ -15,10 +16,24 @@ void ParticleSystem::initialize() {
     glGenBuffers(1, &instanceVBO);
     glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
     glBufferData(GL_ARRAY_BUFFER, maxParticles * sizeof(glm::vec4), nullptr, GL_DYNAMIC_DRAW);
+
+    // 인스턴스 컬러 VBO 생성
+    glGenBuffers(1, &instanceColorVBO);
+    glBindBuffer(GL_ARRAY_BUFFER, instanceColorVBO);
+    glBufferData(GL_ARRAY_BUFFER, maxParticles * sizeof(glm::vec4), nullptr, GL_DYNAMIC_DRAW);
+
     glBindVertexArray(cubeVAO);
     glEnableVertexAttribArray(4);
+    glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
     glVertexAttribPointer(4, 4, GL_FLOAT, GL_FALSE, sizeof(glm::vec4), (void*)0);
     glVertexAttribDivisor(4, 1);
+
+    // 컬러 속성(location5)
+    glEnableVertexAttribArray(5);
+    glBindBuffer(GL_ARRAY_BUFFER, instanceColorVBO);
+    glVertexAttribPointer(5, 4, GL_FLOAT, GL_FALSE, sizeof(glm::vec4), (void*)0);
+    glVertexAttribDivisor(5, 1);
+
     glBindVertexArray(0);
 
     // 확장자 원래 형태(.vert/.frag)로 복구
@@ -95,11 +110,19 @@ void ParticleSystem::update(float dt) {
 void ParticleSystem::updateInstanceBuffer() {
     instanceData.clear();
     instanceData.reserve(particles.size());
-    for (auto& p : particles)
+    instanceColorData.clear();
+    instanceColorData.reserve(particles.size());
+    for (auto& p : particles) {
         instanceData.emplace_back(p.pos.x, p.pos.y, p.pos.z, p.size);
+        // use particle color.a for alpha
+        instanceColorData.emplace_back(p.color.r, p.color.g, p.color.b, p.color.a);
+    }
     glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
     if (!instanceData.empty())
         glBufferSubData(GL_ARRAY_BUFFER, 0, instanceData.size() * sizeof(glm::vec4), instanceData.data());
+    glBindBuffer(GL_ARRAY_BUFFER, instanceColorVBO);
+    if (!instanceColorData.empty())
+        glBufferSubData(GL_ARRAY_BUFFER, 0, instanceColorData.size() * sizeof(glm::vec4), instanceColorData.data());
 }
 
 void ParticleSystem::render(const glm::mat4& view, const glm::mat4& proj) {
