@@ -45,26 +45,16 @@ void ParticleSystem::initialize() {
 
 void ParticleSystem::setupCubeGeometry() {
     if (cubeVAO) return;
-    // 단위 큐브 (중심 기준 약간 작게)
-    const float s = 0.5f;
+    // Replace cube with a simple camera-facing quad (centered at origin)
     GLfloat verts[] = {
-        // pos              // uv(더미) // normal(더미) // tangent(더미)
-        -s,-s,-s, 0,0, 0,0,-1, 1,0,0,
-         s,-s,-s, 0,0, 0,0,-1, 1,0,0,
-         s, s,-s, 0,0, 0,0,-1, 1,0,0,
-        -s, s,-s, 0,0, 0,0,-1, 1,0,0,
-        -s,-s, s, 0,0, 0,0, 1, 1,0,0,
-         s,-s, s, 0,0, 0,0, 1, 1,0,0,
-         s, s, s, 0,0, 0,0, 1, 1,0,0,
-        -s, s, s, 0,0, 0,0, 1, 1,0,0
+        // pos(x,y,z) // uv
+        -0.5f, -0.5f, 0.0f, 0.0f, 0.0f,
+         0.5f, -0.5f, 0.0f, 1.0f, 0.0f,
+         0.5f,  0.5f, 0.0f, 1.0f, 1.0f,
+        -0.5f,  0.5f, 0.0f, 0.0f, 1.0f
     };
     GLuint idx[] = {
-        0,1,2, 2,3,0, // back
-        4,5,6, 6,7,4, // front
-        0,4,7, 7,3,0, // left
-        1,5,6, 6,2,1, // right
-        3,2,6, 6,7,3, // top
-        0,1,5, 5,4,0  // bottom
+        0, 1, 2, 2, 3, 0
     };
     glGenVertexArrays(1, &cubeVAO);
     glBindVertexArray(cubeVAO);
@@ -77,15 +67,11 @@ void ParticleSystem::setupCubeGeometry() {
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, cubeEBO);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(idx), idx, GL_STATIC_DRAW);
 
-    GLsizei stride = 11 * sizeof(GLfloat);
+    GLsizei stride = 5 * sizeof(GLfloat);
     glEnableVertexAttribArray(0); // position
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, (void*)0);
-    glEnableVertexAttribArray(1); // uv (미사용)
+    glEnableVertexAttribArray(1); // uv
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, stride, (void*)(3 * sizeof(GLfloat)));
-    glEnableVertexAttribArray(2); // normal (더미)
-    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, stride, (void*)(5 * sizeof(GLfloat)));
-    glEnableVertexAttribArray(3); // tangent (더미)
-    glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, stride, (void*)(8 * sizeof(GLfloat)));
 
     // 색상/인스턴스용 4번은 initialize에서 생성
     glBindVertexArray(0);
@@ -145,14 +131,15 @@ void ParticleSystem::render(const glm::mat4& view, const glm::mat4& proj) {
     glGetIntegerv(GL_BLEND_DST_ALPHA, &dstBlend);
     glGetBooleanv(GL_DEPTH_WRITEMASK, &depthMask);
 
-    // Ensure particles always visible: disable depth test, keep depth writes off, enable alpha blending
-    //glDisable(GL_DEPTH_TEST);
+
     glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    // use premultiplied-alpha blending to match shader output (rgb already multiplied by alpha)
+    glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
     glDepthMask(GL_TRUE);
 
     glBindVertexArray(cubeVAO);
-    glDrawElementsInstanced(GL_TRIANGLES,36, GL_UNSIGNED_INT,0,
+    // quad has 6 indices
+    glDrawElementsInstanced(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0,
         static_cast<GLsizei>(instanceData.size()));
     glBindVertexArray(0);
 
@@ -163,5 +150,12 @@ void ParticleSystem::render(const glm::mat4& view, const glm::mat4& proj) {
 }
 
 void ParticleSystem::clear() {
-    particles.clear();
+    // Keep existing particles alive until their lifetime ends so that
+    // when missiles (or other emitters) disappear, the smoke/particles
+    // remain and fade out naturally. Do not clear the `particles` vector here.
+    // If immediate removal is desired, call `particles.clear()` explicitly from the caller.
+}
+
+bool ParticleSystem::hasLiveParticles() const {
+    return !particles.empty();
 }

@@ -1,4 +1,5 @@
 #include "Particle.h"
+#include <cmath>
 
 Particle::Particle()
 	: pos(0.0f), vel(0.0f), color(1.0f), 
@@ -15,8 +16,8 @@ void Particle::initialize(const glm::vec3& position, const glm::vec3& velocity,
 	vel = velocity;
 	color = initialColor;
 	life = lifeTime;
-	age = 0.0f;
-	rot = 0.0f;
+	age =0.0f;
+	rot =0.0f;
 	angularVel = rotSpeed;
 	size = particleSize;
 	initialSize = particleSize;
@@ -26,25 +27,41 @@ void Particle::update(GLfloat deltaTime)
 {
 	if (!isAlive()) return;
 
-	// 나이 증가
+	// age first so turbulence uses updated age
 	age += deltaTime;
-	
-	// 위치 업데이트
-	pos += vel * deltaTime;
-	
-	// 회전 업데이트
-	rot += angularVel * deltaTime;
-	
-	// 생존 주기 계산 비율
+
 	float lifeRatio = age / life;
-	
-	// 트레일 효과: 시간이 지날 때 서서히 사라지고 크기 확산
-	color.a = (1.0f - lifeRatio) * 0.9f; // 최대 불투명도 0.9로 설정 (더 진하게)
-	size = initialSize * (1.0f + lifeRatio * 1.5f); // 크기가 더 서서히 커짐 (트레일 밀집도 향상)
-	
-	// 중력이나 바람 효과 (감소) - 트레일이 더 일관되게 보이도록
-	vel.y -= 0.2f * deltaTime; // 약간의 중력
-	
-	// 속도 감소 (공기 저항) - 트레일 지속성을 위해 감소량을 줄임
-	vel *= 0.995f;
+
+	// Buoyancy: gentle upward acceleration (smoke rises)
+	vel.y +=0.25f * deltaTime;
+
+	// Small turbulence so particles don't move in straight lines
+	float jitterX = std::sin(age *10.0f + pos.z *0.5f) *0.15f;
+	float jitterZ = std::cos(age *8.0f + pos.x *0.4f) *0.15f;
+	vel.x += jitterX * deltaTime;
+	vel.z += jitterZ * deltaTime;
+
+	// Apply velocity
+	pos += vel * deltaTime;
+
+	// Rotation
+	rot += angularVel * deltaTime;
+
+	// Size: grow initially then gently shrink toward the end for a puff effect
+	size = initialSize * (1.0f + lifeRatio *1.8f - lifeRatio * lifeRatio *1.2f);
+	if (size <0.01f) size =0.01f;
+
+	// Alpha: use smoother falloff (gamma) for more natural fade
+	float alphaBase =0.9f;
+	color.a = alphaBase * std::powf(1.0f - lifeRatio,1.6f);
+
+	// Color shift: become slightly lighter (smoke brightening) as it ages
+	glm::vec3 target(0.88f,0.88f,0.88f);
+	float t = std::min(1.0f, lifeRatio *0.6f);
+	color.r = color.r * (1.0f - t) + target.r * t;
+	color.g = color.g * (1.0f - t) + target.g * t;
+	color.b = color.b * (1.0f - t) + target.b * t;
+
+	// Dampen velocity a bit (air resistance)
+	vel *=0.99f;
 }

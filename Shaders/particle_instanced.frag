@@ -1,7 +1,13 @@
 #version 330 core
 in vec4 vColor;
+in vec2 vUV;
 out vec4 FragColor;
 void main(){
- // 인스턴스 색상을 직접 사용하고, 프리멀티플라이드 알파는 여기서 필요하지 않음
- FragColor = vColor;
+ // create soft circular falloff
+ float dist = length(vUV - vec2(0.5));
+ float alpha = smoothstep(0.5,0.0, dist);
+ vec4 col = vColor;
+ col.a *= alpha;
+ // output premultiplied alpha to blend nicely
+ FragColor = vec4(col.rgb * col.a, col.a);
 }

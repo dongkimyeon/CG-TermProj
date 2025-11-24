@@ -25,6 +25,9 @@ public:
 	void render(const glm::mat4& view, const glm::mat4& proj);
 	void clear();
 
+	// Returns true if there are any live particles in the system
+	bool hasLiveParticles() const;
+
 private:
 	void setupCubeGeometry();
 	void updateInstanceBuffer();
