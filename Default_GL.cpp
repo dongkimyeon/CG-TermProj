@@ -265,6 +265,27 @@ GLvoid DrawScene()
         }
     }
 
+    
+    // ===== 5. 스카이박스 =====
+    glDepthFunc(GL_LEQUAL);
+    glUseProgram(skyboxShaderProgramID);
+
+    // 카메라 회전만 반영 (위치 이동은 없앰)
+    glm::mat4 skyView = glm::mat4(glm::mat3(view));
+
+    glUniformMatrix4fv(glGetUniformLocation(skyboxShaderProgramID, "view"), 1, GL_FALSE, glm::value_ptr(skyView));
+    glUniformMatrix4fv(glGetUniformLocation(skyboxShaderProgramID, "projection"), 1, GL_FALSE, glm::value_ptr(proj));
+
+    glBindVertexArray(skyboxVAO);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, cubemapTexture);
+    glUniform1i(glGetUniformLocation(skyboxShaderProgramID, "skybox"), 0);
+    glDrawArrays(GL_TRIANGLES, 0, 36);
+    glBindVertexArray(0);
+
+    glDepthFunc(GL_LESS);  // 복구
+
+
     // 4. 크로스헤어 (3D 공간에 그리는 십자선)
     if (camera && (camera->GetCameraMode() == 0 || camera->GetCameraMode() == 1) && helicopter) {
         glDisable(GL_DEPTH_TEST);
@@ -317,24 +338,6 @@ GLvoid DrawScene()
         glEnable(GL_DEPTH_TEST);
     }
 
-    // ===== 5. 스카이박스 (모든 오브젝트보다 마지막에 그리기) =====
-    glDepthFunc(GL_LEQUAL);
-    glUseProgram(skyboxShaderProgramID);
-
-    // 카메라 회전만 반영 (위치 이동은 없앰)
-    glm::mat4 skyView = glm::mat4(glm::mat3(view));
-
-    glUniformMatrix4fv(glGetUniformLocation(skyboxShaderProgramID, "view"), 1, GL_FALSE, glm::value_ptr(skyView));
-    glUniformMatrix4fv(glGetUniformLocation(skyboxShaderProgramID, "projection"), 1, GL_FALSE, glm::value_ptr(proj));
-
-    glBindVertexArray(skyboxVAO);
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_CUBE_MAP, cubemapTexture);
-    glUniform1i(glGetUniformLocation(skyboxShaderProgramID, "skybox"), 0);
-    glDrawArrays(GL_TRIANGLES, 0, 36);
-    glBindVertexArray(0);
-
-    glDepthFunc(GL_LESS);  // 복구
 
     // ===== 2단계: 후처리 =====
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -347,6 +350,8 @@ GLvoid DrawScene()
 
     bool nightVisionOn = enableNightVision && camera && camera->GetCameraMode() == 2;
     glUniform1i(glGetUniformLocation(postprocessShaderID, "enableNightVision"), nightVisionOn);
+	bool gunnerView = camera && camera->GetCameraMode() == 2;
+    glUniform1i(glGetUniformLocation(postprocessShaderID, "gunnerview"), gunnerView);
     glUniform1f(glGetUniformLocation(postprocessShaderID, "time"), (float)glutGet(GLUT_ELAPSED_TIME) / 1000.0f);
     glDrawArrays(GL_TRIANGLES, 0, 6);
 

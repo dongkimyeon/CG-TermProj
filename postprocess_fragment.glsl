@@ -3,6 +3,7 @@
 in vec2 TexCoord;
 out vec4 FragColor;
 
+uniform bool gunnerview;
 uniform sampler2D screenTexture;
 uniform bool enableNightVision;
 uniform float time;
@@ -44,11 +45,13 @@ void main()
             color *= 0.5;
         }
     }
+    if (gunnerview) {
         // 크로스헤어
         vec2 crosshair = abs(TexCoord - 0.5);
         if ((crosshair.x < 0.001 && crosshair.y < 0.02) || 
             (crosshair.y < 0.001 && crosshair.x < 0.02)) {
             color = vec3(1.0, 1.0, 1.0);
         }
+    }
     FragColor = vec4(color, 1.0);
 }
