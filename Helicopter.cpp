@@ -280,8 +280,8 @@ void Helicopter::ProcessInput(float deltaTime)
 {
 	// 현재 헬기의 회전 방향 벡터 계산
 	float yawRad = glm::radians(yRotation);
-	glm::vec3 forwardDir = glm::vec3(cos(yawRad), 0.0f, -sin(yawRad));
-	glm::vec3 rightDir = glm::vec3(sin(yawRad), 0.0f, cos(yawRad));
+	glm::vec3 forwardDir = glm::vec3(cos(yawRad),0.0f, -sin(yawRad));
+	glm::vec3 rightDir = glm::vec3(sin(yawRad),0.0f, cos(yawRad));
 
 	// 전진
 	if (Input::GetKey(eKeyCode::W))
@@ -312,11 +312,11 @@ void Helicopter::ProcessInput(float deltaTime)
 	// 기울기 복원
 	if (!Input::GetKey(eKeyCode::W) && !Input::GetKey(eKeyCode::S))
 	{
-		targetPitch = 0.0f;
+		targetPitch =0.0f;
 	}
 	if (!Input::GetKey(eKeyCode::A) && !Input::GetKey(eKeyCode::D))
 	{
-		targetRoll = 0.0f;
+		targetRoll =0.0f;
 	}
 
 	// 고도 제어
@@ -326,18 +326,14 @@ void Helicopter::ProcessInput(float deltaTime)
 	}
 	else if (Input::GetKey(eKeyCode::SHIFT))
 	{
-		liftForce = -maxLiftForce * 0.5f;
+		liftForce = -maxLiftForce *0.5f;
 	}
 	else
 	{
 		liftForce = gravity; // 호버링
 	}
 
-	// 미사일 발사 (F 키)
-	if (Input::GetKeyDown(eKeyCode::F))
-	{
-		FireMissile();
-	}
+	// NOTE: 미사일 발사는 Default_GL에서 크로스헤어 방향으로 처리합니다.
 }
 
 void Helicopter::UpdatePhysics(float deltaTime)
@@ -473,34 +469,34 @@ void Helicopter::FireMissile()
 {
 	if (attachedMissiles.empty()) return;
 
-	// 첫 번째 미사일을 발사
+	// 기존 동작: 헬리콥터 전방에서 발사
+	glm::mat4 heliTransform = GetHelicopterTransform();
+	glm::vec3 forwardOffset = glm::vec3(5.0f,0.0f,0.0f);
+	glm::vec4 launchPosWorld = heliTransform * glm::vec4(forwardOffset,1.0f);
+	glm::vec3 launchPos = glm::vec3(launchPosWorld);
+
+	// 방향 계산 (현재 피치 반영 로직)
+	float pitchRad = - glm::radians(currentPitch);
+	glm::vec3 baseForward = glm::normalize(forward);
+	glm::vec3 baseUp = glm::normalize(up);
+	glm::vec3 rightAxis = glm::normalize(glm::cross(baseForward, baseUp));
+	glm::mat4 pitchRotation = glm::rotate(glm::mat4(1.0f), pitchRad, rightAxis);
+	glm::vec4 pitchedForward = pitchRotation * glm::vec4(baseForward,0.0f);
+	glm::vec3 launchDir = -glm::normalize(glm::vec3(pitchedForward));
+
+	// Delegate to new overload
+	FireMissile(launchPos, launchDir);
+}
+
+// New overload: launches a missile from a specified world position and direction
+void Helicopter::FireMissile(const glm::vec3& launchPos, const glm::vec3& launchDir)
+{
+	if (attachedMissiles.empty()) return;
+
 	Missile* missileToFire = attachedMissiles.front();
 	attachedMissiles.erase(attachedMissiles.begin());
 
-	// 발사 위치: 헬리콥터 전방 약간 앞쪽에서 발사
-	glm::mat4 heliTransform = GetHelicopterTransform();
-	glm::vec3 forwardOffset = glm::vec3(5.0f, 0.0f, 0.0f); // 헬리콥터 전방으로 5 단위
-	glm::vec4 launchPosWorld = heliTransform * glm::vec4(forwardOffset, 1.0f);
-	glm::vec3 launchPos = glm::vec3(launchPosWorld);
-
-	// 발사 방향: 헬리콥터의 기저벡터 forward 방향에 피치 반영
-	float pitchRad = - glm::radians(currentPitch);
-
-	// forward 벡터를 기준으로 피치 적용
-	glm::vec3 baseForward = glm::normalize(forward); // 기저벡터의 forward 사용
-	glm::vec3 baseUp = glm::normalize(up);   // 기저벡터의 up 사용
-
-	// 피치 회전을 위한 축 (right 벡터)
-	glm::vec3 rightAxis = glm::normalize(glm::cross(baseForward, baseUp));
-
-	// 피치 회전 매트릭스 생성
-	glm::mat4 pitchRotation = glm::rotate(glm::mat4(1.0f), pitchRad, rightAxis);
-
-	// forward 벡터에 피치 적용
-	glm::vec4 pitchedForward = pitchRotation * glm::vec4(baseForward, 0.0f);
-	glm::vec3 launchDir = -glm::normalize(glm::vec3(pitchedForward));
-
-	missileToFire->Launch(launchPos, launchDir);
+	missileToFire->Launch(launchPos, glm::normalize(launchDir));
 	missiles.push_back(missileToFire);
 
 	std::cout << "미사일 발사! 남은 미사일: " << attachedMissiles.size() << std::endl;

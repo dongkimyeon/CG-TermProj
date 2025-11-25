@@ -34,6 +34,8 @@ public:
     
     // 미사일 관련
     void FireMissile();
+    // 새로운 오버로드: 특정 월드 위치에서 지정된 방향으로 미사일 발사
+    void FireMissile(const glm::vec3& launchPos, const glm::vec3& launchDir);
     void UpdateMissiles(float deltaTime);
     void RenderMissiles(GLuint shaderID, const glm::mat4& view, const glm::mat4& proj);
     
