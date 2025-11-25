@@ -98,67 +98,76 @@ void Missile::CreateCubeGeometry()
 
 void Missile::CreateLightGeometry()
 {
-	// 조명을 위한 더 큰 구체 (더 잘 보이도록)
-	float lightSize = 6.0f; // 큰 크기 설정
-	float halfSize = lightSize * 0.5f;
+	// 조명을 위한 구체 생성
+	float radius = 6.0f * 0.5f; // lightSize가 6.0f 였으니 반지름은 3.0f
+	int segments = 24; // 구체의 부드러움을 결정 (높을수록 부드러움)
 
-	// 큰 배열을 정적으로 선언하여 스택 사용량 줄이기
-	static const std::vector<GLfloat> lightVerticesData = {
-		// 앞면 (Z+)
-		-halfSize, -halfSize,  halfSize,   0.0f, 0.0f,   0.0f, 0.0f, 1.0f,   1.0f, 0.0f, 0.0f, // 0
-		 halfSize, -halfSize,  halfSize,   1.0f, 0.0f,   0.0f, 0.0f, 1.0f,   1.0f, 0.0f, 0.0f, // 1
-		 halfSize,  halfSize,  halfSize,   1.0f, 1.0f,   0.0f, 0.0f, 1.0f,   1.0f, 0.0f, 0.0f, // 2
-		-halfSize,  halfSize,  halfSize,   0.0f, 1.0f,   0.0f, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f, // 3
+	lightVertices.clear();
+	lightIndices.clear();
 
-		// 뒷면 (Z-)
-		-halfSize, -halfSize, -halfSize,   1.0f, 0.0f,   0.0f, 0.0f, -1.0f,  -1.0f, 0.0f, 0.0f, // 4
-		-halfSize,  halfSize, -halfSize, 1.0f, 1.0f,   0.0f, 0.0f, -1.0f,  -1.0f, 0.0f, 0.0f, // 5
-		 halfSize,  halfSize, -halfSize,   0.0f, 1.0f,   0.0f, 0.0f, -1.0f,  -1.0f, 0.0f, 0.0f, // 6
-		 halfSize, -halfSize, -halfSize,   0.0f, 0.0f,   0.0f, 0.0f, -1.0f,  -1.0f, 0.0f, 0.0f, // 7
+	// UV Sphere 생성 로직
+	for (int y = 0; y <= segments; ++y) {
+		float y_ratio = (float)y / (float)segments;
+		float pitch = y_ratio * glm::pi<float>();
+		float y_coord = radius * glm::cos(pitch);
+		float slice_radius = radius * glm::sin(pitch);
 
-		// 왼쪽면 (X-)
-		-halfSize, -halfSize, -halfSize,   0.0f, 0.0f,   -1.0f, 0.0f, 0.0f,  0.0f, 0.0f, 1.0f, // 8
-		-halfSize, -halfSize,  halfSize,   1.0f, 0.0f,   -1.0f, 0.0f, 0.0f,  0.0f, 0.0f, 1.0f, // 9
-		-halfSize,  halfSize,  halfSize,   1.0f, 1.0f,   -1.0f, 0.0f, 0.0f,  0.0f, 0.0f, 1.0f, // 10
-		-halfSize,  halfSize, -halfSize,   0.0f, 1.0f,   -1.0f, 0.0f, 0.0f,  0.0f, 0.0f, 1.0f, // 11
+		for (int x = 0; x <= segments; ++x) {
+			float x_ratio = (float)x / (float)segments;
+			float yaw = x_ratio * 2.0f * glm::pi<float>();
 
-		// 오른쪽면 (X+)
-		 halfSize, -halfSize, -halfSize,   1.0f, 0.0f,   1.0f, 0.0f, 0.0f,   0.0f, 0.0f, -1.0f, // 12
-		 halfSize,  halfSize, -halfSize,   1.0f, 1.0f,   1.0f, 0.0f, 0.0f,   0.0f, 0.0f, -1.0f, // 13
-		 halfSize,  halfSize,  halfSize,   0.0f, 1.0f,   1.0f, 0.0f, 0.0f,   0.0f, 0.0f, -1.0f, // 14
-		 halfSize, -halfSize,  halfSize,   0.0f, 0.0f,   1.0f, 0.0f, 0.0f,   0.0f, 0.0f, -1.0f, // 15
+			float x_coord = slice_radius * glm::cos(yaw);
+			float z_coord = slice_radius * glm::sin(yaw);
 
-		// 윗면 (Y+)
-		-halfSize,  halfSize, -halfSize,   0.0f, 1.0f,   0.0f, 1.0f, 0.0f,   1.0f, 0.0f, 0.0f, // 16
-		-halfSize,  halfSize,  halfSize,   0.0f, 0.0f,   0.0f, 1.0f, 0.0f,   1.0f, 0.0f, 0.0f, // 17
-		 halfSize,  halfSize,  halfSize,   1.0f, 0.0f,   0.0f, 1.0f, 0.0f,   1.0f, 0.0f, 0.0f, // 18
-		 halfSize,  halfSize, -halfSize,   1.0f, 1.0f,   0.0f, 1.0f, 0.0f, 1.0f, 0.0f, 0.0f, // 19
+			glm::vec3 position = glm::vec3(x_coord, y_coord, z_coord);
+			glm::vec3 normal = glm::normalize(position);
+			glm::vec2 uv = glm::vec2(x_ratio, y_ratio);
 
-		// 아랫면 (Y-)
-		-halfSize, -halfSize, -halfSize, 0.0f, 0.0f,   0.0f, -1.0f, 0.0f,  1.0f, 0.0f, 0.0f, // 20
-		 halfSize, -halfSize, -halfSize,   1.0f, 0.0f,0.0f, -1.0f, 0.0f,  1.0f, 0.0f, 0.0f, // 21
-		 halfSize, -halfSize,  halfSize,   1.0f, 1.0f,   0.0f, -1.0f, 0.0f,  1.0f, 0.0f, 0.0f, // 22
-		-halfSize, -halfSize,  halfSize,   0.0f, 1.0f,   0.0f, -1.0f, 0.0f,  1.0f, 0.0f, 0.0f  // 23
-	};
+			// 정점 데이터: 위치(3), UV(2), 법선(3), 탄젠트(3) - 총 11개
+			lightVertices.push_back(position.x);
+			lightVertices.push_back(position.y);
+			lightVertices.push_back(position.z);
 
-	lightVertices = lightVerticesData;
+			lightVertices.push_back(uv.x);
+			lightVertices.push_back(uv.y);
 
-	static const std::vector<GLuint> lightIndicesData = {
-		// 앞면
-		0, 1, 2,   2, 3, 0,
-		// 뒷면
-		4, 5, 6,   6, 7, 4,
-		// 왼쪽면
-		8, 9, 10,  10, 11, 8,
-		// 오른쪽면
-		12, 13, 14, 14, 15, 12,
-		// 윗면
-		16, 17, 18, 18, 19, 16,
-		// 아랫면
-		20, 21, 22, 22, 23, 20
-	};
+			lightVertices.push_back(normal.x);
+			lightVertices.push_back(normal.y);
+			lightVertices.push_back(normal.z);
 
-	lightIndices = lightIndicesData;
+			// 탄젠트는 복잡하니 임시로 (1, 0, 0) 설정.
+			// 조명 쉐이더는 보통 법선/탄젠트를 사용하지 않으므로 큰 문제는 안됨.
+			lightVertices.push_back(1.0f);
+			lightVertices.push_back(0.0f);
+			lightVertices.push_back(0.0f);
+		}
+	}
+
+	// 인덱스 생성
+	for (int y = 0; y < segments; ++y) {
+		for (int x = 0; x < segments; ++x) {
+			int current_row = y * (segments + 1);
+			int next_row = (y + 1) * (segments + 1);
+
+			int p1 = current_row + x;
+			int p2 = current_row + x + 1;
+			int p3 = next_row + x + 1;
+			int p4 = next_row + x;
+
+			// 두 개의 삼각형 (Quad)
+			if (y != 0) { // 위쪽 극점 제외
+				lightIndices.push_back(p1);
+				lightIndices.push_back(p4);
+				lightIndices.push_back(p2);
+			}
+
+			if (y != segments - 1) { // 아래쪽 극점 제외
+				lightIndices.push_back(p2);
+				lightIndices.push_back(p4);
+				lightIndices.push_back(p3);
+			}
+		}
+	}
 }
 
 void Missile::SetupBuffers()
