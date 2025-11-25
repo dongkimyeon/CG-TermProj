@@ -3,6 +3,8 @@
 #include "FBXModel.h"
 #include "Missile.h"
 
+class Camera; // forward declaration
+
 class Helicopter {
 public:
     Helicopter();
@@ -39,6 +41,9 @@ public:
     void UpdateMissiles(float deltaTime);
     void RenderMissiles(GLuint shaderID, const glm::mat4& view, const glm::mat4& proj);
     
+    // Move firing logic here: use camera state to compute launch direction/position
+    void FireMissileFromCamera(const Camera* camera, float crosshairDistance);
+ 
     // Setter
     void SetDebugRotation(float x, float y, float z) {
         debugRotationX = x;

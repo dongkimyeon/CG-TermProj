@@ -526,36 +526,8 @@ void Timer(int value) {
 
     
     if (Input::GetKeyDown(eKeyCode::F) && helicopter && camera) {
-        int mode = camera->GetCameraMode();
-        glm::vec3 launchPos = helicopter->GetCannonWorldPosition();
-        glm::vec3 dir(0.0f);
-
-        if (mode ==0 || mode ==1) {
-            
-            glm::vec3 heliPos = helicopter->GetPosition();
-            float yaw = helicopter->GetYaw();
-            float pitch = helicopter->GetPitch();
-            float roll = helicopter->GetRoll();
-
-            glm::mat4 heliTransform = glm::mat4(1.0f);
-            heliTransform = glm::translate(heliTransform, heliPos);
-            heliTransform = glm::rotate(heliTransform, glm::radians(yaw), glm::vec3(0,1,0));
-            heliTransform = glm::rotate(heliTransform, glm::radians(roll), glm::vec3(1,0,0));
-            heliTransform = glm::rotate(heliTransform, glm::radians(pitch), glm::vec3(0,0,1));
-
-            glm::vec3 forward = glm::normalize(glm::vec3(heliTransform * glm::vec4(-1,0,0,0)));
-
-            glm::vec3 center = heliPos - forward * crosshairDistance;
-            dir = glm::normalize(center - launchPos);
-        }
-        else {
-            
-            dir = glm::normalize(camera->GetTarget() - camera->GetPosition());
-        }
-
-        if (glm::length(dir) >0.001f) {
-            helicopter->FireMissile(launchPos, dir);
-        }
+        // Delegate missile firing logic to Helicopter class (uses camera and crosshairDistance)
+        helicopter->FireMissileFromCamera(camera, crosshairDistance);
     }
 
     glutPostRedisplay();

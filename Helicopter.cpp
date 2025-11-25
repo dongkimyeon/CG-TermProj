@@ -2,6 +2,7 @@
 #include "Input.h"
 #include "Time.h"
 #include "AA.h"
+#include "Camera.h"
 
 Helicopter::Helicopter()
 	: position(glm::vec3(0.0f, 180.0f,0.0f))
@@ -500,6 +501,40 @@ void Helicopter::FireMissile(const glm::vec3& launchPos, const glm::vec3& launch
 	missiles.push_back(missileToFire);
 
 	std::cout << "미사일 발사! 남은 미사일: " << attachedMissiles.size() << std::endl;
+}
+
+void Helicopter::FireMissileFromCamera(const Camera* camera, float crosshairDistance)
+{
+	if (!camera) return;
+
+	// Use camera target/ray for gunner view (mode2) or compute center point along helicopter forward for other modes
+	glm::vec3 launchPos = GetCannonWorldPosition();
+	glm::vec3 dir(0.0f);
+
+	int mode = camera->GetCameraMode();
+	if (mode ==2) {
+		dir = glm::normalize(camera->GetTarget() - camera->GetPosition());
+	} else {
+		// compute center point in front of helicopter based on its forward (respecting pitch/roll as in existing code)
+		glm::vec3 heliPos = GetPosition();
+		float yaw = GetYaw();
+		float pitch = GetPitch();
+		float roll = GetRoll();
+
+		glm::mat4 heliTransform = glm::mat4(1.0f);
+		heliTransform = glm::translate(heliTransform, heliPos);
+		heliTransform = glm::rotate(heliTransform, glm::radians(yaw), glm::vec3(0,1,0));
+		heliTransform = glm::rotate(heliTransform, glm::radians(roll), glm::vec3(1,0,0));
+		heliTransform = glm::rotate(heliTransform, glm::radians(pitch), glm::vec3(0,0,1));
+
+		glm::vec3 forwardVec = glm::normalize(glm::vec3(heliTransform * glm::vec4(-1,0,0,0)));
+		glm::vec3 center = heliPos - forwardVec * crosshairDistance;
+		dir = glm::normalize(center - launchPos);
+	}
+
+	if (glm::length(dir) >0.001f) {
+		FireMissile(launchPos, dir);
+	}
 }
 
 void Helicopter::UpdateMissiles(float deltaTime)
