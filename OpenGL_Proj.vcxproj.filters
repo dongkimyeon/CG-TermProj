@@ -138,6 +138,9 @@
     <ClInclude Include="AA.h">
       <Filter>소스 파일\AA</Filter>
     </ClInclude>
+    <ClInclude Include="CannonBullet.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Default_GL.cpp">
@@ -200,6 +203,9 @@
     <ClCompile Include="AA.cpp">
       <Filter>소스 파일\AA</Filter>
     </ClCompile>
+    <ClCompile Include="CannonBullet.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="fragment.glsl">
@@ -222,6 +228,8 @@
     <None Include="postprocess_vertex.glsl">
       <Filter>헤더 파일\Shader\Shaders</Filter>
     </None>
+    <None Include="crosshair_fragment.glsl" />
+    <None Include="crosshair_vertex.glsl" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="MI_West_Heli_AH64D_Main.png">

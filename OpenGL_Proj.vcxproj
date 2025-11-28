@@ -141,6 +141,7 @@
   <ItemGroup>
     <ClInclude Include="AA.h" />
     <ClInclude Include="Camera.h" />
+    <ClInclude Include="CannonBullet.h" />
     <ClInclude Include="CommonInclude.h" />
     <ClInclude Include="FBXModel.h" />
     <ClInclude Include="FileRead.h" />
@@ -169,6 +170,7 @@
   <ItemGroup>
     <ClCompile Include="AA.cpp" />
     <ClCompile Include="Camera.cpp" />
+    <ClCompile Include="CannonBullet.cpp" />
     <ClCompile Include="Default_GL.cpp" />
     <ClCompile Include="FBXModel.cpp" />
     <ClCompile Include="Ground.cpp" />
