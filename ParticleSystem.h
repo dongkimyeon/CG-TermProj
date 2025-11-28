@@ -21,6 +21,7 @@ public:
 	ParticleSystem(size_t maxCount=4000);
 	void initialize();
 	void emitParticle(const glm::vec3& pos, const glm::vec3& vel);
+	void emitParticle(const glm::vec3& pos, const glm::vec3& vel, const glm::vec4& color, float particleSize); // 추가된 함수
 	void update(float dt);
 	void render(const glm::mat4& view, const glm::mat4& proj);
 	void clear();

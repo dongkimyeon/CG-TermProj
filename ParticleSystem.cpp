@@ -12,12 +12,12 @@ ParticleSystem::ParticleSystem(size_t maxCount)
 
 void ParticleSystem::initialize() {
     setupCubeGeometry();
-    // 인스턴스 버퍼
+    // 인스턴스 VBO
     glGenBuffers(1, &instanceVBO);
     glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
     glBufferData(GL_ARRAY_BUFFER, maxParticles * sizeof(glm::vec4), nullptr, GL_DYNAMIC_DRAW);
 
-    // 인스턴스 컬러 VBO 생성
+    // 인스턴스 컬러 VBO
     glGenBuffers(1, &instanceColorVBO);
     glBindBuffer(GL_ARRAY_BUFFER, instanceColorVBO);
     glBufferData(GL_ARRAY_BUFFER, maxParticles * sizeof(glm::vec4), nullptr, GL_DYNAMIC_DRAW);
@@ -77,11 +77,18 @@ void ParticleSystem::setupCubeGeometry() {
     glBindVertexArray(0);
 }
 
+// 기존 emit은 기본 색상/사이즈 사용
 void ParticleSystem::emitParticle(const glm::vec3& pos, const glm::vec3& vel) {
+    // 기본: 흰색, size20.8f
+    emitParticle(pos, vel, glm::vec4(1.0f, 1.0f, 1.0f, 1.0f), 20.8f);
+}
+
+// 새로운 오버로드: 색상 및 크기 지정
+void ParticleSystem::emitParticle(const glm::vec3& pos, const glm::vec3& vel, const glm::vec4& color, float particleSize) {
     if (particles.size() >= maxParticles) return;
     Particle p;
     
-    p.initialize(pos, vel, glm::vec4(1.0f, 1.0f, 1.0f, 1.0f), 18.0f, 20.8f, 0.0f);
+    p.initialize(pos, vel, color, 18.0f, particleSize, 0.0f);
     particles.push_back(p);
 }
 
@@ -131,7 +138,7 @@ void ParticleSystem::render(const glm::mat4& view, const glm::mat4& proj) {
     glGetIntegerv(GL_BLEND_DST_ALPHA, &dstBlend);
     glGetBooleanv(GL_DEPTH_WRITEMASK, &depthMask);
 
-	//glDisable(GL_DEPTH_TEST);
+    //glDisable(GL_DEPTH_TEST);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glDepthMask(GL_FALSE);

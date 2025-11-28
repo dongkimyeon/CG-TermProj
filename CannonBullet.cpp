@@ -33,10 +33,10 @@ void CannonBullet::Update(float dt)
 	for (int i = 0; i < nTrail; ++i) {
 		float t = nTrail > 1 ? float(i) / float(nTrail - 1) : 0.0f;
 		glm::vec3 trailPos = glm::mix(prevPos, position, t);
-		smokeTrail.emitParticle(trailPos, glm::vec3(0, 0, 0));
+		smokeTrail.emitParticle(trailPos, glm::vec3(0, 0, 0), glm::vec4(1.0f, 1.0f, 1.0f, 1.0f), 3.8f);
 	}
 	smokeTrail.update(dt);
-	if (life > maxLife || position.y < 0.0f || glm::length(position) >3000.0f) active = false;
+	if (life > maxLife || position.y < 0.0f || glm::length(position) > 3000.0f) active = false;
 }
 
 void CannonBullet::Render(const glm::mat4& view, const glm::mat4& proj)
