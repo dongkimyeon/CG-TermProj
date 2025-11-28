@@ -3,9 +3,10 @@
 #include "Time.h"
 #include "AA.h"
 #include "Camera.h"
+#include "CannonBullet.h"
 
 Helicopter::Helicopter()
-	: position(glm::vec3(0.0f, 180.0f,0.0f))
+	: position(glm::vec3(0.0f, 180.0f, 0.0f))
 	, velocity(glm::vec3(0.0f))
 	, acceleration(glm::vec3(0.0f))
 	, forward(glm::vec3(0.0f, 0.0f, 1.0f))
@@ -16,18 +17,18 @@ Helicopter::Helicopter()
 	, targetRoll(0.0f)
 	, currentPitch(0.0f)
 	, currentRoll(0.0f)
-	, tiltSpeed(8.0f)                  
+	, tiltSpeed(8.0f)
 	, mainBladeRotation(0.0f)
-	, mainBladeSpeed(2500.0f)           
+	, mainBladeSpeed(2500.0f)
 	, tailBladeRotation(0.0f)
 	, tailBladeSpeed(2500.0f)
-	, gravity(9.81f)                 
-	, maxSpeed(101.4f)                 
-	, accelerationRate(25.0f)          
-	, drag(1.2f)                      
-	, maxTiltAngle(35.0f)               
+	, gravity(9.81f)
+	, maxSpeed(101.4f)
+	, accelerationRate(25.0f)
+	, drag(1.2f)
+	, maxTiltAngle(35.0f)
 	, liftForce(0.0f)
-	, maxLiftForce(60.0f)               
+	, maxLiftForce(60.0f)
 	, debugRotationX(0.0f)
 	, debugRotationY(0.0f)
 	, debugRotationZ(0.0f)
@@ -50,7 +51,8 @@ Helicopter::~Helicopter()
 	for (auto* missile : attachedMissiles) {
 		delete missile;
 	}
-	
+	for (auto* bullet : cannonBullets) delete bullet;
+
 	// 버퍼 정리
 	CleanupBuffers();
 }
@@ -58,7 +60,7 @@ Helicopter::~Helicopter()
 void Helicopter::InitBuffers()
 {
 	const GLsizei stride = 11 * sizeof(GLfloat);
-	
+
 	// Body 버퍼
 	glGenVertexArrays(1, &vaoBody);
 	glBindVertexArray(vaoBody);
@@ -70,7 +72,7 @@ void Helicopter::InitBuffers()
 	glGenBuffers(1, &eboBody);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, eboBody);
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, 0, nullptr, GL_STATIC_DRAW);
-	
+
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, (void*)0);
 	glEnableVertexAttribArray(0);
 	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, stride, (void*)(3 * sizeof(GLfloat)));
@@ -162,17 +164,17 @@ void Helicopter::CleanupBuffers()
 	if (vboBody != 0) glDeleteBuffers(1, &vboBody);
 	if (eboBody != 0) glDeleteBuffers(1, &eboBody);
 	if (vaoBody != 0) glDeleteVertexArrays(1, &vaoBody);
-	
+
 	// Blade 버퍼 삭제
 	if (vboBlade != 0) glDeleteBuffers(1, &vboBlade);
 	if (eboBlade != 0) glDeleteBuffers(1, &eboBlade);
 	if (vaoBlade != 0) glDeleteVertexArrays(1, &vaoBlade);
-	
+
 	// Tail 버퍼 삭제
 	if (vboTail != 0) glDeleteBuffers(1, &vboTail);
 	if (eboTail != 0) glDeleteBuffers(1, &eboTail);
 	if (vaoTail != 0) glDeleteVertexArrays(1, &vaoTail);
-	
+
 	// Cannon 버퍼 삭제
 	if (vboCannon != 0) glDeleteBuffers(1, &vboCannon);
 	if (eboCannon != 0) glDeleteBuffers(1, &eboCannon);
@@ -181,7 +183,7 @@ void Helicopter::CleanupBuffers()
 
 void Helicopter::Initialize()
 {
-	position = glm::vec3(0.0f, 180.0f,0.0f);
+	position = glm::vec3(0.0f, 180.0f, 0.0f);
 	velocity = glm::vec3(0.0f);
 	acceleration = glm::vec3(0.0f);
 	yRotation = 0.0f;
@@ -233,7 +235,7 @@ void Helicopter::LoadModels()
 	if (!LoadFBX("Helicopter/Models/HeliTail.FBX", &tailModel)) {
 		std::cerr << "HeliTail FBX 로드 실패." << std::endl;
 	}
-	else { 
+	else {
 		tailModel.textureList.resize(1);
 		tailModel.textureList[0] = new Texture("Helicopter/Textures/HeliTexture.png");
 		tailModel.textureList[0]->LoadTexture();
@@ -275,14 +277,17 @@ void Helicopter::Update(float deltaTime)
 	// 미사일 업데이트
 	UpdateMissiles(deltaTime);
 	UpdateMissilePositions();
+
+	// 기관포 총알 업데이트
+	UpdateCannonBullets(deltaTime);
 }
 
 void Helicopter::ProcessInput(float deltaTime)
 {
 	// 현재 헬기의 회전 방향 벡터 계산
 	float yawRad = glm::radians(yRotation);
-	glm::vec3 forwardDir = glm::vec3(cos(yawRad),0.0f, -sin(yawRad));
-	glm::vec3 rightDir = glm::vec3(sin(yawRad),0.0f, cos(yawRad));
+	glm::vec3 forwardDir = glm::vec3(cos(yawRad), 0.0f, -sin(yawRad));
+	glm::vec3 rightDir = glm::vec3(sin(yawRad), 0.0f, cos(yawRad));
 
 	// 전진
 	if (Input::GetKey(eKeyCode::W))
@@ -313,11 +318,11 @@ void Helicopter::ProcessInput(float deltaTime)
 	// 기울기 복원
 	if (!Input::GetKey(eKeyCode::W) && !Input::GetKey(eKeyCode::S))
 	{
-		targetPitch =0.0f;
+		targetPitch = 0.0f;
 	}
 	if (!Input::GetKey(eKeyCode::A) && !Input::GetKey(eKeyCode::D))
 	{
-		targetRoll =0.0f;
+		targetRoll = 0.0f;
 	}
 
 	// 고도 제어
@@ -327,7 +332,7 @@ void Helicopter::ProcessInput(float deltaTime)
 	}
 	else if (Input::GetKey(eKeyCode::SHIFT))
 	{
-		liftForce = -maxLiftForce *0.5f;
+		liftForce = -maxLiftForce * 0.5f;
 	}
 	else
 	{
@@ -419,12 +424,12 @@ glm::vec3 Helicopter::GetCannonWorldPosition() const
 {
 	// 헬리콥터의 월드 변환 매트릭스
 	glm::mat4 heliTransform = GetHelicopterTransform();
-	
+
 	// 기관포 힌지의 월드 위치 계산
 	// cannonOffset + cannonHingePos = 기관포 힌지의 로컬 위치
 	glm::vec3 hingeLocalPos = cannonOffset + cannonHingePos;
 	glm::vec4 hingeWorldPos = heliTransform * glm::vec4(hingeLocalPos, 1.0f);
-	
+
 	return glm::vec3(hingeWorldPos);
 }
 
@@ -472,17 +477,17 @@ void Helicopter::FireMissile()
 
 	// 기존 동작: 헬리콥터 전방에서 발사
 	glm::mat4 heliTransform = GetHelicopterTransform();
-	glm::vec3 forwardOffset = glm::vec3(5.0f,0.0f,0.0f);
-	glm::vec4 launchPosWorld = heliTransform * glm::vec4(forwardOffset,1.0f);
+	glm::vec3 forwardOffset = glm::vec3(5.0f, 0.0f, 0.0f);
+	glm::vec4 launchPosWorld = heliTransform * glm::vec4(forwardOffset, 1.0f);
 	glm::vec3 launchPos = glm::vec3(launchPosWorld);
 
 	// 방향 계산 (현재 피치 반영 로직)
-	float pitchRad = - glm::radians(currentPitch);
+	float pitchRad = -glm::radians(currentPitch);
 	glm::vec3 baseForward = glm::normalize(forward);
 	glm::vec3 baseUp = glm::normalize(up);
 	glm::vec3 rightAxis = glm::normalize(glm::cross(baseForward, baseUp));
 	glm::mat4 pitchRotation = glm::rotate(glm::mat4(1.0f), pitchRad, rightAxis);
-	glm::vec4 pitchedForward = pitchRotation * glm::vec4(baseForward,0.0f);
+	glm::vec4 pitchedForward = pitchRotation * glm::vec4(baseForward, 0.0f);
 	glm::vec3 launchDir = -glm::normalize(glm::vec3(pitchedForward));
 
 	// Delegate to new overload
@@ -507,32 +512,24 @@ void Helicopter::FireMissileFromCamera(const Camera* camera, float crosshairDist
 {
 	if (!camera) return;
 
-	// Use camera target/ray for gunner view (mode2) or compute center point along helicopter forward for other modes
+	// Use the cannon world position as launch position
 	glm::vec3 launchPos = GetCannonWorldPosition();
 	glm::vec3 dir(0.0f);
 
-	int mode = camera->GetCameraMode();
-	if (mode ==2) {
-		dir = glm::normalize(camera->GetTarget() - camera->GetPosition());
-	} else {
-		// compute center point in front of helicopter based on its forward (respecting pitch/roll as in existing code)
-		glm::vec3 heliPos = GetPosition();
-		float yaw = GetYaw();
-		float pitch = GetPitch();
-		float roll = GetRoll();
+	// Compute the same launch direction as Helicopter::FireMissile()
+	// This respects the helicopter's current pitch and forward/up vectors
+	float pitchRad = -glm::radians(currentPitch);
+	glm::vec3 baseForward = glm::normalize(forward);
+	glm::vec3 baseUp = glm::normalize(up);
+	glm::vec3 rightAxis = glm::normalize(glm::cross(baseForward, baseUp));
+	glm::mat4 pitchRotation = glm::rotate(glm::mat4(1.0f), pitchRad, rightAxis);
+	glm::vec4 pitchedForward = pitchRotation * glm::vec4(baseForward, 0.0f);
+	glm::vec3 launchDir = -glm::normalize(glm::vec3(pitchedForward));
 
-		glm::mat4 heliTransform = glm::mat4(1.0f);
-		heliTransform = glm::translate(heliTransform, heliPos);
-		heliTransform = glm::rotate(heliTransform, glm::radians(yaw), glm::vec3(0,1,0));
-		heliTransform = glm::rotate(heliTransform, glm::radians(roll), glm::vec3(1,0,0));
-		heliTransform = glm::rotate(heliTransform, glm::radians(pitch), glm::vec3(0,0,1));
+	// Use this direction regardless of camera mode so it matches FireMissile()
+	dir = launchDir;
 
-		glm::vec3 forwardVec = glm::normalize(glm::vec3(heliTransform * glm::vec4(-1,0,0,0)));
-		glm::vec3 center = heliPos - forwardVec * crosshairDistance;
-		dir = glm::normalize(center - launchPos);
-	}
-
-	if (glm::length(dir) >0.001f) {
+	if (glm::length(dir) > 0.001f) {
 		FireMissile(launchPos, dir);
 	}
 }
@@ -554,20 +551,30 @@ void Helicopter::UpdateMissiles(float deltaTime)
 	}
 }
 
-void Helicopter::RenderMissiles(GLuint shaderID, const glm::mat4& view, const glm::mat4& proj)
+void Helicopter::FireCannon()
 {
-	// 부착된 미사일들 렌더링
-	for (auto* missile : attachedMissiles) {
-		missile->Render(shaderID, view, proj);
-	}
-
-	// 발사된 미사일들 렌더링
-	for (auto* missile : missiles) {
-		missile->Render(shaderID, view, proj);
-	}
+	glm::vec3 startPos = GetCannonWorldPosition();
+	// 기관포의 방향 계산 (yaw/pitch 반영)
+	glm::mat4 model = glm::mat4(1.0f);
+	model = glm::rotate(model, glm::radians(cannonYaw), glm::vec3(0, 1, 0));
+	model = glm::rotate(model, glm::radians(cannonPitch), glm::vec3(0, 0, 1));
+	glm::vec3 dir = glm::normalize(glm::vec3(model * glm::vec4(-1, 0, 0, 0)));
+	CannonBullet* bullet = new CannonBullet();
+	bullet->Launch(startPos, dir, 2500.0f);
+	cannonBullets.push_back(bullet);
 }
 
-
+void Helicopter::UpdateCannonBullets(float dt)
+{
+	for (auto it = cannonBullets.begin(); it != cannonBullets.end(); ) {
+		(*it)->Update(dt);
+		if (!(*it)->IsActive()) {
+			delete* it;
+			it = cannonBullets.erase(it);
+		}
+		else ++it;
+	}
+}
 
 void Helicopter::Render(GLuint shaderID, bool wireframeMode, float glassAlpha, float modelScale)
 {
@@ -728,7 +735,7 @@ void Helicopter::Render(GLuint shaderID, bool wireframeMode, float glassAlpha, f
 
 		glm::mat4 modelMat = worldModelMat;
 		modelMat = glm::translate(modelMat, glm::vec3(cannonOffset));
-		
+
 		modelMat = glm::translate(modelMat, cannonHingePos);
 		modelMat = glm::rotate(modelMat, glm::radians(cannonYaw), glm::vec3(0.0f, 1.0f, 0.0f));
 		modelMat = glm::rotate(modelMat, glm::radians(cannonPitch), glm::vec3(0.0f, 0.0f, 1.0f));
@@ -767,5 +774,24 @@ void Helicopter::Render(GLuint shaderID, bool wireframeMode, float glassAlpha, f
 		glBindTexture(GL_TEXTURE_2D, 0);
 		glActiveTexture(GL_TEXTURE1);
 		glBindTexture(GL_TEXTURE_2D, 0);
+	}
+}
+
+void Helicopter::RenderMissiles(GLuint shaderID, const glm::mat4& view, const glm::mat4& proj) {
+	for (auto* missile : missiles) {
+		if (missile) missile->Render(shaderID, view, proj);
+	}
+	for (auto* missile : attachedMissiles) {
+		if (missile) missile->Render(shaderID, view, proj);
+	}
+}
+
+void Helicopter::RenderCannonBullets(const glm::mat4& view, const glm::mat4& proj)
+{
+	// Render active cannon bullets
+	for (auto* bullet : cannonBullets) {
+		if (bullet) {
+			bullet->Render(view, proj);
+		}
 	}
 }

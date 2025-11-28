@@ -2,6 +2,7 @@
 #include "CommonInclude.h"
 #include "FBXModel.h"
 #include "Missile.h"
+#include "CannonBullet.h"
 
 class Camera; // forward declaration
 
@@ -44,6 +45,12 @@ public:
     // Move firing logic here: use camera state to compute launch direction/position
     void FireMissileFromCamera(const Camera* camera, float crosshairDistance);
  
+    // 포신 발사 관련
+
+    void FireCannon();
+    void UpdateCannonBullets(float dt);
+    void RenderCannonBullets(const glm::mat4& view, const glm::mat4& proj);
+    
     // Setter
     void SetDebugRotation(float x, float y, float z) {
         debugRotationX = x;
@@ -136,4 +143,7 @@ private:
     float missileAttachmentOffset = -8.0f;   // 헬리콥터 아래쪽 오프셋
     int maxMissiles = 30;    // 최대 미사일 개수
     float missileSpacing = 3.0f;           // 미사일 간 간격
+
+    // 기관포 발사체 시스템
+    std::vector<CannonBullet*> cannonBullets;
 };

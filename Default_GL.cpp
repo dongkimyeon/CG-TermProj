@@ -254,6 +254,8 @@ GLvoid DrawScene()
     if (helicopter) {
         helicopter->Render(shaderProgramID, wireframeMode, glassAlpha, modelScale);
         helicopter->RenderMissiles(shaderProgramID, view, proj);
+        helicopter->RenderCannonBullets(view, proj);
+        // 기관포 탄환(스모크 트레일)은 Render에서 처리됨
     }
 
     // 3. AA 유닛들
@@ -526,7 +528,6 @@ void Timer(int value) {
 
     
     if (Input::GetKeyDown(eKeyCode::F) && helicopter && camera) {
-        // Delegate missile firing logic to Helicopter class (uses camera and crosshairDistance)
         helicopter->FireMissileFromCamera(camera, crosshairDistance);
     }
 
@@ -545,6 +546,10 @@ void Mouse(int button, int state, int x, int y) {
                 rightClickDown = true;
                 lastMouseX = x;
                 lastMouseY = y;
+                // 기관포 발사
+                if (helicopter) {
+                    helicopter->FireCannon();
+                }
             }
             else if (state == GLUT_UP) {
                 rightClickDown = false;
