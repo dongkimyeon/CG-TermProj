@@ -57,6 +57,10 @@ bool rightClickDown = false;
 int lastMouseX = 0;         
 int lastMouseY = 0;
 
+// 좌클릭(기관포 지속 발사) 관련
+int lastCannonFireTimeMs = 0; // 마지막 발사 시각(밀리초)
+const int CANNON_FIRE_INTERVAL_MS = 500; //0.5초
+
 //imgui 관련 변수
 float modelScale = 0.1f;
 int targetFrameDelay = 1;
@@ -531,8 +535,22 @@ void Timer(int value) {
         helicopter->FireMissileFromCamera(camera, crosshairDistance);
     }
 
+    // 좌클릭을 누르고 있으면 0.5초 간격으로 기관포 발사
+    if (rightClickDown && helicopter) {
+        int nowMs = glutGet(GLUT_ELAPSED_TIME);
+        if (lastCannonFireTimeMs == 0) {
+            // 초기값이 0이면 즉시 발사하고 타이머 설정
+            helicopter->FireCannon();
+            lastCannonFireTimeMs = nowMs;
+        }
+        else if (nowMs - lastCannonFireTimeMs >= CANNON_FIRE_INTERVAL_MS) {
+            helicopter->FireCannon();
+            lastCannonFireTimeMs = nowMs;
+        }
+    }
+
     glutPostRedisplay();
-    glutTimerFunc(targetFrameDelay, Timer,0);
+    glutTimerFunc(targetFrameDelay, Timer, 0);
 }
 
 void Mouse(int button, int state, int x, int y) {
@@ -549,10 +567,14 @@ void Mouse(int button, int state, int x, int y) {
                 // 기관포 발사
                 if (helicopter) {
                     helicopter->FireCannon();
+                    // 마지막 발사 시각 초기화하여 타이머와 간격을 맞춤
+                    lastCannonFireTimeMs = glutGet(GLUT_ELAPSED_TIME);
                 }
             }
             else if (state == GLUT_UP) {
                 rightClickDown = false;
+                // 리셋 타이머
+                lastCannonFireTimeMs = 0;
             }
         }
         else if (button == GLUT_RIGHT_BUTTON) {
