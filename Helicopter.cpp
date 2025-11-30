@@ -192,11 +192,9 @@ void Helicopter::Initialize()
 	// 버퍼 초기화
 	InitBuffers();
 
-	for (int i = 0; i < maxMissiles; ++i) {
-		Missile* missile = new Missile();
-		missile->Initialize();
-		attachedMissiles.push_back(missile);
-	}
+	// Do not preallocate a fixed pool of attached missiles anymore.
+	// Attached missiles vector remains empty; missiles will be created on demand when fired.
+	attachedMissiles.clear();
 
 	UpdateMissilePositions();
 }
@@ -498,8 +496,6 @@ void Helicopter::FireMissile()
 // New overload: launches a missile from a specified world position and direction
 void Helicopter::FireMissile(const glm::vec3& launchPos, const glm::vec3& launchDir)
 {
-	if (attachedMissiles.empty()) return;
-
 	// Determine lateral offset in world space using helicopter's right vector
 	glm::vec3 lateral = glm::normalize(right) * missileLateralOffset;
 	glm::vec3 adjustedLaunchPos = launchPos;
@@ -513,13 +509,21 @@ void Helicopter::FireMissile(const glm::vec3& launchPos, const glm::vec3& launch
 	// Toggle side for next missile
 	nextMissileLeft = !nextMissileLeft;
 
-	Missile* missileToFire = attachedMissiles.front();
-	attachedMissiles.erase(attachedMissiles.begin());
+	Missile* missileToFire = nullptr;
+	if (!attachedMissiles.empty()) {
+		missileToFire = attachedMissiles.front();
+		attachedMissiles.erase(attachedMissiles.begin());
+	}
+	else {
+		// Create a new missile on demand (no limit)
+		missileToFire = new Missile();
+		missileToFire->Initialize();
+	}
 
 	missileToFire->Launch(adjustedLaunchPos, glm::normalize(launchDir));
 	missiles.push_back(missileToFire);
 
-	std::cout << "미사일 발사! 남은 미사일: " << attachedMissiles.size() << std::endl;
+	std::cout << "미사일 발사! 현재 비행중인 미사일 수: " << missiles.size() << std::endl;
 }
 
 void Helicopter::FireMissileFromCamera(const Camera* camera, float crosshairDistance)

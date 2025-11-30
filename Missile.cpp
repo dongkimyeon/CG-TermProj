@@ -367,25 +367,31 @@ void Missile::Render(GLuint shaderProgramID, const glm::mat4& view, const glm::m
 		glUniform1f(useTextureLoc, 1.0f);
 	}
 	
-	// 연기 파티클 렌더링 (view/proj 넘김)
+	// smokeTrail.render may modify GL state; save/restore minimal state around it
+	GLboolean prevDepthTest = glIsEnabled(GL_DEPTH_TEST);
+	GLboolean prevBlend = glIsEnabled(GL_BLEND);
+	GLboolean prevDepthMask = GL_TRUE;
+	glGetBooleanv(GL_DEPTH_WRITEMASK, &prevDepthMask);
+
 	smokeTrail.render(view, proj);
+
+	// restore
+	glDepthMask(prevDepthMask ? GL_TRUE : GL_FALSE);
+	if (!prevBlend) glDisable(GL_BLEND);
+	else glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	if (prevDepthTest) glEnable(GL_DEPTH_TEST);
+	else glDisable(GL_DEPTH_TEST);
 }
 
 void Missile::RenderMissileLight(GLuint shaderProgramID, const glm::mat4& view, const glm::mat4& proj)
 {
 	if (!isActive) return;
 
-	// 상태 저장
-	GLboolean depthTestEnabled;
-	GLboolean blendEnabled;
-	GLint srcBlend, dstBlend;
-	GLboolean depthMask;
-
-	glGetBooleanv(GL_DEPTH_TEST, &depthTestEnabled);
-	glGetBooleanv(GL_BLEND, &blendEnabled);
-	glGetIntegerv(GL_BLEND_SRC_ALPHA, &srcBlend);
-	glGetIntegerv(GL_BLEND_DST_ALPHA, &dstBlend);
-	glGetBooleanv(GL_DEPTH_WRITEMASK, &depthMask);
+	// Save minimal GL states
+	GLboolean depthTestEnabled = glIsEnabled(GL_DEPTH_TEST);
+	GLboolean blendEnabled = glIsEnabled(GL_BLEND);
+	GLboolean depthWriteMask = GL_TRUE;
+	glGetBooleanv(GL_DEPTH_WRITEMASK, &depthWriteMask);
 
 	GLint modelLoc = glGetUniformLocation(shaderProgramID, "model");
 	GLint viewLoc = glGetUniformLocation(shaderProgramID, "view");
@@ -394,43 +400,41 @@ void Missile::RenderMissileLight(GLuint shaderProgramID, const glm::mat4& view, 
 	GLint useTextureLoc = glGetUniformLocation(shaderProgramID, "useTexture");
 	GLint alphaValueLoc = glGetUniformLocation(shaderProgramID, "alphaValue");
 
-	// 조명 위치 계산
+	// Light transform
 	glm::vec3 lightPos = GetLightPosition();
-	
-	// 조명 모델 행렬 생성 (펄스 효과 없이 일정한 크기)
 	glm::mat4 lightModel = glm::mat4(1.0f);
 	lightModel = glm::translate(lightModel, lightPos);
-	lightModel = glm::scale(lightModel, glm::vec3(lightIntensity)); // 고정된 크기
+	lightModel = glm::scale(lightModel, glm::vec3(lightIntensity));
 
-	// 조명 색상 (밝은 노란색-주황색 혼합)
-	glm::vec3 brightLightColor = glm::vec3(1.0f, 0.8f, 0.0f) * lightIntensity;
+	glm::vec3 brightLightColor = glm::vec3(1.0f,0.8f,0.0f) * lightIntensity;
 
-	glDisable(GL_DEPTH_TEST);
-	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE); // Additive blending
+	// Set states for additive light rendering
+	if (depthTestEnabled) glDisable(GL_DEPTH_TEST);
+	if (!blendEnabled) glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE); // additive for glow
 	glDepthMask(GL_FALSE);
 
-	// 행렬 및 색상 설정
-	glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(lightModel));
-	glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
-	glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(proj));
-	glUniform3fv(colorLoc, 1, glm::value_ptr(brightLightColor));
-	glUniform1f(useTextureLoc, 0.0f);
-	glUniform1f(alphaValueLoc, 1.0f);
+	// Render light mesh
+	glUseProgram(shaderProgramID);
+	glUniformMatrix4fv(modelLoc,1, GL_FALSE, glm::value_ptr(lightModel));
+	glUniformMatrix4fv(viewLoc,1, GL_FALSE, glm::value_ptr(view));
+	glUniformMatrix4fv(projLoc,1, GL_FALSE, glm::value_ptr(proj));
+	glUniform3fv(colorLoc,1, glm::value_ptr(brightLightColor));
+	glUniform1f(useTextureLoc,0.0f);
+	glUniform1f(alphaValueLoc,1.0f);
 
-	// 조명을 한 번만 렌더링
 	glBindVertexArray(lightVAO);
-	glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(lightIndices.size()), GL_UNSIGNED_INT, 0);
+	glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(lightIndices.size()), GL_UNSIGNED_INT,0);
 	glBindVertexArray(0);
 
-	// 상태 복원
-	if (depthTestEnabled) glEnable(GL_DEPTH_TEST);
-	else glDisable(GL_DEPTH_TEST);
-	
+	// Restore GL state
+	glDepthMask(depthWriteMask ? GL_TRUE : GL_FALSE);
 	if (!blendEnabled) glDisable(GL_BLEND);
-	else glBlendFunc(srcBlend, dstBlend);
-	
-	glDepthMask(depthMask);
+	else {
+		// restore to standard alpha blending used elsewhere
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	}
+	if (depthTestEnabled) glEnable(GL_DEPTH_TEST);
 }
 
 void Missile::Launch(const glm::vec3& startPos, const glm::vec3& dir)
