@@ -92,6 +92,14 @@ void ParticleSystem::emitParticle(const glm::vec3& pos, const glm::vec3& vel, co
     particles.push_back(p);
 }
 
+// 새 오버로드: 수명 지정 가능
+void ParticleSystem::emitParticle(const glm::vec3& pos, const glm::vec3& vel, const glm::vec4& color, float particleSize, float lifeTime) {
+    if (particles.size() >= maxParticles) return;
+    Particle p;
+    p.initialize(pos, vel, color, lifeTime, particleSize, 0.0f);
+    particles.push_back(p);
+}
+
 void ParticleSystem::update(float dt) {
     for (auto& p : particles) p.update(dt);
     particles.erase(std::remove_if(particles.begin(), particles.end(),
@@ -156,10 +164,24 @@ void ParticleSystem::render(const glm::mat4& view, const glm::mat4& proj) {
 }
 
 void ParticleSystem::clear() {
-    // Keep existing particles alive until their lifetime ends so that
-    // when missiles (or other emitters) disappear, the smoke/particles
-    // remain and fade out naturally. Do not clear the `particles` vector here.
-    // If immediate removal is desired, call `particles.clear()` explicitly from the caller.
+    // Immediately remove all particles
+    particles.clear();
+}
+
+std::vector<Particle> ParticleSystem::stealParticles() {
+    // Move particles out to caller
+    std::vector<Particle> moved;
+    moved.reserve(particles.size());
+    for (auto &p : particles) moved.push_back(std::move(p));
+    particles.clear();
+    return moved;
+}
+
+void ParticleSystem::addParticles(std::vector<Particle>&& newParticles) {
+    // append up to capacity
+    size_t space = (maxParticles > particles.size()) ? (maxParticles - particles.size()) :0;
+    size_t toAdd = std::min(space, newParticles.size());
+    for (size_t i =0; i < toAdd; ++i) particles.push_back(std::move(newParticles[i]));
 }
 
 bool ParticleSystem::hasLiveParticles() const {

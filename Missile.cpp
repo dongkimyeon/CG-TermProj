@@ -1,4 +1,5 @@
 #include "Missile.h"
+#include "PersistentParticles.h"
 
 Missile::Missile()
 	: VAO(0), VBO(0), EBO(0), lightVAO(0), lightVBO(0), lightEBO(0),
@@ -297,7 +298,8 @@ void Missile::Update(float deltaTime)
 		// 땅에 닿거나 범위를 벗어나면 비활성화
 		if (position.y <= 0.0f || glm::length(position) > 2000.0f)
 		{
-			isActive = false;
+			// explode at impact point and deactivate
+			Deactivate();
 		}
 	}
 	else
@@ -461,4 +463,59 @@ bool Missile::IsFinished() const
 {
 	// Missile is finished when it's inactive AND the particle system has no live particles
 	return (!isActive) && (!smokeTrail.hasLiveParticles());
+}
+
+void Missile::ExplodeAt(const glm::vec3& pos)
+{
+	// Emit explosion to local smokeTrail as before
+	const int burstCount = 80; // number of spark particles
+	const float burstSpeedMin = 200.0f;
+	const float burstSpeedMax = 800.0f;
+	const float sparkSize = 6.0f;
+	const float sparkLife = 0.6f;
+
+	for (int i = 0; i < burstCount; ++i) {
+		float theta = glm::linearRand(0.0f, glm::two_pi<float>());
+		float phi = glm::acos(glm::linearRand(-1.0f, 1.0f));
+		glm::vec3 dir(
+			std::sin(phi) * std::cos(theta),
+			std::cos(phi),
+			std::sin(phi) * std::sin(theta)
+		);
+		float speedRand = glm::linearRand(burstSpeedMin, burstSpeedMax);
+		glm::vec3 vel = dir * speedRand;
+		glm::vec4 color = glm::vec4(1.0f, 0.6f, 0.2f, 1.0f);
+		smokeTrail.emitParticle(pos, vel, color, sparkSize, sparkLife);
+	}
+
+	// Emit denser smoke puff
+	const int smokeCount = 120;
+	for (int i = 0; i < smokeCount; ++i) {
+		glm::vec3 jitter = glm::vec3(
+			glm::linearRand(-1.0f, 1.0f),
+			glm::linearRand(-0.5f, 1.0f),
+			glm::linearRand(-1.0f, 1.0f)
+		);
+		glm::vec3 vel = jitter * glm::linearRand(10.0f, 80.0f);
+		glm::vec4 smokeColor = glm::vec4(0.2f, 0.2f, 0.2f, 1.0f);
+		float smokeSize = glm::linearRand(12.0f, 40.0f);
+		float smokeLife = glm::linearRand(2.0f, 5.0f);
+		smokeTrail.emitParticle(pos + jitter * 0.5f, vel, smokeColor, smokeSize, smokeLife);
+	}
+
+	// After populating local smokeTrail, transfer particles to persistent system so they survive missile deletion
+	EnsurePersistentParticles();
+	std::vector<Particle> stolen = smokeTrail.stealParticles();
+	if (!stolen.empty()) {
+		s_persistentParticles->addParticles(std::move(stolen));
+	}
+}
+
+void Missile::Deactivate()
+{
+	if (!isActive) return;
+	// Trigger explosion at current position
+	ExplodeAt(position);
+	// mark inactive but leave particles alive
+	isActive = false;
 }

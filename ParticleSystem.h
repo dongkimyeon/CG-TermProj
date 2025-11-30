@@ -22,12 +22,19 @@ public:
 	void initialize();
 	void emitParticle(const glm::vec3& pos, const glm::vec3& vel);
 	void emitParticle(const glm::vec3& pos, const glm::vec3& vel, const glm::vec4& color, float particleSize); // 추가된 함수
+	void emitParticle(const glm::vec3& pos, const glm::vec3& vel, const glm::vec4& color, float particleSize, float lifeTime); // 새 오버로드: 수명(lifetime) 지정 가능 (폭발용)
 	void update(float dt);
 	void render(const glm::mat4& view, const glm::mat4& proj);
 	void clear();
 
 	// Returns true if there are any live particles in the system
 	bool hasLiveParticles() const;
+
+	// Steal internal particles (move out). After this call this system has no live particles.
+	std::vector<Particle> stealParticles();
+
+	// Add particles (takes ownership of vector contents). Will cap at maxParticles.
+	void addParticles(std::vector<Particle>&& newParticles);
 
 private:
 	void setupCubeGeometry();

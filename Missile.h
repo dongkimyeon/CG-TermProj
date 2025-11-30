@@ -22,7 +22,7 @@ public:
     // 발사 관련
     void Launch(const glm::vec3& startPos, const glm::vec3& direction);
     bool IsActive() const { return isActive; }
-    void Deactivate() { isActive = false; }
+    void Deactivate(); // changed to function so explosion can be triggered
     
     // Return true when missile is inactive and its particle system has no live particles
     bool IsFinished() const;
@@ -37,6 +37,9 @@ private:
     void SetupBuffers();
     void CreateLightGeometry();
     void SetupLightBuffers();
+
+    // Explosion helper
+    void ExplodeAt(const glm::vec3& pos);
 
     // OpenGL 버퍼
     GLuint VAO, VBO, EBO;

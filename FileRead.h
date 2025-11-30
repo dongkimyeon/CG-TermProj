@@ -3,23 +3,62 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdint.h>
 
 inline char* filetobuf(const char* file)
 {
-	FILE* fptr;
-	long length;
-	char* buf;
-	// Open file
-	fptr = fopen(file, "rb");
+	if (!file) return NULL;
+
+	FILE* fptr = fopen(file, "rb");
 	if (!fptr) // Return NULL on failure
 		return NULL;
-	fseek(fptr, 0, SEEK_END); // Seek to the end of the file
-	length = ftell(fptr); // Find out how many bytes into the file we are
-	buf = (char*)malloc(length + 1); // Allocate a buffer for the entire length of the file and a null terminator
-	fseek(fptr, 0, SEEK_SET); // Go back to the beginning of the file
-	fread(buf, length, 1, fptr); // Read the contents of the file in to the buffer
-	fclose(fptr); // Close the file
-	buf[length] = 0; // Null terminator
+
+	// Seek to the end of the file to determine its length
+	if (fseek(fptr,0, SEEK_END) !=0) {
+		fclose(fptr);
+		return NULL;
+	}
+
+	long length = ftell(fptr);
+	if (length <0) {
+		fclose(fptr);
+		return NULL;
+	}
+
+	// Safe cast to size_t
+	size_t ulen = static_cast<size_t>(length);
+
+	// Rewind to beginning
+	if (fseek(fptr,0, SEEK_SET) !=0) {
+		fclose(fptr);
+		return NULL;
+	}
+
+	// Allocate buffer for file contents plus null terminator
+	char* buf = static_cast<char*>(malloc(ulen +1));
+	if (!buf) {
+		fclose(fptr);
+		return NULL;
+	}
+
+	// If file is empty, return an empty string
+	if (ulen ==0) {
+		buf[0] = '\0';
+		fclose(fptr);
+		return buf;
+	}
+
+	// Read the file. Use fread with size=1,count=ulen to avoid issues when length is large.
+	size_t read = fread(buf,1, ulen, fptr);
+	fclose(fptr);
+
+	if (read != ulen) {
+		// reading error
+		free(buf);
+		return NULL;
+	}
+
+	buf[ulen] = '\0'; // Null terminator
 	return buf; // Return the buffer
 }
 

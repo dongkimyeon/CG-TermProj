@@ -141,6 +141,12 @@
     <ClInclude Include="CannonBullet.h">
       <Filter>소스 파일\Helicopter\Missile</Filter>
     </ClInclude>
+    <ClInclude Include="ParticleManager.h">
+      <Filter>소스 파일\Particle</Filter>
+    </ClInclude>
+    <ClInclude Include="PersistentParticles.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Default_GL.cpp">
@@ -205,6 +211,12 @@
     </ClCompile>
     <ClCompile Include="CannonBullet.cpp">
       <Filter>소스 파일\Helicopter\Missile</Filter>
+    </ClCompile>
+    <ClCompile Include="ParticleManager.cpp">
+      <Filter>소스 파일\Particle</Filter>
+    </ClCompile>
+    <ClCompile Include="PersistentParticles.cpp">
+      <Filter>소스 파일</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
