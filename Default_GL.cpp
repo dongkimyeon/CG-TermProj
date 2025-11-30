@@ -78,6 +78,10 @@ float zModelRotation = 0.0f;
 float currentScale = 1.0f;
 int main(int argc, char** argv) {
 	glutInit(&argc, argv);
+
+	glutInitContextVersion(3, 3);
+	glutInitContextProfile(GLUT_CORE_PROFILE);
+
 	glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA | GLUT_DEPTH);
 	glutInitWindowPosition(100, 100);
 	glutInitWindowSize(width, height);
@@ -97,7 +101,7 @@ int main(int argc, char** argv) {
 	ImGuiIO& io = ImGui::GetIO(); (void)io;
 	ImGui::StyleColorsDark();
 	ImGui_ImplGLUT_Init();
-	ImGui_ImplOpenGL3_Init("#version330");
+	ImGui_ImplOpenGL3_Init("#version 330");
 
 	// 셰이더 생성
 	shaderProgramID = ShaderManager::CreateShaderProgram("vertex3D.glsl", "fragment.glsl");
@@ -187,12 +191,8 @@ int main(int argc, char** argv) {
 		AA::CleanupSharedModel();
 	}
 
-	// Cleanup persistent particles
-	CleanupPersistentParticles();
 
-	ImGui_ImplOpenGL3_Shutdown();
-	ImGui_ImplGLUT_Shutdown();
-	ImGui::DestroyContext();
+
 	return 0;
 }
 
@@ -380,9 +380,9 @@ GLvoid DrawScene()
 	ImGui::NewFrame();
 
 	ImGui::SetNextWindowPos(
-		ImVec2((float)width, 0.0f),
+		ImVec2((float)width - 10.0f, 10.0f),  // 오른쪽 위에서 약간 안쪽
 		ImGuiCond_FirstUseEver,
-		ImVec2(1.0f, 0.0f)
+		ImVec2(1.0f, 0.0f)   // pivot은 유지 (오른쪽 위 기준)
 	);
 	ImGui::SetNextWindowSize(ImVec2(250, 150), ImGuiCond_FirstUseEver);
 
