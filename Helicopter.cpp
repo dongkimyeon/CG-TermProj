@@ -564,6 +564,17 @@ void Helicopter::FireCannon()
 	cannonBullets.push_back(bullet);
 }
 
+// 새 오버로드: 월드 공간 방향으로 기관포 발사
+void Helicopter::FireCannon(const glm::vec3& dir)
+{
+	glm::vec3 startPos = GetCannonWorldPosition();
+	glm::vec3 nDir = glm::normalize(dir);
+	if (glm::length(nDir) < 0.001f) return;
+	CannonBullet* bullet = new CannonBullet();
+	bullet->Launch(startPos, nDir, 2500.0f);
+	cannonBullets.push_back(bullet);
+}
+
 void Helicopter::UpdateCannonBullets(float dt)
 {
 	for (auto it = cannonBullets.begin(); it != cannonBullets.end(); ) {

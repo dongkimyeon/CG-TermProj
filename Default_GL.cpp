@@ -59,7 +59,7 @@ int lastMouseY = 0;
 
 // 좌클릭(기관포 지속 발사) 관련
 int lastCannonFireTimeMs = 0; // 마지막 발사 시각(밀리초)
-const int CANNON_FIRE_INTERVAL_MS = 500; //0.5초
+const int CANNON_FIRE_INTERVAL_MS = 300; //0.3초
 
 //imgui 관련 변수
 float modelScale = 0.1f;
@@ -538,13 +538,82 @@ void Timer(int value) {
     // 좌클릭을 누르고 있으면 0.5초 간격으로 기관포 발사
     if (rightClickDown && helicopter) {
         int nowMs = glutGet(GLUT_ELAPSED_TIME);
-        if (lastCannonFireTimeMs == 0) {
-            // 초기값이 0이면 즉시 발사하고 타이머 설정
-            helicopter->FireCannon();
-            lastCannonFireTimeMs = nowMs;
+        if (lastCannonFireTimeMs ==0) {
+            // 초기값이0이면 즉시 발사하고 타이머 설정
+            // Fire according to camera mode -> crosshair direction if not Gunner View
+            if (camera && camera->GetCameraMode() !=2) {
+                glm::vec3 heliPos = helicopter->GetPosition();
+                float yaw = helicopter->GetYaw();
+                float pitch = helicopter->GetPitch();
+                float roll = helicopter->GetRoll();
+
+                glm::mat4 heliTransform = glm::mat4(1.0f);
+                heliTransform = glm::translate(heliTransform, heliPos);
+                heliTransform = glm::rotate(heliTransform, glm::radians(yaw), glm::vec3(0,1,0));
+                heliTransform = glm::rotate(heliTransform, glm::radians(roll), glm::vec3(1,0,0));
+                heliTransform = glm::rotate(heliTransform, glm::radians(pitch), glm::vec3(0,0,1));
+
+                glm::vec3 forward = glm::normalize(glm::vec3(heliTransform * glm::vec4(-1,0,0,0)));
+                glm::vec3 center = heliPos - forward * crosshairDistance;
+
+                glm::vec3 cannonPos = helicopter->GetCannonWorldPosition();
+                glm::vec3 desiredDir = glm::normalize(center - cannonPos);
+
+                // Compute cannon's forward direction in world space (include helicopter orientation and cannon yaw/pitch)
+                glm::mat4 cannonOrient = heliTransform;
+                // apply cannon yaw and pitch (same order as in Helicopter::Render/FireCannon)
+                cannonOrient = glm::rotate(cannonOrient, glm::radians(helicopter->GetCannonYaw()), glm::vec3(0,1,0));
+                cannonOrient = glm::rotate(cannonOrient, glm::radians(helicopter->GetCannonPitch()), glm::vec3(0,0,1));
+                glm::vec3 cannonForward = glm::normalize(glm::vec3(cannonOrient * glm::vec4(-1,0,0,0)));
+
+                // If desired direction points opposite to cannon forward, use cannonForward to keep consistent forward firing
+                if (glm::dot(desiredDir, cannonForward) <0.0f) {
+                    desiredDir = cannonForward;
+                }
+
+                helicopter->FireCannon(desiredDir);
+            }
+            else {
+                // Gunner view or no camera: use cannon's local orientation
+                helicopter->FireCannon();
+            }
+
+            // 마지막 발사 시각 초기화하여 타이머와 간격을 맞춤
+            lastCannonFireTimeMs = glutGet(GLUT_ELAPSED_TIME);
         }
         else if (nowMs - lastCannonFireTimeMs >= CANNON_FIRE_INTERVAL_MS) {
-            helicopter->FireCannon();
+            if (camera && camera->GetCameraMode() !=2) {
+                glm::vec3 heliPos = helicopter->GetPosition();
+                float yaw = helicopter->GetYaw();
+                float pitch = helicopter->GetPitch();
+                float roll = helicopter->GetRoll();
+
+                glm::mat4 heliTransform = glm::mat4(1.0f);
+                heliTransform = glm::translate(heliTransform, heliPos);
+                heliTransform = glm::rotate(heliTransform, glm::radians(yaw), glm::vec3(0,1,0));
+                heliTransform = glm::rotate(heliTransform, glm::radians(roll), glm::vec3(1,0,0));
+                heliTransform = glm::rotate(heliTransform, glm::radians(pitch), glm::vec3(0,0,1));
+
+                glm::vec3 forward = glm::normalize(glm::vec3(heliTransform * glm::vec4(-1,0,0,0)));
+                glm::vec3 center = heliPos - forward * crosshairDistance;
+
+                glm::vec3 cannonPos = helicopter->GetCannonWorldPosition();
+                glm::vec3 desiredDir = glm::normalize(center - cannonPos);
+
+                glm::mat4 cannonOrient = heliTransform;
+                cannonOrient = glm::rotate(cannonOrient, glm::radians(helicopter->GetCannonYaw()), glm::vec3(0,1,0));
+                cannonOrient = glm::rotate(cannonOrient, glm::radians(helicopter->GetCannonPitch()), glm::vec3(0,0,1));
+                glm::vec3 cannonForward = glm::normalize(glm::vec3(cannonOrient * glm::vec4(-1,0,0,0)));
+
+                if (glm::dot(desiredDir, cannonForward) <0.0f) {
+                    desiredDir = cannonForward;
+                }
+
+                helicopter->FireCannon(desiredDir);
+            }
+            else {
+                helicopter->FireCannon();
+            }
             lastCannonFireTimeMs = nowMs;
         }
     }
@@ -566,7 +635,44 @@ void Mouse(int button, int state, int x, int y) {
                 lastMouseY = y;
                 // 기관포 발사
                 if (helicopter) {
-                    helicopter->FireCannon();
+                    // If not in Gunner View, fire towards crosshair world direction
+                    if (camera && camera->GetCameraMode() !=2) {
+                        glm::vec3 heliPos = helicopter->GetPosition();
+                        float yaw = helicopter->GetYaw();
+                        float pitch = helicopter->GetPitch();
+                        float roll = helicopter->GetRoll();
+
+                        glm::mat4 heliTransform = glm::mat4(1.0f);
+                        heliTransform = glm::translate(heliTransform, heliPos);
+                        heliTransform = glm::rotate(heliTransform, glm::radians(yaw), glm::vec3(0,1,0));
+                        heliTransform = glm::rotate(heliTransform, glm::radians(roll), glm::vec3(1,0,0));
+                        heliTransform = glm::rotate(heliTransform, glm::radians(pitch), glm::vec3(0,0,1));
+
+                        glm::vec3 forward = glm::normalize(glm::vec3(heliTransform * glm::vec4(-1,0,0,0)));
+                        glm::vec3 center = heliPos - forward * crosshairDistance;
+
+                        glm::vec3 cannonPos = helicopter->GetCannonWorldPosition();
+                        glm::vec3 desiredDir = glm::normalize(center - cannonPos);
+
+                        // Compute cannon's forward direction in world space (include helicopter orientation and cannon yaw/pitch)
+                        glm::mat4 cannonOrient = heliTransform;
+                        // apply cannon yaw and pitch (same order as in Helicopter::Render/FireCannon)
+                        cannonOrient = glm::rotate(cannonOrient, glm::radians(helicopter->GetCannonYaw()), glm::vec3(0,1,0));
+                        cannonOrient = glm::rotate(cannonOrient, glm::radians(helicopter->GetCannonPitch()), glm::vec3(0,0,1));
+                        glm::vec3 cannonForward = glm::normalize(glm::vec3(cannonOrient * glm::vec4(-1,0,0,0)));
+
+                        // If desired direction points opposite to cannon forward, use cannonForward to keep consistent forward firing
+                        if (glm::dot(desiredDir, cannonForward) <0.0f) {
+                            desiredDir = cannonForward;
+                        }
+
+                        helicopter->FireCannon(desiredDir);
+                    }
+                    else {
+                        // Gunner view or no camera: use cannon's local orientation
+                        helicopter->FireCannon();
+                    }
+
                     // 마지막 발사 시각 초기화하여 타이머와 간격을 맞춤
                     lastCannonFireTimeMs = glutGet(GLUT_ELAPSED_TIME);
                 }
@@ -574,7 +680,7 @@ void Mouse(int button, int state, int x, int y) {
             else if (state == GLUT_UP) {
                 rightClickDown = false;
                 // 리셋 타이머
-                lastCannonFireTimeMs = 0;
+                lastCannonFireTimeMs =0;
             }
         }
         else if (button == GLUT_RIGHT_BUTTON) {
