@@ -148,4 +148,8 @@ private:
 
  // 기관포 총알
  std::vector<CannonBullet*> cannonBullets;
+
+ // Alternate missile launch side
+ bool nextMissileLeft = true;
+ float missileLateralOffset =15.0f; // meters to left/right from launchPos
 };

@@ -39,6 +39,7 @@ Helicopter::Helicopter()
 	, cannonOffset(28.0f, -16.5f, 0.0f)
 	, cannonPitch(0.0f)
 	, cannonYaw(0.0f)
+	, nextMissileLeft(true)
 {
 }
 
@@ -499,10 +500,23 @@ void Helicopter::FireMissile(const glm::vec3& launchPos, const glm::vec3& launch
 {
 	if (attachedMissiles.empty()) return;
 
+	// Determine lateral offset in world space using helicopter's right vector
+	glm::vec3 lateral = glm::normalize(right) * missileLateralOffset;
+	glm::vec3 adjustedLaunchPos = launchPos;
+	if (nextMissileLeft) {
+		adjustedLaunchPos -= lateral;
+	}
+	else {
+		adjustedLaunchPos += lateral;
+	}
+
+	// Toggle side for next missile
+	nextMissileLeft = !nextMissileLeft;
+
 	Missile* missileToFire = attachedMissiles.front();
 	attachedMissiles.erase(attachedMissiles.begin());
 
-	missileToFire->Launch(launchPos, glm::normalize(launchDir));
+	missileToFire->Launch(adjustedLaunchPos, glm::normalize(launchDir));
 	missiles.push_back(missileToFire);
 
 	std::cout << "미사일 발사! 남은 미사일: " << attachedMissiles.size() << std::endl;
@@ -512,26 +526,21 @@ void Helicopter::FireMissileFromCamera(const Camera* camera, float crosshairDist
 {
 	if (!camera) return;
 
-	// Use the cannon world position as launch position
-	glm::vec3 launchPos = GetCannonWorldPosition();
-	glm::vec3 dir(0.0f);
+	// Compute crosshair center in world space based on helicopter forward vector
+	glm::vec3 heliPos = GetPosition();
+	glm::mat4 heliTransform = GetHelicopterTransform();
+	glm::vec3 forwardWorld = glm::normalize(glm::vec3(heliTransform * glm::vec4(-1,0,0,0)));
+	glm::vec3 center = heliPos - forwardWorld * crosshairDistance;
 
-	// Compute the same launch direction as Helicopter::FireMissile()
-	// This respects the helicopter's current pitch and forward/up vectors
-	float pitchRad = -glm::radians(currentPitch);
-	glm::vec3 baseForward = glm::normalize(forward);
-	glm::vec3 baseUp = glm::normalize(up);
-	glm::vec3 rightAxis = glm::normalize(glm::cross(baseForward, baseUp));
-	glm::mat4 pitchRotation = glm::rotate(glm::mat4(1.0f), pitchRad, rightAxis);
-	glm::vec4 pitchedForward = pitchRotation * glm::vec4(baseForward, 0.0f);
-	glm::vec3 launchDir = -glm::normalize(glm::vec3(pitchedForward));
+	// Use missile attachment position as launch position (so alternating lateral offset applies)
+	glm::vec3 launchPos = GetMissileAttachmentPosition();
 
-	// Use this direction regardless of camera mode so it matches FireMissile()
-	dir = launchDir;
+	// Desired direction: from launch position toward crosshair center
+	glm::vec3 desiredDir = center - launchPos;
+	if (glm::length(desiredDir) <0.001f) return;
+	desiredDir = glm::normalize(desiredDir);
 
-	if (glm::length(dir) > 0.001f) {
-		FireMissile(launchPos, dir);
-	}
+	FireMissile(launchPos, desiredDir);
 }
 
 void Helicopter::UpdateMissiles(float deltaTime)
