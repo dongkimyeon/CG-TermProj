@@ -9,38 +9,76 @@
 void SoundManager::Initialize() {
     // Create FMOD system
 
-    mBGMVolume = 0.15f;
+    mBGMVolume = 0.5f;
     mSEVolume = 0.1f;
     FMOD_RESULT result = FMOD::System_Create(&mSystem);
-    if (result != FMOD_OK) return;
+    if (result != FMOD_OK) {
+        std::cout << "FMOD System_Create failed: " << result << std::endl;
+        return;
+    }
     result = mSystem->init(128, FMOD_INIT_NORMAL, 0);
-    if (result != FMOD_OK) return;
+    if (result != FMOD_OK) {
+        std::cout << "FMOD init failed: " << result << std::endl;
+        return;
+    }
 
     // Create channel groups
     result = mSystem->createChannelGroup("SEGroup", &mSEGroup);
-    if (result != FMOD_OK) return;
+    if (result != FMOD_OK) {
+        std::cout << "SE Channel Group creation failed: " << result << std::endl;
+        return;
+    }
     result = mSystem->createChannelGroup("BGMGroup", &mBGMGroup);
-    if (result != FMOD_OK) return;
+    if (result != FMOD_OK) {
+        std::cout << "BGM Channel Group creation failed: " << result << std::endl;
+        return;
+    }
 
     // Load SE sounds
-    mSystem->createSound("Sound / MissileLaunch.wav", FMOD_DEFAULT, 0, &mSE[0]);
-    mSoundMap["Missile"] = mSE[0];
-    mSystem->createSound("Sound / CannonLaunch.wav", FMOD_DEFAULT, 0, &mSE[1]);
-    mSoundMap["Cannon"] = mSE[1];
-    mSystem->createSound("Sound / Explosion.wav", FMOD_DEFAULT, 0, &mSE[2]);
-    mSoundMap["Explosion"] = mSE[2];
+    result = mSystem->createSound("Sound/MissileLaunch.wav", FMOD_DEFAULT, 0, &mSE[0]);
+    if (result == FMOD_OK) {
+        mSoundMap["Missile"] = mSE[0];
+        std::cout << "Missile sound loaded successfully" << std::endl;
+    } else {
+        std::cout << "Failed to load Missile sound: " << result << std::endl;
+    }
     
+    result = mSystem->createSound("Sound/CannonLaunch.wav", FMOD_DEFAULT, 0, &mSE[1]);
+    if (result == FMOD_OK) {
+        mSoundMap["Cannon"] = mSE[1];
+        std::cout << "Cannon sound loaded successfully" << std::endl;
+    } else {
+        std::cout << "Failed to load Cannon sound: " << result << std::endl;
+    }
+    
+    result = mSystem->createSound("Sound/Explosion.wav", FMOD_DEFAULT, 0, &mSE[2]);
+    if (result == FMOD_OK) {
+        mSoundMap["Explosion"] = mSE[2];
+        std::cout << "Explosion sound loaded successfully" << std::endl;
+    } else {
+        std::cout << "Failed to load Explosion sound: " << result << std::endl;
+    }
 
-    // Set default volumes
-    if (mSEGroup) mSEGroup->setVolume(mBGMVolume);
-    if (mBGMGroup) mBGMGroup->setVolume(mSEVolume);
+    // Set default volumes (FIXED: SE gets mSEVolume, BGM gets mBGMVolume)
+    if (mSEGroup) mSEGroup->setVolume(mSEVolume);
+    if (mBGMGroup) mBGMGroup->setVolume(mBGMVolume);
+    
+    std::cout << "SoundManager initialized successfully" << std::endl;
 }
 
 void SoundManager::mPlaySound(const std::string& SoundName, bool loop) {
     auto it = mSoundMap.find(SoundName);
-    if (it == mSoundMap.end()) return;
+    if (it == mSoundMap.end()) {
+        std::cout << "Sound not found: " << SoundName << std::endl;
+        return;
+    }
 
     FMOD::Sound* sound = it->second;
+    if (!sound) {
+        std::cout << "Sound pointer is null: " << SoundName << std::endl;
+        return;
+    }
+    
     FMOD::Channel* channel = nullptr;
     bool isBGM = false;
 
@@ -58,23 +96,33 @@ void SoundManager::mPlaySound(const std::string& SoundName, bool loop) {
             mBGMChannel = nullptr;
         }
         FMOD_RESULT result = mSystem->playSound(sound, mBGMGroup, !loop, &mBGMChannel);
-        if (result != FMOD_OK) return;
+        if (result != FMOD_OK) {
+            std::cout << "Failed to play BGM: " << SoundName << ", error: " << result << std::endl;
+            return;
+        }
+        std::cout << "Playing BGM: " << SoundName << std::endl;
     }
     else {
         FMOD_MODE mode = FMOD_DEFAULT;
         if (loop) mode |= FMOD_LOOP_NORMAL;
         sound->setMode(mode);
         FMOD_RESULT result = mSystem->playSound(sound, mSEGroup, false, &channel);
-        if (result != FMOD_OK) return;
-        if (channel) mSEChannels.push_back(channel);
+        if (result != FMOD_OK) {
+            std::cout << "Failed to play SE: " << SoundName << ", error: " << result << std::endl;
+            return;
+        }
+        if (channel) {
+            mSEChannels.push_back(channel);
+            std::cout << "Playing SE: " << SoundName << std::endl;
+        }
     }
 }
 
 void SoundManager::Update() {
 
-    // Set default volumes
-    if (mSEGroup) mSEGroup->setVolume(mBGMVolume);
-    if (mBGMGroup) mBGMGroup->setVolume(mSEVolume);
+// Set default volumes (FIXED: SE gets mSEVolume, BGM gets mBGMVolume)
+if (mSEGroup) mSEGroup->setVolume(mSEVolume);
+if (mBGMGroup) mBGMGroup->setVolume(mBGMVolume);
 
     // Clean up finished SE channels
     for (auto it = mSEChannels.begin(); it != mSEChannels.end();) {

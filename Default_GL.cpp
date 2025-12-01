@@ -631,6 +631,8 @@ void Timer(int value) {
 		}
 	}
 
+	SoundManager::GetInstance()->Update();
+
 	glutPostRedisplay();
 	glutTimerFunc(targetFrameDelay, Timer, 0);
 }

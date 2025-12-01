@@ -4,6 +4,7 @@
 #include "AA.h"
 #include "Camera.h"
 #include "CannonBullet.h"
+#include "SoundManager.h"
 
 Helicopter::Helicopter()
 	: position(glm::vec3(0.0f, 180.0f, 0.0f))
@@ -523,6 +524,9 @@ void Helicopter::FireMissile(const glm::vec3& launchPos, const glm::vec3& launch
 	missileToFire->Launch(adjustedLaunchPos, glm::normalize(launchDir));
 	missiles.push_back(missileToFire);
 
+	// 미사일 발사 사운드 재생
+	SoundManager::GetInstance()->mPlaySound("Missile", false);
+
 	std::cout << "미사일 발사! 현재 비행중인 미사일 수: " << missiles.size() << std::endl;
 }
 
@@ -575,6 +579,9 @@ void Helicopter::FireCannon()
 	CannonBullet* bullet = new CannonBullet();
 	bullet->Launch(startPos, dir, 2500.0f);
 	cannonBullets.push_back(bullet);
+
+	// 기관포 발사 사운드 재생
+	SoundManager::GetInstance()->mPlaySound("Cannon", false);
 }
 
 // 새 오버로드: 월드 공간 방향으로 기관포 발사
@@ -586,6 +593,9 @@ void Helicopter::FireCannon(const glm::vec3& dir)
 	CannonBullet* bullet = new CannonBullet();
 	bullet->Launch(startPos, nDir, 2500.0f);
 	cannonBullets.push_back(bullet);
+
+	// 기관포 발사 사운드 재생
+	SoundManager::GetInstance()->mPlaySound("Cannon", false);
 }
 
 void Helicopter::UpdateCannonBullets(float dt)
