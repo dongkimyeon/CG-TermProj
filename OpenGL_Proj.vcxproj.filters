@@ -147,11 +147,11 @@
     <ClInclude Include="ParticleManager.h">
       <Filter>소스 파일\Particle</Filter>
     </ClInclude>
-    <ClInclude Include="PersistentParticles.h">
-      <Filter>헤더 파일</Filter>
-    </ClInclude>
     <ClInclude Include="SoundManager.h">
       <Filter>소스 파일\Sound</Filter>
+    </ClInclude>
+    <ClInclude Include="PersistentParticles.h">
+      <Filter>소스 파일\Particle</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -221,11 +221,11 @@
     <ClCompile Include="ParticleManager.cpp">
       <Filter>소스 파일\Particle</Filter>
     </ClCompile>
-    <ClCompile Include="PersistentParticles.cpp">
-      <Filter>소스 파일</Filter>
-    </ClCompile>
     <ClCompile Include="SoundManager.cpp">
       <Filter>소스 파일\Sound</Filter>
+    </ClCompile>
+    <ClCompile Include="PersistentParticles.cpp">
+      <Filter>소스 파일\Particle</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

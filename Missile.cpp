@@ -288,7 +288,13 @@ void Missile::Update(float deltaTime)
 				glm::vec3 smokePosition = interpolatedPos - direction * (height * 0.6f);
 				// 선형 궤적: 난수 오프셋 제거, 약간 위로 뜨는 느낌만 추가
 				glm::vec3 smokeVelocity = glm::vec3(0.0f, 5.0f, 0.0f); // 약간 상승
-				smokeTrail.emitParticle(smokePosition, smokeVelocity);
+				
+				
+				glm::vec4 smokeColor = glm::vec4(0.5f, 0.5f, 0.5f, 0.8f); // 연기 색상
+				float particleSize = 6.0f;
+				float lifeTime = 2.0f; // 연기 지속 시간
+				
+				smokeTrail.emitParticle(smokePosition, smokeVelocity, smokeColor, particleSize, lifeTime);
 			}
 			particleEmissionTimer -= emissionInterval;
 		}
