@@ -383,7 +383,7 @@ float Ground::GetHeightAt(float worldX, float worldZ) const
     float h11 = getVertexHeight(i1, j1);
     
     // Bilinear interpolation
-  float h0 = h00 * (1.0f - fi) + h10 * fi;
+    float h0 = h00 * (1.0f - fi) + h10 * fi;
     float h1 = h01 * (1.0f - fi) + h11 * fi;
     float height = h0 * (1.0f - fj) + h1 * fj;
     

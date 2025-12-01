@@ -862,7 +862,9 @@ void InitializeAAUnits()
 		// 랜덤 위치 생성
 		float randomX = distX(gen);
 		float randomZ = distZ(gen);
-		float y = 5.0f;
+
+		float aa_YOFFSET = 5.0f; // 지면에서 약간 띄우기 위한 오프셋
+		float y = mGround->GetHeightAt(randomX, randomZ) + aa_YOFFSET;
 
 		glm::vec3 randomPos(randomX, y, randomZ);
 		aaUnits[i]->SetPosition(randomPos);
