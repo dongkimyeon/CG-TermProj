@@ -9,6 +9,7 @@
 #include "Camera.h"
 #include "Helicopter.h"
 #include "AA.h"
+#include "SoundManager.h"
 #include "ParticleManager.h"
 #include <random>
 
@@ -102,6 +103,9 @@ int main(int argc, char** argv) {
 	ImGui::StyleColorsDark();
 	ImGui_ImplGLUT_Init();
 	ImGui_ImplOpenGL3_Init("#version 330");
+
+	// SoundManager 초기화
+	SoundManager::GetInstance()->Initialize();	
 
 	// 셰이더 생성
 	shaderProgramID = ShaderManager::CreateShaderProgram("vertex3D.glsl", "fragment.glsl");
