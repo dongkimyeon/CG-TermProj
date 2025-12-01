@@ -2,7 +2,7 @@
 #include "ParticleManager.h"
 
 CannonBullet::CannonBullet()
-	: position(0.0f), direction(0.0f, 0.0f, 1.0f), speed(2500.0f), life(0.0f), maxLife(1.0f), active(false), smokeTrail(100), trailSpacing(3.0f)
+	: position(0.0f), direction(0.0f, 0.0f, 1.0f), speed(2500.0f), life(0.0f), maxLife(1.0f), active(false), smokeTrail(600), trailSpacing(3.0f)
 {
 	smokeTrail.initialize();
 }
@@ -15,7 +15,7 @@ void CannonBullet::Launch(const glm::vec3& startPos, const glm::vec3& dir, float
 	direction = glm::normalize(dir);
 	speed = spd;
 	life = 0.0f;
-	maxLife = 1.0f; //1ÃÊ ÈÄ ¼Ò¸ê
+	maxLife = 10.0f;
 	active = true;
 	smokeTrail.clear();
 }
@@ -34,10 +34,11 @@ void CannonBullet::Update(float dt)
 	for (int i = 0; i < nTrail; ++i) {
 		float t = nTrail > 1 ? float(i) / float(nTrail - 1) : 0.0f;
 		glm::vec3 trailPos = glm::mix(prevPos, position, t);
-		smokeTrail.emitParticle(trailPos, glm::vec3(0, 0, 0), glm::vec4(1.0f, 1.0f, 1.0f, 1.0f), 3.8f);
+		smokeTrail.emitParticle(trailPos, glm::vec3(0, 0, 0), glm::vec4(1.0f, 1.0f, 1.0f, 1.0f), 3.8f, 1.0f);
 	}
 	smokeTrail.update(dt);
-	if (life > maxLife || position.y < 0.0f || glm::length(position) > 3000.0f) {
+	
+	if (position.y < 0.0f) {
 		// transfer particles to persistent manager before deleting bullet
 		EnsurePersistentParticles();
 		std::vector<Particle> stolen = smokeTrail.stealParticles();

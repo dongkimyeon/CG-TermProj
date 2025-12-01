@@ -61,7 +61,7 @@ int lastMouseY = 0;
 
 // 좌클릭(기관포 지속 발사) 관련
 int lastCannonFireTimeMs = 0; // 마지막 발사 시각(밀리초)
-const int CANNON_FIRE_INTERVAL_MS = 300; //0.3초
+const int CANNON_FIRE_INTERVAL_MS = 100; //0.3초
 
 //imgui 관련 변수
 float modelScale = 0.1f;
@@ -541,7 +541,7 @@ void Timer(int value) {
 		helicopter->FireMissileFromCamera(camera, crosshairDistance);
 	}
 
-	// 좌클릭을 누르고 있으면0.5초 간격으로 기관포 발사
+	// 좌클릭 키다운
 	if (rightClickDown && helicopter) {
 		int nowMs = glutGet(GLUT_ELAPSED_TIME);
 		if (lastCannonFireTimeMs == 0) {
