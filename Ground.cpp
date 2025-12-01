@@ -322,60 +322,71 @@ float Ground::GetHeightAt(float worldX, float worldZ) const
 {
     if (vertices.empty() || heightMapWidth == 0 || heightMapHeight == 0)
     {
-        return 0.0f; // Return ground level if heightmap not loaded
+     return -2.0f; // Return ground level if heightmap not loaded (accounting for translation)
     }
 
-    // Convert world coordinates to heightmap coordinates
-    // The terrain is scaled by 10.0f in the Render function
-    float scaledX = worldX / 10.0f;
-    float scaledZ = worldZ / 10.0f;
+    // Terrain transformation in Render():
+    // 1. translate(0, -2, 0)
+ // 2. scale(10, 1, 10)
+    // 
+    // In Initialize(), terrain vertices are created as:
+    // xPos = -heightMapHeight/2 + i  (ranges from -heightMapHeight/2 to heightMapHeight/2)
+    // zPos = -heightMapWidth/2 + j   (ranges from -heightMapWidth/2 to heightMapWidth/2)
+    //
+    // After scaling by 10:
+    // World X ranges: [-heightMapHeight*5, heightMapHeight*5]
+    // World Z ranges: [-heightMapWidth*5, heightMapWidth*5]
     
-    // Map to heightmap array indices
-    // The terrain spans from -heightMapHeight/2 to +heightMapHeight/2 in X
-    // and from -heightMapWidth/2 to +heightMapWidth/2 in Z
-    float halfHeight = heightMapHeight / 2.0f;
-  float halfWidth = heightMapWidth / 2.0f;
+    // Reverse the scaling (divide by 10)
+    float localX = worldX / 10.0f;
+    float localZ = worldZ / 10.0f;
     
-    float gridX = (scaledX + halfHeight) * heightMapHeight / (float)heightMapHeight;
-    float gridZ = (scaledZ + halfWidth) * heightMapWidth / (float)heightMapWidth;
+    // Convert from local space to grid indices
+    // localX ranges from -heightMapHeight/2 to +heightMapHeight/2
+    // We need to map this to [0, heightMapHeight-1]
+    float gridI = localX + (heightMapHeight / 2.0f);
+ float gridJ = localZ + (heightMapWidth / 2.0f);
     
-    // Clamp to valid range
-    if (gridX < 0.0f || gridX >= heightMapHeight - 1 || 
-        gridZ < 0.0f || gridZ >= heightMapWidth - 1)
+    // Check bounds
+    if (gridI < 0.0f || gridI >= heightMapHeight - 1 || 
+      gridJ < 0.0f || gridJ >= heightMapWidth - 1)
     {
-    return 0.0f; // Outside terrain bounds
+        return -2.0f; // Outside terrain bounds, return ground level
     }
     
-    // Get the four surrounding vertices for bilinear interpolation
-    int x0 = (int)std::floor(gridX);
-    int z0 = (int)std::floor(gridZ);
-    int x1 = x0 + 1;
-    int z1 = z0 + 1;
+    // Get integer indices for the four surrounding vertices
+    int i0 = (int)std::floor(gridI);
+    int j0 = (int)std::floor(gridJ);
+    int i1 = i0 + 1;
+    int j1 = j0 + 1;
     
     // Get fractional parts for interpolation
-    float fx = gridX - x0;
-    float fz = gridZ - z0;
+    float fi = gridI - i0;
+    float fj = gridJ - j0;
     
     // Get heights from the vertex array
     // Each vertex has 11 floats: position(3), UV(2), normal(3), tangent(3)
     // Y coordinate is at offset 1
-    auto getVertexHeight = [this](int x, int z) -> float {
-        int index = (z * heightMapWidth + x) * 11 + 1; // +1 for Y coordinate
-    if (index >= 0 && index < (int)vertices.size())
-            return vertices[index];
-        return 0.0f;
+    // Vertex array layout: for each row i, columns j
+    auto getVertexHeight = [this](int i, int j) -> float {
+        if (i < 0 || i >= heightMapHeight || j < 0 || j >= heightMapWidth)
+  return 0.0f;
+ int index = (i * heightMapWidth + j) * 11 + 1; // +1 for Y coordinate
+     if (index >= 0 && index < (int)vertices.size())
+          return vertices[index];
+    return 0.0f;
     };
     
-    float h00 = getVertexHeight(x0, z0);
-    float h10 = getVertexHeight(x1, z0);
- float h01 = getVertexHeight(x0, z1);
-    float h11 = getVertexHeight(x1, z1);
+    float h00 = getVertexHeight(i0, j0);
+    float h10 = getVertexHeight(i1, j0);
+    float h01 = getVertexHeight(i0, j1);
+    float h11 = getVertexHeight(i1, j1);
     
     // Bilinear interpolation
-  float h0 = h00 * (1.0f - fx) + h10 * fx;
-    float h1 = h01 * (1.0f - fx) + h11 * fx;
-    float height = h0 * (1.0f - fz) + h1 * fz;
+  float h0 = h00 * (1.0f - fi) + h10 * fi;
+    float h1 = h01 * (1.0f - fi) + h11 * fi;
+    float height = h0 * (1.0f - fj) + h1 * fj;
     
- // Account for the -2.0f translation in Render()
+    // Account for the -2.0f Y translation in Render()
     return height - 2.0f;
 }
