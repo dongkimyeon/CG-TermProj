@@ -272,27 +272,24 @@ GLvoid DrawScene()
 
 	// 불투명 객체들 먼저 (깊이 쓰기 ON, 블렌딩 OFF)
 	glDisable(GL_BLEND);
-
 	if (mGround) mGround->Render(shaderProgramID, view, proj);
-	if (helicopter) helicopter->Render(shaderProgramID, wireframeMode, glassAlpha, modelScale);
+	glEnable(GL_BLEND);
+	if (helicopter) helicopter->Render(shaderProgramID, wireframeMode, glassAlpha, modelScale);  // 헬리콥터에만 glassAlpha 적용
+	glDisable(GL_BLEND);
 	if (aaUnits) {
 		for (int i = 0; i < NUM_AA_UNITS; ++i)
-			if (aaUnits[i]) aaUnits[i]->Render(shaderProgramID, wireframeMode, glassAlpha, modelScale);
+			if (aaUnits[i]) aaUnits[i]->Render(shaderProgramID, wireframeMode, 1.0f, modelScale);  // aaUnits에는 1.0f (불투명) 적용
 	}
-
 	// 반투명/파티클은 나중에 (블렌딩 ON)
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glDepthMask(GL_FALSE); // 반투명은 깊이 쓰기 비활성화 (정렬 문제 방지)
-
 	if (helicopter) {
 		helicopter->RenderMissiles(shaderProgramID, view, proj);
 		helicopter->RenderCannonBullets(view, proj);
 	}
 	RenderPersistentParticles(view, proj);
-
 	glDepthMask(GL_TRUE);
-
 	// --- 1-3. 3D 크로스헤어 (Gunner/Cockpit 모드에서만, 프레임버퍼에 그려야 함) ---
 	if (camera && (camera->GetCameraMode() == 0 || camera->GetCameraMode() == 1) && helicopter) {
 		glDisable(GL_DEPTH_TEST);
