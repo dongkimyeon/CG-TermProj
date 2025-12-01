@@ -74,6 +74,9 @@ public:
  float& GetAccelerationRate() { return accelerationRate; }
  float& GetMaxTiltAngle() { return maxTiltAngle; }
  
+ // Set the ground reference for terrain collision
+ void SetGround(class Ground* ground) { mGround = ground; }
+
 private:
  void UpdatePhysics(float deltaTime);
  void UpdateOrientation(float deltaTime);
@@ -152,4 +155,7 @@ private:
  // Alternate missile launch side
  bool nextMissileLeft = true;
  float missileLateralOffset =15.0f; // meters to left/right from launchPos
+
+ // Terrain reference for collision detection
+ class Ground* mGround;
 };

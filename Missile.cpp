@@ -1,10 +1,11 @@
 #include "Missile.h"
 #include "PersistentParticles.h"
+#include "Ground.h"
 
 Missile::Missile()
 	: VAO(0), VBO(0), EBO(0), lightVAO(0), lightVBO(0), lightEBO(0),
 	  position(0.0f), direction(0.0f, 0.0f, 1.0f), velocity(0.0f), 
-	  isActive(false), smokeTrail(300), particleEmissionTimer(0.0f)
+	  isActive(false), smokeTrail(300), particleEmissionTimer(0.0f), mGround(nullptr)
 {
 }
 
@@ -258,7 +259,7 @@ void Missile::Update(float deltaTime)
 		// 현재 위치를 이전 위치로 저장
 		glm::vec3 previousPosition = position;
 		
-		// 미사일 이동 - 중력 영향 없이 직선 이동
+		// 미사일 이동 - 중력 없이 일정 방향 이동
 		velocity = direction * speed;
 		position += velocity * deltaTime;
 
@@ -295,8 +296,14 @@ void Missile::Update(float deltaTime)
 		// 파티클 시스템 업데이트
 		smokeTrail.update(deltaTime);
 
-		// 땅에 닿거나 범위를 벗어나면 비활성화
-		if (position.y <= 0.0f || glm::length(position) > 2000.0f)
+		// 충돌 검사: 지형과 충돌하거나 범위를 벗어나면 비활성화
+		float groundHeight = 0.0f;
+		if (mGround)
+		{
+			groundHeight = mGround->GetHeightAt(position.x, position.z);
+		}
+		
+		if (position.y <= groundHeight || glm::length(position) > 2000.0f)
 		{
 			// explode at impact point and deactivate
 			Deactivate();
@@ -304,7 +311,7 @@ void Missile::Update(float deltaTime)
 	}
 	else
 	{
-		// 미사일이 비활성화되어도 파티클은 계속 업데이트
+		// 미사일이 비활성화되어도 파티클만 계속 업데이트
 		smokeTrail.update(deltaTime);
 	}
 }

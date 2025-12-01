@@ -148,6 +148,9 @@ int main(int argc, char** argv) {
 	mGround = new Ground();
 	mGround->Initialize();
 
+	// 헬리콥터에 지형 참조 설정
+	helicopter->SetGround(mGround);
+
 	// AA 유닛 초기화 (10대)
 	InitializeAAUnits();
 

@@ -317,3 +317,65 @@ void Ground::ControlHeightmap(float scale)
 
     glBindVertexArray(0);
 }
+
+float Ground::GetHeightAt(float worldX, float worldZ) const
+{
+    if (vertices.empty() || heightMapWidth == 0 || heightMapHeight == 0)
+    {
+        return 0.0f; // Return ground level if heightmap not loaded
+    }
+
+    // Convert world coordinates to heightmap coordinates
+    // The terrain is scaled by 10.0f in the Render function
+    float scaledX = worldX / 10.0f;
+    float scaledZ = worldZ / 10.0f;
+    
+    // Map to heightmap array indices
+    // The terrain spans from -heightMapHeight/2 to +heightMapHeight/2 in X
+    // and from -heightMapWidth/2 to +heightMapWidth/2 in Z
+    float halfHeight = heightMapHeight / 2.0f;
+  float halfWidth = heightMapWidth / 2.0f;
+    
+    float gridX = (scaledX + halfHeight) * heightMapHeight / (float)heightMapHeight;
+    float gridZ = (scaledZ + halfWidth) * heightMapWidth / (float)heightMapWidth;
+    
+    // Clamp to valid range
+    if (gridX < 0.0f || gridX >= heightMapHeight - 1 || 
+        gridZ < 0.0f || gridZ >= heightMapWidth - 1)
+    {
+    return 0.0f; // Outside terrain bounds
+    }
+    
+    // Get the four surrounding vertices for bilinear interpolation
+    int x0 = (int)std::floor(gridX);
+    int z0 = (int)std::floor(gridZ);
+    int x1 = x0 + 1;
+    int z1 = z0 + 1;
+    
+    // Get fractional parts for interpolation
+    float fx = gridX - x0;
+    float fz = gridZ - z0;
+    
+    // Get heights from the vertex array
+    // Each vertex has 11 floats: position(3), UV(2), normal(3), tangent(3)
+    // Y coordinate is at offset 1
+    auto getVertexHeight = [this](int x, int z) -> float {
+        int index = (z * heightMapWidth + x) * 11 + 1; // +1 for Y coordinate
+    if (index >= 0 && index < (int)vertices.size())
+            return vertices[index];
+        return 0.0f;
+    };
+    
+    float h00 = getVertexHeight(x0, z0);
+    float h10 = getVertexHeight(x1, z0);
+ float h01 = getVertexHeight(x0, z1);
+    float h11 = getVertexHeight(x1, z1);
+    
+    // Bilinear interpolation
+  float h0 = h00 * (1.0f - fx) + h10 * fx;
+    float h1 = h01 * (1.0f - fx) + h11 * fx;
+    float height = h0 * (1.0f - fz) + h1 * fz;
+    
+ // Account for the -2.0f translation in Render()
+    return height - 2.0f;
+}

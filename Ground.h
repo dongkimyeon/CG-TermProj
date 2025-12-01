@@ -13,6 +13,10 @@ public:
     void Render(GLuint shaderProgramID, const glm::mat4& view, const glm::mat4& proj);
     
     void ControlHeightmap(float scale);
+    
+    // Get terrain height at world position (x, z)
+    float GetHeightAt(float x, float z) const;
+    
 private:
     void CreateFlatTerrain(); // Fallback method for flat terrain
     

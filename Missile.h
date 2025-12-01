@@ -32,6 +32,9 @@ public:
     glm::vec3 GetLightColor() const { return lightColor; }
     float GetLightIntensity() const { return lightIntensity; }
 
+    // Set ground reference for terrain collision
+    void SetGround(class Ground* ground) { mGround = ground; }
+
 private:
     void CreateCubeGeometry();
     void SetupBuffers();
@@ -77,5 +80,8 @@ private:
     float particleEmissionTimer;
     const float particleEmissionRate = 0.02f; // 50 파티클/초
     float trailSpacing = 2.5f; // 궤적 연기 간격 (선형 배치용)
+
+    // Terrain reference for collision detection
+    class Ground* mGround;
 };
 
