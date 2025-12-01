@@ -415,31 +415,32 @@ void Missile::RenderMissileLight(GLuint shaderProgramID, const glm::mat4& view, 
 	GLint useTextureLoc = glGetUniformLocation(shaderProgramID, "useTexture");
 	GLint alphaValueLoc = glGetUniformLocation(shaderProgramID, "alphaValue");
 
-	// Light transform
+	// Light transform - 원래 크기 유지
 	glm::vec3 lightPos = GetLightPosition();
 	glm::mat4 lightModel = glm::mat4(1.0f);
 	lightModel = glm::translate(lightModel, lightPos);
 	lightModel = glm::scale(lightModel, glm::vec3(lightIntensity));
 
-	glm::vec3 brightLightColor = glm::vec3(1.0f,0.8f,0.0f) * lightIntensity;
+	// 밝은 중심 색상 (노란색-주황색)
+	glm::vec3 brightLightColor = glm::vec3(1.0f, 0.7f, 0.2f) * lightIntensity;
 
 	// Set states for additive light rendering
-	if (depthTestEnabled) glDisable(GL_DEPTH_TEST);
+	if (!depthTestEnabled) glEnable(GL_DEPTH_TEST);
+	glDepthMask(GL_FALSE); // 깊이 쓰기 비활성화
 	if (!blendEnabled) glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE); // additive for glow
-	glDepthMask(GL_FALSE);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE); // additive blending for glow
 
-	// Render light mesh
+	// Render light mesh with transparency
 	glUseProgram(shaderProgramID);
-	glUniformMatrix4fv(modelLoc,1, GL_FALSE, glm::value_ptr(lightModel));
-	glUniformMatrix4fv(viewLoc,1, GL_FALSE, glm::value_ptr(view));
-	glUniformMatrix4fv(projLoc,1, GL_FALSE, glm::value_ptr(proj));
-	glUniform3fv(colorLoc,1, glm::value_ptr(brightLightColor));
-	glUniform1f(useTextureLoc,0.0f);
-	glUniform1f(alphaValueLoc,1.0f);
+	glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(lightModel));
+	glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
+	glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(proj));
+	glUniform3fv(colorLoc, 1, glm::value_ptr(brightLightColor));
+	glUniform1f(useTextureLoc, 0.0f);
+	glUniform1f(alphaValueLoc, 0.15f); // 적절한 투명도
 
 	glBindVertexArray(lightVAO);
-	glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(lightIndices.size()), GL_UNSIGNED_INT,0);
+	glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(lightIndices.size()), GL_UNSIGNED_INT, 0);
 	glBindVertexArray(0);
 
 	// Restore GL state
@@ -449,7 +450,7 @@ void Missile::RenderMissileLight(GLuint shaderProgramID, const glm::mat4& view, 
 		// restore to standard alpha blending used elsewhere
 		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	}
-	if (depthTestEnabled) glEnable(GL_DEPTH_TEST);
+	if (!depthTestEnabled) glDisable(GL_DEPTH_TEST);
 }
 
 void Missile::Launch(const glm::vec3& startPos, const glm::vec3& dir)
