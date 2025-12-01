@@ -76,13 +76,13 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>C:\Users\kdy03\Desktop\CG_TermProj\CG-TermProj\3rd Party\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\kdy03\Desktop\CG_TermProj\CG-TermProj\3rd Party\include;%(AdditionalIncludeDirectories);$(ProjectDir)FMOD_API\core\inc;$(ProjectDir)FMOD_API\studio\inc</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpplatest</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>C:\Users\kdy03\Desktop\CG_TermProj\CG-TermProj\3rd Party\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>C:\Users\kdy03\Desktop\CG_TermProj\CG-TermProj\3rd Party\lib;%(AdditionalLibraryDirectories);$(ProjectDir)FMOD_API\core\lib\x64</AdditionalLibraryDirectories>
       <AdditionalOptions>freeglut.lib glew32.lib assimp-vc143-mt.lib %(AdditionalOptions)</AdditionalOptions>
     </Link>
   </ItemDefinitionGroup>
@@ -94,13 +94,13 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>C:\Users\kdy03\Desktop\CG_TermProj\CG-TermProj\3rd Party\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\kdy03\Desktop\CG_TermProj\CG-TermProj\3rd Party\include;%(AdditionalIncludeDirectories);$(ProjectDir)FMOD_API\core\inc;$(ProjectDir)FMOD_API\studio\inc</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpplatest</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>C:\Users\kdy03\Desktop\CG_TermProj\CG-TermProj\3rd Party\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>C:\Users\kdy03\Desktop\CG_TermProj\CG-TermProj\3rd Party\lib;%(AdditionalLibraryDirectories);$(ProjectDir)FMOD_API\core\lib\x64</AdditionalLibraryDirectories>
       <AdditionalOptions>freeglut.lib glew32.lib assimp-vc143-mt.lib %(AdditionalOptions)</AdditionalOptions>
     </Link>
   </ItemDefinitionGroup>
@@ -110,13 +110,13 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(SolutionDir)\3rd Party\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)\3rd Party\include;%(AdditionalIncludeDirectories);$(ProjectDir)FMOD_API\core\inc;$(ProjectDir)FMOD_API\studio\inc</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp23</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(SolutionDir)\3rd Party\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(SolutionDir)\3rd Party\lib;%(AdditionalLibraryDirectories);$(ProjectDir)FMOD_API\core\lib\x64</AdditionalLibraryDirectories>
       <AdditionalOptions>freeglut.lib glew32.lib assimp-vc143-mt.lib %(AdditionalOptions)</AdditionalOptions>
     </Link>
   </ItemDefinitionGroup>
@@ -128,13 +128,13 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>C:\Users\kdy03\Desktop\CG_TermProj\CG-TermProj\3rd Party\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\kdy03\Desktop\CG_TermProj\CG-TermProj\3rd Party\include;%(AdditionalIncludeDirectories);$(ProjectDir)FMOD_API\core\inc;$(ProjectDir)FMOD_API\studio\inc</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpplatest</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>C:\Users\kdy03\Desktop\CG_TermProj\CG-TermProj\3rd Party\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>C:\Users\kdy03\Desktop\CG_TermProj\CG-TermProj\3rd Party\lib;%(AdditionalLibraryDirectories);$(ProjectDir)FMOD_API\core\lib\x64</AdditionalLibraryDirectories>
       <AdditionalOptions>freeglut.lib glew32.lib assimp-vc143-mt.lib %(AdditionalOptions)</AdditionalOptions>
     </Link>
   </ItemDefinitionGroup>
@@ -166,6 +166,7 @@
     <ClInclude Include="ParticleSystem.h" />
     <ClInclude Include="PersistentParticles.h" />
     <ClInclude Include="ShaderManager.h" />
+    <ClInclude Include="SoundManager.h" />
     <ClInclude Include="Texture.h" />
     <ClInclude Include="Time.h" />
   </ItemGroup>
@@ -191,6 +192,7 @@
     <ClCompile Include="ParticleSystem.cpp" />
     <ClCompile Include="PersistentParticles.cpp" />
     <ClCompile Include="ShaderManager.cpp" />
+    <ClCompile Include="SoundManager.cpp" />
     <ClCompile Include="Texture.cpp" />
     <ClCompile Include="Time.cpp" />
   </ItemGroup>

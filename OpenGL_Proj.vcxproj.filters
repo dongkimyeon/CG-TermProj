@@ -58,6 +58,9 @@
     <Filter Include="소스 파일\AA">
       <UniqueIdentifier>{1a7473e9-edf7-4097-844c-1e50649d4acc}</UniqueIdentifier>
     </Filter>
+    <Filter Include="소스 파일\Sound">
+      <UniqueIdentifier>{093be759-d808-4c1e-afb7-3733119ba4d8}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="imgui\imgui.h">
@@ -147,6 +150,9 @@
     <ClInclude Include="PersistentParticles.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
+    <ClInclude Include="SoundManager.h">
+      <Filter>소스 파일\Sound</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Default_GL.cpp">
@@ -218,6 +224,9 @@
     <ClCompile Include="PersistentParticles.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
+    <ClCompile Include="SoundManager.cpp">
+      <Filter>소스 파일\Sound</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="fragment.glsl">
@@ -232,16 +241,24 @@
     <None Include="vertex3D.glsl">
       <Filter>헤더 파일\Shader\Shaders</Filter>
     </None>
-    <None Include="Shaders\particle_instanced.frag" />
-    <None Include="Shaders\particle_instanced.vert" />
     <None Include="postprocess_fragment.glsl">
       <Filter>헤더 파일\Shader\Shaders</Filter>
     </None>
     <None Include="postprocess_vertex.glsl">
       <Filter>헤더 파일\Shader\Shaders</Filter>
     </None>
-    <None Include="crosshair_fragment.glsl" />
-    <None Include="crosshair_vertex.glsl" />
+    <None Include="crosshair_fragment.glsl">
+      <Filter>헤더 파일\Shader\Shaders</Filter>
+    </None>
+    <None Include="crosshair_vertex.glsl">
+      <Filter>헤더 파일\Shader\Shaders</Filter>
+    </None>
+    <None Include="Shaders\particle_instanced.frag">
+      <Filter>헤더 파일\Shader\Shaders</Filter>
+    </None>
+    <None Include="Shaders\particle_instanced.vert">
+      <Filter>헤더 파일\Shader\Shaders</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Image Include="MI_West_Heli_AH64D_Main.png">
