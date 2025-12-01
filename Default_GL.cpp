@@ -170,6 +170,8 @@ int main(int argc, char** argv) {
 
 	Time::Initialize();
 
+	SoundManager::GetInstance()->mPlaySound("Helicopter", true);
+
 	// Ensure persistent particle system exists for sharing trails from short-lived systems
 	EnsurePersistentParticles();
 

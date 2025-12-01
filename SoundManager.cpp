@@ -9,8 +9,8 @@
 void SoundManager::Initialize() {
     // Create FMOD system
 
-    mBGMVolume = 0.5f;
-    mSEVolume = 0.1f;
+    mBGMVolume = 0.05f;
+    mSEVolume = 0.02f;
     FMOD_RESULT result = FMOD::System_Create(&mSystem);
     if (result != FMOD_OK) {
         std::cout << "FMOD System_Create failed: " << result << std::endl;
@@ -57,6 +57,17 @@ void SoundManager::Initialize() {
         std::cout << "Explosion sound loaded successfully" << std::endl;
     } else {
         std::cout << "Failed to load Explosion sound: " << result << std::endl;
+    }
+
+
+	// Load BGM sounds
+    result = mSystem->createSound("Sound/Helicopter.wav", FMOD_DEFAULT, 0, &mBGM[0]);
+    if (result == FMOD_OK) {
+        mSoundMap["Helicopter"] = mBGM[0];
+        std::cout << "Helicopter sound loaded successfully" << std::endl;
+    }
+    else {
+        std::cout << "Failed to load Helicopter sound: " << result << std::endl;
     }
 
     // Set default volumes (FIXED: SE gets mSEVolume, BGM gets mBGMVolume)
