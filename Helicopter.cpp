@@ -525,7 +525,7 @@ void Helicopter::FireMissile(const glm::vec3& launchPos, const glm::vec3& launch
 	missiles.push_back(missileToFire);
 
 	// 미사일 발사 사운드 재생
-	SoundManager::GetInstance()->mPlaySound("Missile", false);
+	//SoundManager::GetInstance()->mPlaySound("Missile", false);
 
 	std::cout << "미사일 발사! 현재 비행중인 미사일 수: " << missiles.size() << std::endl;
 }
@@ -561,6 +561,7 @@ void Helicopter::UpdateMissiles(float deltaTime)
 		if (!(*it)->IsActive()) {
 			delete* it;
 			it = missiles.erase(it);
+			SoundManager::GetInstance()->mPlaySound("Explosion", false);
 		}
 		else {
 			++it;

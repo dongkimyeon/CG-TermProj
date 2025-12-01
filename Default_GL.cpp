@@ -213,16 +213,9 @@ void WhellFunc(int wheel, int dir, int x, int y)
 GLvoid DrawScene()
 {
 	Time::Update();
-
-	// Update persistent particles first
 	UpdatePersistentParticles(Time::DeltaTime());
 
-	// 헬리콥터 업데이트
-	if (helicopter) {
-		helicopter->Update(Time::DeltaTime());
-	}
-
-	// 카메라 업데이트
+	if (helicopter) helicopter->Update(Time::DeltaTime());
 	if (camera && helicopter) {
 		camera->Update(Time::DeltaTime(),
 			helicopter->GetPosition(),
@@ -233,24 +226,35 @@ GLvoid DrawScene()
 			helicopter->GetCannonWorldPosition());
 	}
 
-	// =====1단계: 프레임버퍼에 씬 렌더링 =====
+	// ===================== 1. 오프스크린 프레임버퍼에 3D 씬 전체 그리기 =====================
 	glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
 	glEnable(GL_DEPTH_TEST);
-	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
 	glEnable(GL_CULL_FACE);
 	glCullFace(GL_BACK);
-	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-	// 기본3D 셰이더 사용
-	glUseProgram(shaderProgramID);
+	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	glm::mat4 view = camera->GetViewMatrix();
 	glm::mat4 proj = camera->GetProjectionMatrix((float)width / (float)height);
 
-	// 공통 Uniform 설정
+	// --- 1-1. 스카이박스 (깊이 함수 LEQUAL, 깊이 쓰기 비활성화) ---
+	glDepthFunc(GL_LEQUAL);
+	glDepthMask(GL_FALSE);
+	glUseProgram(skyboxShaderProgramID);
+	glm::mat4 skyView = glm::mat4(glm::mat3(view));
+	glUniformMatrix4fv(glGetUniformLocation(skyboxShaderProgramID, "view"), 1, GL_FALSE, glm::value_ptr(skyView));
+	glUniformMatrix4fv(glGetUniformLocation(skyboxShaderProgramID, "projection"), 1, GL_FALSE, glm::value_ptr(proj));
+	glBindVertexArray(skyboxVAO);
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_CUBE_MAP, cubemapTexture);
+	glUniform1i(glGetUniformLocation(skyboxShaderProgramID, "skybox"), 0);
+	glDrawArrays(GL_TRIANGLES, 0, 36);
+	glBindVertexArray(0);
+	glDepthFunc(GL_LESS);
+	glDepthMask(GL_TRUE);
+
+	// --- 1-2. 기본 3D 객체들 (깊이 테스트 활성화, 블렌딩은 필요시만) ---
+	glUseProgram(shaderProgramID);
 	glUniformMatrix4fv(glGetUniformLocation(shaderProgramID, "view"), 1, GL_FALSE, glm::value_ptr(view));
 	glUniformMatrix4fv(glGetUniformLocation(shaderProgramID, "proj"), 1, GL_FALSE, glm::value_ptr(proj));
 	glUniform3fv(glGetUniformLocation(shaderProgramID, "eyePos"), 1, glm::value_ptr(camera->GetPosition()));
@@ -261,67 +265,42 @@ GLvoid DrawScene()
 	glUniform1f(glGetUniformLocation(shaderProgramID, "shininess"), 32.0f);
 	glUniform1f(glGetUniformLocation(shaderProgramID, "useTexture"), 1.0f);
 
-	//1. 그라운드
-	if (mGround) {
-		glDisable(GL_BLEND);
-		mGround->Render(shaderProgramID, view, proj);
-		glEnable(GL_BLEND);
+	// 불투명 객체들 먼저 (깊이 쓰기 ON, 블렌딩 OFF)
+	glDisable(GL_BLEND);
+
+	if (mGround) mGround->Render(shaderProgramID, view, proj);
+	if (helicopter) helicopter->Render(shaderProgramID, wireframeMode, glassAlpha, modelScale);
+	if (aaUnits) {
+		for (int i = 0; i < NUM_AA_UNITS; ++i)
+			if (aaUnits[i]) aaUnits[i]->Render(shaderProgramID, wireframeMode, glassAlpha, modelScale);
 	}
 
-	//2. 헬리콥터
+	// 반투명/파티클은 나중에 (블렌딩 ON)
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glDepthMask(GL_FALSE); // 반투명은 깊이 쓰기 비활성화 (정렬 문제 방지)
+
 	if (helicopter) {
-		helicopter->Render(shaderProgramID, wireframeMode, glassAlpha, modelScale);
 		helicopter->RenderMissiles(shaderProgramID, view, proj);
 		helicopter->RenderCannonBullets(view, proj);
-		// 기관포 탄환(스모크 트레일)은 Render에서 처리됨
 	}
-
-	//3. AA 유닛들
-	if (aaUnits) {
-		for (int i = 0; i < NUM_AA_UNITS; ++i) {
-			if (aaUnits[i]) {
-				aaUnits[i]->Render(shaderProgramID, wireframeMode, glassAlpha, modelScale);
-			}
-		}
-	}
-
-	// Render persistent/shared particles (trails transferred from short-lived systems)
 	RenderPersistentParticles(view, proj);
 
+	glDepthMask(GL_TRUE);
 
-	// =====5. 스카이박스 =====
-	glDepthFunc(GL_LEQUAL);
-	glUseProgram(skyboxShaderProgramID);
-
-	// 카메라 회전만 반영 (위치 이동은 없앰)
-	glm::mat4 skyView = glm::mat4(glm::mat3(view));
-
-	glUniformMatrix4fv(glGetUniformLocation(skyboxShaderProgramID, "view"), 1, GL_FALSE, glm::value_ptr(skyView));
-	glUniformMatrix4fv(glGetUniformLocation(skyboxShaderProgramID, "projection"), 1, GL_FALSE, glm::value_ptr(proj));
-
-	glBindVertexArray(skyboxVAO);
-	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_CUBE_MAP, cubemapTexture);
-	glUniform1i(glGetUniformLocation(skyboxShaderProgramID, "skybox"), 0);
-	glDrawArrays(GL_TRIANGLES, 0, 36);
-	glBindVertexArray(0);
-
-	glDepthFunc(GL_LESS); // 복구
-
-
-	//4. 크로스헤어 (3D 공간에 그리는 십자선)
+	// --- 1-3. 3D 크로스헤어 (Gunner/Cockpit 모드에서만, 프레임버퍼에 그려야 함) ---
 	if (camera && (camera->GetCameraMode() == 0 || camera->GetCameraMode() == 1) && helicopter) {
 		glDisable(GL_DEPTH_TEST);
 		glEnable(GL_BLEND);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-		// 헬리콥터 방향 계산
+		// 헬리콥터 방향 기준으로 3D 공간에 십자선 그리기
 		glm::vec3 heliPos = helicopter->GetPosition();
 		float yaw = helicopter->GetYaw();
 		float pitch = helicopter->GetPitch();
 		float roll = helicopter->GetRoll();
 
-		glm::mat4 heliTransform = glm::mat4(1.0f);
-		heliTransform = glm::translate(heliTransform, heliPos);
+		glm::mat4 heliTransform = glm::translate(glm::mat4(1.0f), heliPos);
 		heliTransform = glm::rotate(heliTransform, glm::radians(yaw), glm::vec3(0, 1, 0));
 		heliTransform = glm::rotate(heliTransform, glm::radians(roll), glm::vec3(1, 0, 0));
 		heliTransform = glm::rotate(heliTransform, glm::radians(pitch), glm::vec3(0, 0, 1));
@@ -333,10 +312,10 @@ GLvoid DrawScene()
 		glm::vec3 center = heliPos - forward * crosshairDistance;
 
 		std::vector<glm::vec3> lines = {
-		center - right * crosshairSize * 0.5f, center - right * crosshairSize * 0.15f,
-		center + right * crosshairSize * 0.15f, center + right * crosshairSize * 0.5f,
-		center - up * crosshairSize * 0.5f, center - up * crosshairSize * 0.15f,
-		center + up * crosshairSize * 0.15f, center + up * crosshairSize * 0.5f
+			center - right * crosshairSize * 0.5f, center - right * crosshairSize * 0.15f,
+			center + right * crosshairSize * 0.15f, center + right * crosshairSize * 0.5f,
+			center - up * crosshairSize * 0.5f, center - up * crosshairSize * 0.15f,
+			center + up * crosshairSize * 0.15f, center + up * crosshairSize * 0.5f
 		};
 
 		GLuint vao, vbo;
@@ -358,27 +337,31 @@ GLvoid DrawScene()
 
 		glDeleteBuffers(1, &vbo);
 		glDeleteVertexArrays(1, &vao);
+
 		glEnable(GL_DEPTH_TEST);
 	}
 
-
-	// =====2단계: 후처리 =====
+	// ===================== 2. 기본 프레임버퍼로 전환 → 후처리 =====================
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	glDisable(GL_DEPTH_TEST);
 	glClear(GL_COLOR_BUFFER_BIT);
 
 	glUseProgram(postprocessShaderID);
 	glBindVertexArray(quadVAO);
+	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, textureColorbuffer);
 
 	bool nightVisionOn = enableNightVision && camera && camera->GetCameraMode() == 2;
-	glUniform1i(glGetUniformLocation(postprocessShaderID, "enableNightVision"), nightVisionOn);
 	bool gunnerView = camera && camera->GetCameraMode() == 2;
+
+	glUniform1i(glGetUniformLocation(postprocessShaderID, "screenTexture"), 0);
+	glUniform1i(glGetUniformLocation(postprocessShaderID, "enableNightVision"), nightVisionOn);
 	glUniform1i(glGetUniformLocation(postprocessShaderID, "gunnerview"), gunnerView);
 	glUniform1f(glGetUniformLocation(postprocessShaderID, "time"), (float)glutGet(GLUT_ELAPSED_TIME) / 1000.0f);
+
 	glDrawArrays(GL_TRIANGLES, 0, 6);
 
-	// =====3단계: ImGui =====
+	// ===================== 3. UI (ImGui) =====================
 	ImGui_ImplOpenGL3_NewFrame();
 	ImGui_ImplGLUT_NewFrame();
 	ImGui::NewFrame();
@@ -501,6 +484,7 @@ GLvoid DrawScene()
 
 	glutSwapBuffers();
 }
+
 
 void Reshape(int w, int h) {
 	glViewport(0, 0, w, h);
