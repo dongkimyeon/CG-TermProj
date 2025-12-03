@@ -24,12 +24,12 @@ Helicopter::Helicopter()
 	, tailBladeRotation(0.0f)
 	, tailBladeSpeed(2500.0f)
 	, gravity(9.81f)
-	, maxSpeed(101.4f)
-	, accelerationRate(25.0f)
+	, maxSpeed(400.0f)
+	, accelerationRate(200.0f)
 	, drag(5.0f)
 	, maxTiltAngle(35.0f)
 	, liftForce(0.0f)
-	, maxLiftForce(60.0f)
+	, maxLiftForce(100.0f)
 	, debugRotationX(0.0f)
 	, debugRotationY(0.0f)
 	, debugRotationZ(0.0f)
@@ -334,7 +334,7 @@ void Helicopter::ProcessInput(float deltaTime)
 	}
 	else if (Input::GetKey(eKeyCode::SHIFT))
 	{
-		liftForce = -maxLiftForce * 0.5f;
+		liftForce = -maxLiftForce * 0.7f;
 	}
 	else
 	{

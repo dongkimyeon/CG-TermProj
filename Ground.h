@@ -16,6 +16,10 @@ public:
     
     // Get terrain height at world position (x, z)
     float GetHeightAt(float x, float z) const;
+   
+    glm::vec2 GetWorldSize() const {
+        return glm::vec2(heightMapHeight * XZScale / 2 , heightMapWidth * XZScale / 2);
+    }
     
 private:
     void CreateFlatTerrain(); // Fallback method for flat terrain
@@ -37,4 +41,6 @@ private:
     int numStrips;
     int numTrisPerStrip;
 	float heightScale;
+
+	const float XZScale = 50.0f; 
 };

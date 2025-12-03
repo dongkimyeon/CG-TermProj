@@ -3,7 +3,7 @@
 Ground::Ground()
 	: VAO(0), VBO(0), EBO(0), textureID(0), size(1000.0f), gridResolution(100), groundTexture("T_RockyGround_A.png"), 
     normalMap("T_RockyGround_NA.png"),
-    heightMap("heightMap.png"), heightMapWidth(0), heightMapHeight(0), numStrips(0), numTrisPerStrip(0), heightScale(3.7f)
+    heightMap("heightMap.png"), heightMapWidth(0), heightMapHeight(0), numStrips(0), numTrisPerStrip(0), heightScale(21.5f)
 {
 }
 
@@ -258,8 +258,10 @@ void Ground::Render(GLuint shaderProgramID, const glm::mat4& view, const glm::ma
 
     // Model matrix
     glm::mat4 model = glm::mat4(1.0f);
+
+	
 	model = glm::translate(model, glm::vec3(0.0f, -2.0f, 0.0f));
-	model = glm::scale(model, glm::vec3(10.0f, 1.0f, 10.0f)); 
+	model = glm::scale(model, glm::vec3(XZScale, 1.0f, XZScale));
     glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
     glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
     glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(proj));
@@ -338,14 +340,14 @@ float Ground::GetHeightAt(float worldX, float worldZ) const
     // World Z ranges: [-heightMapWidth*5, heightMapWidth*5]
     
     // Reverse the scaling (divide by 10)
-    float localX = worldX / 10.0f;
-    float localZ = worldZ / 10.0f;
+    float localX = worldX / XZScale;
+    float localZ = worldZ / XZScale;
     
     // Convert from local space to grid indices
     // localX ranges from -heightMapHeight/2 to +heightMapHeight/2
     // We need to map this to [0, heightMapHeight-1]
     float gridI = localX + (heightMapHeight / 2.0f);
- float gridJ = localZ + (heightMapWidth / 2.0f);
+    float gridJ = localZ + (heightMapWidth / 2.0f);
     
     // Check bounds
     if (gridI < 0.0f || gridI >= heightMapHeight - 1 || 
@@ -364,18 +366,15 @@ float Ground::GetHeightAt(float worldX, float worldZ) const
     float fi = gridI - i0;
     float fj = gridJ - j0;
     
-    // Get heights from the vertex array
-    // Each vertex has 11 floats: position(3), UV(2), normal(3), tangent(3)
-    // Y coordinate is at offset 1
-    // Vertex array layout: for each row i, columns j
+  
     auto getVertexHeight = [this](int i, int j) -> float {
         if (i < 0 || i >= heightMapHeight || j < 0 || j >= heightMapWidth)
-  return 0.0f;
- int index = (i * heightMapWidth + j) * 11 + 1; // +1 for Y coordinate
-     if (index >= 0 && index < (int)vertices.size())
-          return vertices[index];
-    return 0.0f;
-    };
+            return 0.0f;
+        int index = (i * heightMapWidth + j) * 11 + 1; // +1 for Y coordinate
+        if (index >= 0 && index < (int)vertices.size())
+            return vertices[index];
+        return 0.0f;
+        };
     
     float h00 = getVertexHeight(i0, j0);
     float h10 = getVertexHeight(i1, j0);

@@ -50,7 +50,7 @@ bool enableNightVision = false;
 Camera* camera = nullptr;
 Helicopter* helicopter = nullptr;
 AA** aaUnits = nullptr;
-const int NUM_AA_UNITS = 10;
+const int NUM_AA_UNITS = 30;
 
 Ground* mGround = nullptr;
 
@@ -843,14 +843,19 @@ void InitializeAAUnits()
 	aaUnits = new AA * [NUM_AA_UNITS];
 
 	AA::LoadSharedModel();
-
+	 
 	// 랜덤 생성기 초기화
 	std::random_device rd;
 	std::mt19937 gen(rd());
 
 	// 맵 크기 기준 (Ground 크기 참고: -5000 ~5000)
-	std::uniform_real_distribution<float> distX(-1300.0f, 1300.0f);
-	std::uniform_real_distribution<float> distZ(-1300.0f, 1300.0f);
+
+	float worldMaxX = mGround->GetWorldSize().x;
+	std::cout << "World Max X: " << worldMaxX << std::endl;
+	float worldMaxZ = mGround->GetWorldSize().y;
+	std::cout << "World Max Z: " << worldMaxZ << std::endl;
+	std::uniform_real_distribution<float> distX(-worldMaxX, worldMaxX);
+	std::uniform_real_distribution<float> distZ(-worldMaxZ, worldMaxZ);
 
 	std::cout << "\n=== AA 유닛 배치 시작 ===" << std::endl;
 
