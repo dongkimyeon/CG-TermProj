@@ -50,4 +50,7 @@ private:
 
     float targetCameraXAngle;
     float targetCameraYAngle;
+
+    float cameraYawAngle;
+    float yawFollowSpeed;
 };

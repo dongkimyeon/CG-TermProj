@@ -18,7 +18,7 @@ Helicopter::Helicopter()
 	, targetRoll(0.0f)
 	, currentPitch(0.0f)
 	, currentRoll(0.0f)
-	, tiltSpeed(2.0f)
+	, tiltSpeed(1.0f)
 	, mainBladeRotation(0.0f)
 	, mainBladeSpeed(2500.0f)
 	, tailBladeRotation(0.0f)
@@ -316,6 +316,7 @@ void Helicopter::ProcessInput(float deltaTime)
 		targetRoll = maxTiltAngle;
 	}
 
+
 	// 기울기 복원
 	if (!Input::GetKey(eKeyCode::W) && !Input::GetKey(eKeyCode::S))
 	{
@@ -357,6 +358,8 @@ void Helicopter::UpdatePhysics(float deltaTime)
 	if (currentSpeed > maxSpeed) {
 		velocity = glm::normalize(velocity) * maxSpeed;
 	}
+
+
 
 	// 4. 위치 업데이트
 	position += velocity * deltaTime;

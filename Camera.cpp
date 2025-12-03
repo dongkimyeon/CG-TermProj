@@ -12,9 +12,18 @@ Camera::Camera()
     , targetCameraXAngle(0.0f)
     , targetCameraYAngle(0.0f)
 	, gunnerOffset(glm::vec3(7.7f, 1.8f, 0.0f)) // 기관포 뷰 기본 오프셋
+	, cameraYawAngle(0.0f)
+	, yawFollowSpeed(2.0f)
 {
 }
 
+static float NomalizeAngle(float a)
+{
+    const float TWO_PI = glm::two_pi<float>();
+    while (a > glm::pi<float>()) a -= TWO_PI;
+    while (a <= -glm::pi<float>()) a += TWO_PI;
+    return a;
+}
 void Camera::Initialize(const glm::vec3& pos, float dist, float h)
 {
     position = pos;
@@ -28,6 +37,8 @@ void Camera::Initialize(const glm::vec3& pos, float dist, float h)
     targetCameraXAngle = cameraAngle;
     targetCameraYAngle = cameraYAngle;
 
+
+	cameraYawAngle = cameraAngle;
     std::cout << "카메라 초기 설정 완료 - 반지름: " << radius
         << ", 각도: " << glm::degrees(cameraAngle) << "도" << std::endl;
 }
@@ -37,8 +48,27 @@ void Camera::Update(float deltaTime, const glm::vec3& targetPosition, const glm:
     switch (cameraMode) {
     case 0: // 3인칭 뷰
     {
-        // 기존 3인칭 카메라
-        glm::vec3 cameraOffset = targetForward * distance + targetUp * height;
+        // 헬리콥터의 현재 Yaw (XZ 평면)
+        float heliYaw = atan2(targetForward.z, targetForward.x);
+
+        // 보간 계수: deltaTime에 따라 지수적 감쇠 방식으로 보간 비율 계산
+        // yawFollowSpeed가 클수록 더 빨리 따라갑니다.
+        float t = 0.0f;
+        if (deltaTime > 0.0f) {
+            t = 1.0f - std::exp(-yawFollowSpeed * deltaTime);
+        }
+
+        // 각도 차이를 안전하게 계산(래핑 고려)
+        float diff = NomalizeAngle(heliYaw - cameraYawAngle);
+
+        // 카메라의 yaw를 헬리콥터 yaw로 천천히 보간
+        cameraYawAngle = NomalizeAngle(cameraYawAngle + diff * t);
+
+        // 보간된 yaw로 XZ 평면 전방 벡터 생성 (피치 성분은 무시하고 Yaw만 지연)
+        glm::vec3 smoothedForward = glm::normalize(glm::vec3(std::cos(cameraYawAngle), 0.0f, std::sin(cameraYawAngle)));
+
+        // 카메라 오프셋은 지연된 전방과 높이로 계산
+        glm::vec3 cameraOffset = smoothedForward * distance + targetUp * height;
         position = targetPosition + cameraOffset;
         target = targetPosition + targetUp * 10.0f;
         up = targetUp;
