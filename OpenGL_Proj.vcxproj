@@ -204,6 +204,8 @@
     <None Include="postprocess_vertex.glsl" />
     <None Include="Shaders\particle_instanced.frag" />
     <None Include="Shaders\particle_instanced.vert" />
+    <None Include="shadow_fragment.glsl" />
+    <None Include="shadow_vertex.glsl" />
     <None Include="skyboxFrag.glsl" />
     <None Include="skyboxVertex.glsl" />
     <None Include="vertex3D.glsl" />

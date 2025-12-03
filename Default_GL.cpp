@@ -24,6 +24,7 @@ void WhellFunc(int whell, int dir, int x, int y);
 void Motion(int x, int y);
 void Timer(int value);
 void InitializeAAUnits();
+void RenderShadowPass(const glm::mat4& lightSpaceMatrix);  // 추가
 
 // 전역 변수
 GLint width = 1280, height = 720;
@@ -71,12 +72,23 @@ float glassAlpha = 0.5f;
 float crosshairSize = 22.0f;
 float crosshairDistance = 315.0f;
 
-
 //디버그 회전 
 float xModelRotation = 0.0f;
 float yModelRotation = 0.0f;
 float zModelRotation = 0.0f;
 float currentScale = 1.0f;
+
+//그림자 관련 
+GLuint shadowShaderID;
+GLuint depthMapFBO;
+GLuint depthMap;
+const unsigned int SHADOW_WIDTH = 4096, SHADOW_HEIGHT = 4096;
+
+// 라이트 설정 추가
+glm::vec3 lightPosition = glm::vec3(500.0f, 1000.0f, 500.0f);
+glm::vec3 lightDirection = glm::vec3(-0.5f, -1.0f, -0.5f);
+bool enableShadows = true;
+
 int main(int argc, char** argv) {
 	glutInit(&argc, argv);
 
@@ -119,6 +131,35 @@ int main(int argc, char** argv) {
 		std::cerr << "스카이박스 셰이더 프로그램 생성 실패" << std::endl;
 		return -1;
 	}
+
+	// Shadow 셰이더 생성
+	shadowShaderID = ShaderManager::CreateShaderProgram("shadow_vertex.glsl", "shadow_fragment.glsl");
+	if (shadowShaderID == 0) {
+		std::cerr << "그림자 셰이더 프로그램 생성 실패" << std::endl;
+		return -1;
+	}
+
+	// Depth map FBO 생성
+	glGenFramebuffers(1, &depthMapFBO);
+
+	// Depth texture 생성
+	glGenTextures(1, &depthMap);
+	glBindTexture(GL_TEXTURE_2D, depthMap);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT,
+		SHADOW_WIDTH, SHADOW_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+	float borderColor[] = { 1.0f, 1.0f, 1.0f, 1.0f };
+	glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
+
+	// FBO에 depth texture 연결
+	glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthMap, 0);
+	glDrawBuffer(GL_NONE);
+	glReadBuffer(GL_NONE);
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
 	// 후처리 셰이더 생성
 	postprocessShaderID = ShaderManager::CreateShaderProgram("postprocess_vertex.glsl", "postprocess_fragment.glsl");
@@ -213,7 +254,33 @@ void WhellFunc(int wheel, int dir, int x, int y)
 	}
 }
 
-// DrawScene() 함수 전체 (수정된 최종 버전)
+// 그림자 패스 렌더링 함수
+void RenderShadowPass(const glm::mat4& lightSpaceMatrix)
+{
+	glUseProgram(shadowShaderID);
+	glUniformMatrix4fv(glGetUniformLocation(shadowShaderID, "lightSpaceMatrix"), 1, GL_FALSE, glm::value_ptr(lightSpaceMatrix));
+	
+	// Ground 렌더링
+	if (mGround) {
+		glm::mat4 groundModel = glm::mat4(1.0f);
+		glUniformMatrix4fv(glGetUniformLocation(shadowShaderID, "model"), 1, GL_FALSE, glm::value_ptr(groundModel));
+		mGround->Render(shadowShaderID, glm::mat4(1.0f), glm::mat4(1.0f));
+	}
+	
+	// Helicopter 렌더링
+	if (helicopter) {
+		helicopter->Render(shadowShaderID, false, 1.0f, modelScale);
+	}
+	
+	// AA Units 렌더링
+	if (aaUnits) {
+		for (int i = 0; i < NUM_AA_UNITS; ++i) {
+			if (aaUnits[i]) {
+				aaUnits[i]->Render(shadowShaderID, false, 1.0f, modelScale);
+			}
+		}
+	}
+}
 
 GLvoid DrawScene()
 {
@@ -229,6 +296,32 @@ GLvoid DrawScene()
 			helicopter->GetPitch(),
 			helicopter->GetRoll(),
 			helicopter->GetCannonWorldPosition());
+	}
+
+	// ===================== 0. 그림자 패스 (Light Space에서 Depth Map 생성) =====================
+	glm::mat4 lightSpaceMatrix;
+	
+	if (enableShadows) {
+		// 라이트 뷰 & 프로젝션 매트릭스 계산
+		float nearPlane = 1.0f, farPlane = 5000.0f;
+		glm::mat4 lightProjection = glm::ortho(-2000.0f, 2000.0f, -2000.0f, 2000.0f, nearPlane, farPlane);
+		
+		glm::vec3 lightPos = glm::normalize(lightDirection) * -1000.0f; // 라이트 위치
+		glm::mat4 lightView = glm::lookAt(lightPos, glm::vec3(0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+		lightSpaceMatrix = lightProjection * lightView;
+		
+		// Depth map FBO에 바인딩
+		glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
+		glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
+		glClear(GL_DEPTH_BUFFER_BIT);
+		
+		// 그림자 생성 렌더링
+		glCullFace(GL_FRONT); // Peter panning 방지
+		RenderShadowPass(lightSpaceMatrix);
+		glCullFace(GL_BACK);
+		
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		glViewport(0, 0, width, height);
 	}
 
 	// ===================== 1. 오프스크린 프레임버퍼에 3D 씬 전체 그리기 =====================
@@ -263,12 +356,23 @@ GLvoid DrawScene()
 	glUniformMatrix4fv(glGetUniformLocation(shaderProgramID, "view"), 1, GL_FALSE, glm::value_ptr(view));
 	glUniformMatrix4fv(glGetUniformLocation(shaderProgramID, "proj"), 1, GL_FALSE, glm::value_ptr(proj));
 	glUniform3fv(glGetUniformLocation(shaderProgramID, "eyePos"), 1, glm::value_ptr(camera->GetPosition()));
-	glUniform3f(glGetUniformLocation(shaderProgramID, "lightDir"), 1.0f, -1.0f, -1.0f);
+	
+	// 라이트 방향 normalize
+	glm::vec3 normalizedLightDir = glm::normalize(lightDirection);
+	glUniform3fv(glGetUniformLocation(shaderProgramID, "lightDir"), 1, glm::value_ptr(normalizedLightDir));
 	glUniform3f(glGetUniformLocation(shaderProgramID, "lightColor"), 1.0f, 1.0f, 1.0f);
-	glUniform1f(glGetUniformLocation(shaderProgramID, "ambientStrength"), 0.5f);
+	glUniform1f(glGetUniformLocation(shaderProgramID, "ambientStrength"), 0.3f);
 	glUniform1f(glGetUniformLocation(shaderProgramID, "specularStrength"), 0.5f);
 	glUniform1f(glGetUniformLocation(shaderProgramID, "shininess"), 32.0f);
 	glUniform1f(glGetUniformLocation(shaderProgramID, "useTexture"), 1.0f);
+	
+	// 그림자맵 전달
+	if (enableShadows) {
+		glUniformMatrix4fv(glGetUniformLocation(shaderProgramID, "lightSpaceMatrix"), 1, GL_FALSE, glm::value_ptr(lightSpaceMatrix));
+		glActiveTexture(GL_TEXTURE2); // shadowMap을 texture unit 2에 바인딩
+		glBindTexture(GL_TEXTURE_2D, depthMap);
+		glUniform1i(glGetUniformLocation(shaderProgramID, "shadowMap"), 2);
+	}
 
 	// 불투명 객체들 먼저 (깊이 쓰기 ON, 블렌딩 OFF)
 	glDisable(GL_BLEND);
@@ -290,6 +394,7 @@ GLvoid DrawScene()
 	}
 	RenderPersistentParticles(view, proj);
 	glDepthMask(GL_TRUE);
+	
 	// --- 1-3. 3D 크로스헤어 (Gunner/Cockpit 모드에서만, 프레임버퍼에 그려야 함) ---
 	if (camera && (camera->GetCameraMode() == 0 || camera->GetCameraMode() == 1) && helicopter) {
 		glDisable(GL_DEPTH_TEST);
@@ -399,6 +504,15 @@ GLvoid DrawScene()
 		}
 		ImGui::Separator();
 	}
+	
+	// Shadow Controls
+	ImGui::Separator();
+	ImGui::Text("Shadow Settings");
+	ImGui::Checkbox("Enable Shadows", &enableShadows);
+	if (enableShadows) {
+		ImGui::SliderFloat3("Light Direction", glm::value_ptr(lightDirection), -1.0f, 1.0f);
+	}
+	ImGui::Separator();
 
 	if (helicopter) {
 		ImGui::Separator();

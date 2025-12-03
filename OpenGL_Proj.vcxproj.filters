@@ -259,6 +259,12 @@
     <None Include="Shaders\particle_instanced.vert">
       <Filter>헤더 파일\Shader\Shaders</Filter>
     </None>
+    <None Include="shadow_vertex.glsl">
+      <Filter>헤더 파일\Shader\Shaders</Filter>
+    </None>
+    <None Include="shadow_fragment.glsl">
+      <Filter>헤더 파일\Shader\Shaders</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Image Include="MI_West_Heli_AH64D_Main.png">
