@@ -2,7 +2,7 @@
 #include "ParticleManager.h"
 
 CannonBullet::CannonBullet()
-	: position(0.0f), direction(0.0f, 0.0f, 1.0f), speed(2500.0f), life(0.0f), maxLife(1.0f), active(false), smokeTrail(600), trailSpacing(3.0f)
+	: position(0.0f), direction(0.0f, 0.0f, 1.0f), speed(2500.0f), life(0.0f), maxLife(1.0f), active(false), smokeTrail(1000), trailSpacing(3.0f)
 {
 	smokeTrail.initialize();
 }

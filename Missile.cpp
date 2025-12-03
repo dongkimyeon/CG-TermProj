@@ -5,7 +5,7 @@
 Missile::Missile()
 	: VAO(0), VBO(0), EBO(0), lightVAO(0), lightVBO(0), lightEBO(0),
 	  position(0.0f), direction(0.0f, 0.0f, 1.0f), velocity(0.0f), 
-	  isActive(false), smokeTrail(300), particleEmissionTimer(0.0f), mGround(nullptr)
+	  isActive(false), smokeTrail(1000), particleEmissionTimer(0.0f), mGround(nullptr)
 {
 }
 
@@ -319,6 +319,14 @@ void Missile::Update(float deltaTime)
 	{
 		// 미사일이 비활성화되어도 파티클만 계속 업데이트
 		smokeTrail.update(deltaTime);
+		
+		// 파티클이 모두 사라지면 남은 파티클을 persistent 시스템으로 이동
+		if (!smokeTrail.hasLiveParticles()) {
+			std::vector<Particle> remaining = smokeTrail.stealParticles();
+			if (!remaining.empty() && s_persistentParticles) {
+				s_persistentParticles->addParticles(std::move(remaining));
+			}
+		}
 	}
 }
 

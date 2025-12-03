@@ -564,8 +564,8 @@ void Helicopter::UpdateMissiles(float deltaTime)
 	for (auto it = missiles.begin(); it != missiles.end();) {
 		(*it)->Update(deltaTime);
 
-		// 비활성화된 미사일 제거
-		if (!(*it)->IsActive()) {
+		// IsFinished()를 사용: 미사일이 완전히 끝날 때 (비활성화 + 파티클도 끝남) 제거
+		if ((*it)->IsFinished()) {
 			delete* it;
 			it = missiles.erase(it);
 			SoundManager::GetInstance()->mPlaySound("Explosion", false);
