@@ -70,7 +70,7 @@ void Ground::Initialize()
 
             // Normal (3) - will be calculated properly later, for now up vector
             vertices.push_back(0.0f);
-            vertices.push_back(1.0f);
+            vertices.push_back(-1.0f);
             vertices.push_back(0.0f);
 
             // Tangent (3) - X axis direction

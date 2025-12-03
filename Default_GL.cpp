@@ -88,6 +88,8 @@ const unsigned int SHADOW_WIDTH = 4096, SHADOW_HEIGHT = 4096;
 glm::vec3 lightPosition = glm::vec3(500.0f, 1000.0f, 500.0f);
 glm::vec3 lightDirection = glm::vec3(-0.5f, -1.0f, -0.5f);
 bool enableShadows = true;
+float sunRotationSpeed = 10.0f; // 태양 회전 속도 (도/초)
+bool rotateSun = true; // 태양 자동 회전 여부
 
 int main(int argc, char** argv) {
 	glutInit(&argc, argv);
@@ -117,7 +119,7 @@ int main(int argc, char** argv) {
 	ImGui_ImplOpenGL3_Init("#version 330");
 
 	// SoundManager 초기화
-	SoundManager::GetInstance()->Initialize();	
+	SoundManager::GetInstance()->Initialize();
 
 	// 셰이더 생성
 	shaderProgramID = ShaderManager::CreateShaderProgram("vertex3D.glsl", "fragment.glsl");
@@ -259,19 +261,19 @@ void RenderShadowPass(const glm::mat4& lightSpaceMatrix)
 {
 	glUseProgram(shadowShaderID);
 	glUniformMatrix4fv(glGetUniformLocation(shadowShaderID, "lightSpaceMatrix"), 1, GL_FALSE, glm::value_ptr(lightSpaceMatrix));
-	
-	// Ground 렌더링
+
+	// Ground 렌더링 (model 매트릭스를 명시적으로 설정)
 	if (mGround) {
 		glm::mat4 groundModel = glm::mat4(1.0f);
 		glUniformMatrix4fv(glGetUniformLocation(shadowShaderID, "model"), 1, GL_FALSE, glm::value_ptr(groundModel));
 		mGround->Render(shadowShaderID, glm::mat4(1.0f), glm::mat4(1.0f));
 	}
-	
+
 	// Helicopter 렌더링
 	if (helicopter) {
 		helicopter->Render(shadowShaderID, false, 1.0f, modelScale);
 	}
-	
+
 	// AA Units 렌더링
 	if (aaUnits) {
 		for (int i = 0; i < NUM_AA_UNITS; ++i) {
@@ -287,6 +289,14 @@ GLvoid DrawScene()
 	Time::Update();
 	UpdatePersistentParticles(Time::DeltaTime());
 
+	// 태양 회전 업데이트
+	if (rotateSun && enableShadows) {
+		float angle = sunRotationSpeed * Time::DeltaTime();
+		glm::mat4 rotation = glm::rotate(glm::mat4(1.0f), glm::radians(angle), glm::vec3(0.0f, 0.0f, 1.0f));
+		lightDirection = glm::vec3(rotation * glm::vec4(lightDirection, 0.0f));
+		lightDirection = glm::normalize(lightDirection);
+	}
+
 	if (helicopter) helicopter->Update(Time::DeltaTime());
 	if (camera && helicopter) {
 		camera->Update(Time::DeltaTime(),
@@ -300,26 +310,28 @@ GLvoid DrawScene()
 
 	// ===================== 0. 그림자 패스 (Light Space에서 Depth Map 생성) =====================
 	glm::mat4 lightSpaceMatrix;
-	
+
 	if (enableShadows) {
 		// 라이트 뷰 & 프로젝션 매트릭스 계산
 		float nearPlane = 1.0f, farPlane = 5000.0f;
 		glm::mat4 lightProjection = glm::ortho(-2000.0f, 2000.0f, -2000.0f, 2000.0f, nearPlane, farPlane);
-		
-		glm::vec3 lightPos = glm::normalize(lightDirection) * -1000.0f; // 라이트 위치
-		glm::mat4 lightView = glm::lookAt(lightPos, glm::vec3(0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+
+		// 헬리콥터 위치를 중심으로 라이트 위치 설정 (더 나은 그림자 커버리지)
+		glm::vec3 heliPos = helicopter ? helicopter->GetPosition() : glm::vec3(0.0f);
+		glm::vec3 lightPos = heliPos - glm::normalize(lightDirection) * 1500.0f;
+		glm::mat4 lightView = glm::lookAt(lightPos, heliPos, glm::vec3(0.0f, 1.0f, 0.0f));
 		lightSpaceMatrix = lightProjection * lightView;
-		
+
 		// Depth map FBO에 바인딩
 		glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
 		glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
 		glClear(GL_DEPTH_BUFFER_BIT);
-		
+
 		// 그림자 생성 렌더링
 		glCullFace(GL_FRONT); // Peter panning 방지
 		RenderShadowPass(lightSpaceMatrix);
 		glCullFace(GL_BACK);
-		
+
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 		glViewport(0, 0, width, height);
 	}
@@ -356,16 +368,18 @@ GLvoid DrawScene()
 	glUniformMatrix4fv(glGetUniformLocation(shaderProgramID, "view"), 1, GL_FALSE, glm::value_ptr(view));
 	glUniformMatrix4fv(glGetUniformLocation(shaderProgramID, "proj"), 1, GL_FALSE, glm::value_ptr(proj));
 	glUniform3fv(glGetUniformLocation(shaderProgramID, "eyePos"), 1, glm::value_ptr(camera->GetPosition()));
-	
+
 	// 라이트 방향 normalize
 	glm::vec3 normalizedLightDir = glm::normalize(lightDirection);
-	glUniform3fv(glGetUniformLocation(shaderProgramID, "lightDir"), 1, glm::value_ptr(normalizedLightDir));
+	// 빛의 입사 방향 (incident direction)으로 반전
+	glm::vec3 incidentLightDir = -normalizedLightDir;
+	glUniform3fv(glGetUniformLocation(shaderProgramID, "lightDir"), 1, glm::value_ptr(incidentLightDir));
 	glUniform3f(glGetUniformLocation(shaderProgramID, "lightColor"), 1.0f, 1.0f, 1.0f);
 	glUniform1f(glGetUniformLocation(shaderProgramID, "ambientStrength"), 0.3f);
 	glUniform1f(glGetUniformLocation(shaderProgramID, "specularStrength"), 0.5f);
 	glUniform1f(glGetUniformLocation(shaderProgramID, "shininess"), 32.0f);
 	glUniform1f(glGetUniformLocation(shaderProgramID, "useTexture"), 1.0f);
-	
+
 	// 그림자맵 전달
 	if (enableShadows) {
 		glUniformMatrix4fv(glGetUniformLocation(shaderProgramID, "lightSpaceMatrix"), 1, GL_FALSE, glm::value_ptr(lightSpaceMatrix));
@@ -394,7 +408,7 @@ GLvoid DrawScene()
 	}
 	RenderPersistentParticles(view, proj);
 	glDepthMask(GL_TRUE);
-	
+
 	// --- 1-3. 3D 크로스헤어 (Gunner/Cockpit 모드에서만, 프레임버퍼에 그려야 함) ---
 	if (camera && (camera->GetCameraMode() == 0 || camera->GetCameraMode() == 1) && helicopter) {
 		glDisable(GL_DEPTH_TEST);
@@ -504,12 +518,14 @@ GLvoid DrawScene()
 		}
 		ImGui::Separator();
 	}
-	
+
 	// Shadow Controls
 	ImGui::Separator();
 	ImGui::Text("Shadow Settings");
 	ImGui::Checkbox("Enable Shadows", &enableShadows);
 	if (enableShadows) {
+		ImGui::Checkbox("Rotate Sun", &rotateSun);
+		ImGui::SliderFloat("Sun Speed", &sunRotationSpeed, 1.0f, 50.0f);
 		ImGui::SliderFloat3("Light Direction", glm::value_ptr(lightDirection), -1.0f, 1.0f);
 	}
 	ImGui::Separator();
@@ -680,7 +696,6 @@ void Timer(int value) {
 				cannonOrient = glm::rotate(cannonOrient, glm::radians(helicopter->GetCannonPitch()), glm::vec3(0, 0, 1));
 				glm::vec3 cannonForward = glm::normalize(glm::vec3(cannonOrient * glm::vec4(-1, 0, 0, 0)));
 
-				// If desired direction points opposite to cannon forward, use cannonForward to keep consistent forward firing
 				if (glm::dot(desiredDir, cannonForward) < 0.0f) {
 					desiredDir = cannonForward;
 				}
@@ -957,7 +972,7 @@ void InitializeAAUnits()
 	aaUnits = new AA * [NUM_AA_UNITS];
 
 	AA::LoadSharedModel();
-	 
+
 	// 랜덤 생성기 초기화
 	std::random_device rd;
 	std::mt19937 gen(rd());

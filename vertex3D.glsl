@@ -44,6 +44,7 @@ void main() {
     
     mat3 TBN = transpose(mat3(T, B, N));
     
+    // lightDir은 태양에서 지면으로 향하는 방향이므로 -lightDir이 라이트에서 오는 방향
     vec3 worldLightDir = normalize(-lightDir);
     vec3 worldViewDir = normalize(eyePos - worldPos);
     

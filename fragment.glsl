@@ -22,7 +22,7 @@ in vec2 UV;
 in vec3 v_lightTs;
 in vec3 v_viewTS;
 in vec4 vertexColor;
-in vec4 FragPosLightSpace;  // 추가
+in vec4 FragPosLightSpace; 
 
 out vec4 color;
 
@@ -43,6 +43,7 @@ float ShadowCalculation(vec4 fragPosLightSpace, vec3 normal, vec3 lightDir)
     float currentDepth = projCoords.z;
     
     // bias를 사용하여 shadow acne 방지
+    // lightDir은 이미 올바른 방향이므로 그대로 사용
     float bias = max(0.05 * (1.0 - dot(normal, lightDir)), 0.005);
     
     // PCF (Percentage-Closer Filtering) 적용
@@ -111,7 +112,7 @@ void main()
     // Ambient
     vec3 ambient = ambientStrength * matDiff;
     
-    // Shadow 계산
+    // Shadow 계산 - v_lightTs를 사용 (이미 변환된 라이트 방향)
     float shadow = ShadowCalculation(FragPosLightSpace, normal, lightDirTS);
     
     // 최종 색상 = ambient + (1 - shadow) * (diffuse + specular)
