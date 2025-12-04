@@ -544,7 +544,7 @@ void Helicopter::FireMissileFromCamera(const Camera* camera, float crosshairDist
 	// Compute crosshair center in world space based on helicopter forward vector
 	glm::vec3 heliPos = GetPosition();
 	glm::mat4 heliTransform = GetHelicopterTransform();
-	glm::vec3 forwardWorld = glm::normalize(glm::vec3(heliTransform * glm::vec4(-1,0,0,0)));
+	glm::vec3 forwardWorld = glm::normalize(glm::vec3(heliTransform * glm::vec4(-1, 0, 0, 0)));
 	glm::vec3 center = heliPos - forwardWorld * crosshairDistance;
 
 	// Use missile attachment position as launch position (so alternating lateral offset applies)
@@ -552,10 +552,48 @@ void Helicopter::FireMissileFromCamera(const Camera* camera, float crosshairDist
 
 	// Desired direction: from launch position toward crosshair center
 	glm::vec3 desiredDir = center - launchPos;
-	if (glm::length(desiredDir) <0.001f) return;
+	if (glm::length(desiredDir) < 0.001f) return;
 	desiredDir = glm::normalize(desiredDir);
 
 	FireMissile(launchPos, desiredDir);
+}
+
+void Helicopter::FireCannon()
+{
+	glm::vec3 startPos = GetCannonWorldPosition();
+	// 기관포의 방향 계산 (yaw/pitch 반영)
+	glm::mat4 model = glm::mat4(1.0f);
+	model = glm::rotate(model, glm::radians(cannonYaw), glm::vec3(0, 1, 0));
+	model = glm::rotate(model, glm::radians(cannonPitch), glm::vec3(0, 0, 1));
+	glm::vec3 dir = glm::normalize(glm::vec3(model * glm::vec4(-1, 0, 0, 0)));
+	CannonBullet* bullet = new CannonBullet();
+	
+	// Set ground reference for terrain collision
+	bullet->SetGround(mGround);
+	
+	bullet->Launch(startPos, dir, 2500.0f);
+	cannonBullets.push_back(bullet);
+
+	// 기관포 발사 사운드 재생
+	SoundManager::GetInstance()->mPlaySound("Cannon", false);
+}
+
+// 새 오버로드: 월드 공간 방향으로 기관포 발사
+void Helicopter::FireCannon(const glm::vec3& dir)
+{
+	glm::vec3 startPos = GetCannonWorldPosition();
+	glm::vec3 nDir = glm::normalize(dir);
+	if (glm::length(nDir) < 0.001f) return;
+	CannonBullet* bullet = new CannonBullet();
+	
+	// Set ground reference for terrain collision
+	bullet->SetGround(mGround);
+	
+	bullet->Launch(startPos, nDir, 2500.0f);
+	cannonBullets.push_back(bullet);
+
+	// 기관포 발사 사운드 재생
+	SoundManager::GetInstance()->mPlaySound("Cannon", false);
 }
 
 void Helicopter::UpdateMissiles(float deltaTime)
@@ -574,36 +612,6 @@ void Helicopter::UpdateMissiles(float deltaTime)
 			++it;
 		}
 	}
-}
-
-void Helicopter::FireCannon()
-{
-	glm::vec3 startPos = GetCannonWorldPosition();
-	// 기관포의 방향 계산 (yaw/pitch 반영)
-	glm::mat4 model = glm::mat4(1.0f);
-	model = glm::rotate(model, glm::radians(cannonYaw), glm::vec3(0, 1, 0));
-	model = glm::rotate(model, glm::radians(cannonPitch), glm::vec3(0, 0, 1));
-	glm::vec3 dir = glm::normalize(glm::vec3(model * glm::vec4(-1, 0, 0, 0)));
-	CannonBullet* bullet = new CannonBullet();
-	bullet->Launch(startPos, dir, 2500.0f);
-	cannonBullets.push_back(bullet);
-
-	// 기관포 발사 사운드 재생
-	SoundManager::GetInstance()->mPlaySound("Cannon", false);
-}
-
-// 새 오버로드: 월드 공간 방향으로 기관포 발사
-void Helicopter::FireCannon(const glm::vec3& dir)
-{
-	glm::vec3 startPos = GetCannonWorldPosition();
-	glm::vec3 nDir = glm::normalize(dir);
-	if (glm::length(nDir) < 0.001f) return;
-	CannonBullet* bullet = new CannonBullet();
-	bullet->Launch(startPos, nDir, 2500.0f);
-	cannonBullets.push_back(bullet);
-
-	// 기관포 발사 사운드 재생
-	SoundManager::GetInstance()->mPlaySound("Cannon", false);
 }
 
 void Helicopter::UpdateCannonBullets(float dt)

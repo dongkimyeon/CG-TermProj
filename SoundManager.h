@@ -22,7 +22,7 @@ public:
     float GetBGMVolume() { return mBGMVolume; }
     float GetSEVolume() { return mBGMVolume; }
 private:
-    SoundManager() : mSystem(nullptr), mBGMChannel(nullptr), mSEGroup(nullptr), mBGMGroup(nullptr) {
+    SoundManager() : mSystem(nullptr), mBGMChannel(nullptr), mSEGroup(nullptr), mBGMGroup(nullptr), mBGMVolume(0.5f), mSEVolume(0.5f) {
         for (int i = 0; i < 30; i++) mSE[i] = nullptr;
         for (int i = 0; i < 10; i++) mBGM[i] = nullptr;
     }

@@ -19,7 +19,7 @@ struct FBXModel
     };
     std::vector<MeshInfo> meshes; // 메시별 정보
     Texture* normalMap = nullptr; // 노말 맵 텍스처 포인터
-    glm::vec3 center;
+    glm::vec3 center = glm::vec3(0.0f, 0.0f, 0.0f); // Initialize to zero
     bool loaded = false;
 };
 
