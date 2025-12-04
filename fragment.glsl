@@ -4,9 +4,10 @@ precision mediump float;
 
 uniform sampler2D textureSampler;
 uniform sampler2D normalMap;
-uniform sampler2D shadowMap;  // 추가
+uniform sampler2D shadowMap;
 
-uniform vec3 lightDir;
+uniform vec3 lightPos;
+uniform vec3 lightDir;          // 방향광원의 방향
 uniform vec3 lightColor;
 uniform vec3 eyePos;
 uniform float ambientStrength;
@@ -18,53 +19,71 @@ uniform bool useTexture;
 uniform vec3 aColor;
 uniform vec3 objectColor;
 
+// 스포트라이트 파라미터 (방향광원에서는 사용 안 함)
+uniform float spotCutoff;
+uniform float spotOuterCutoff;
+uniform float lightConstant;
+uniform float lightLinear;
+uniform float lightQuadratic;
+
 in vec2 UV;
-in vec3 v_lightTs;
+in vec3 v_worldPos;
+in vec3 v_worldNormal;
+in vec3 v_lightDirTS;           // Tangent space light direction
 in vec3 v_viewTS;
 in vec4 vertexColor;
 in vec4 FragPosLightSpace; 
 
 out vec4 color;
 
-// Shadow 계산 함수
-float ShadowCalculation(vec4 fragPosLightSpace, vec3 normal, vec3 lightDir)
+// 방향광원용 Shadow 계산 함수
+float ShadowCalculation(vec4 fragPosLightSpace, vec3 worldNormal, vec3 lightDirection)
 {
-    // perspective division
+    // Perspective division
     vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
     
     // [0,1] 범위로 변환
     projCoords = projCoords * 0.5 + 0.5;
     
     // 범위 체크
-    if(projCoords.z > 1.0)
+    if(projCoords.z > 1.0 || projCoords.x < 0.0 || projCoords.x > 1.0 || 
+       projCoords.y < 0.0 || projCoords.y > 1.0)
         return 0.0;
     
     // 현재 fragment의 깊이
     float currentDepth = projCoords.z;
     
-    // bias를 사용하여 shadow acne 방지
-    // lightDir은 이미 올바른 방향이므로 그대로 사용
-    float bias = max(0.05 * (1.0 - dot(normal, lightDir)), 0.005);
+    // 방향 광원에 최적화된 bias - 표면 각도에 따라 조정
+    float bias = max(0.005 * (1.0 - abs(dot(worldNormal, -lightDirection))), 0.001);
     
-    // PCF (Percentage-Closer Filtering) 적용
+    // PCF (Percentage-Closer Filtering) - 부드러운 그림자
     float shadow = 0.0;
     vec2 texelSize = 1.0 / textureSize(shadowMap, 0);
-    for(int x = -1; x <= 1; ++x)
+    int samples = 0;
+    
+    for(int x = -2; x <= 2; ++x)
     {
-        for(int y = -1; y <= 1; ++y)
+        for(int y = -2; y <= 2; ++y)
         {
-            float pcfDepth = texture(shadowMap, projCoords.xy + vec2(x, y) * texelSize).r;
-            shadow += currentDepth - bias > pcfDepth ? 1.0 : 0.0;
+            vec2 sampleCoord = projCoords.xy + vec2(x, y) * texelSize;
+            if(sampleCoord.x >= 0.0 && sampleCoord.x <= 1.0 && 
+               sampleCoord.y >= 0.0 && sampleCoord.y <= 1.0) {
+                float pcfDepth = texture(shadowMap, sampleCoord).r;
+                shadow += currentDepth - bias > pcfDepth ? 1.0 : 0.0;
+                samples++;
+            }
         }
     }
-    shadow /= 9.0;
+    
+    if(samples > 0)
+        shadow /= float(samples);
     
     return shadow;
 }
 
 void main()
 {
-    // 파티클 렌더링 (기존 코드)
+    // 파티클 렌더링
     if (vertexColor.a > 0.0 && !useTexture) {
         vec2 coord = gl_PointCoord - vec2(0.5);
         float dist = length(coord);
@@ -89,33 +108,45 @@ void main()
     
     vec3 matSpec = vec3(1.0, 1.0, 1.0);
     
-    vec3 normal;
+    // Tangent space normal
+    vec3 normalTS;
     if (useNormalMap == 1) {
-        normal = normalize(2.0 * texture(normalMap, UV).xyz - 1.0);
+        normalTS = normalize(2.0 * texture(normalMap, UV).xyz - 1.0);
     } 
     else {
-        normal = vec3(0.0, 0.0, 1.0);
+        normalTS = vec3(0.0, 0.0, 1.0);
     }
     
-    vec3 viewDir = normalize(v_viewTS);
-    vec3 lightDirTS = normalize(v_lightTs);
+    // 월드 공간 계산
+    vec3 worldNormal = normalize(v_worldNormal);
+    vec3 lightDirection = normalize(lightDir);  // 방향광원의 방향
     
-    // Diffuse
-    float diffuseFactor = max(dot(normal, lightDirTS), 0.0);
+    // Tangent space 계산
+    vec3 viewDir = normalize(v_viewTS);
+    vec3 lightDirTS = normalize(v_lightDirTS);
+    
+    // 방향광원은 감쇠 없음 (거리에 무관하게 일정한 밝기)
+    float attenuation = 1.0;
+    
+    // 방향광원은 스포트라이트 강도 계산 불필요
+    float intensity = 1.0;
+    
+    // Diffuse (Tangent Space)
+    float diffuseFactor = max(dot(normalTS, -lightDirTS), 0.0);
     vec3 diffuse = diffuseFactor * lightColor * matDiff;
     
-    // Specular
-    vec3 halfDir = normalize(lightDirTS + viewDir);
-    float specularFactor = pow(max(dot(normal, halfDir), 0.0), shininess);
+    // Specular (Tangent Space)
+    vec3 halfDir = normalize(-lightDirTS + viewDir);
+    float specularFactor = pow(max(dot(normalTS, halfDir), 0.0), shininess);
     vec3 specular = specularFactor * specularStrength * lightColor * matSpec;
     
     // Ambient
     vec3 ambient = ambientStrength * matDiff;
     
-    // Shadow 계산 - v_lightTs를 사용 (이미 변환된 라이트 방향)
-    float shadow = ShadowCalculation(FragPosLightSpace, normal, lightDirTS);
+    // Shadow 계산 (방향광원 사용)
+    float shadow = ShadowCalculation(FragPosLightSpace, worldNormal, lightDirection);
     
-    // 최종 색상 = ambient + (1 - shadow) * (diffuse + specular)
+    // 최종 색상 (방향광원은 감쇠와 스포트라이트 강도 적용 안 함)
     vec3 lighting = ambient + (1.0 - shadow) * (diffuse + specular);
     
     color = vec4(lighting, texColor.a * alphaValue);

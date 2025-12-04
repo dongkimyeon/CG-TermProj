@@ -9,24 +9,30 @@ layout(location = 4) in vec4 aColor;
 uniform mat4 model;
 uniform mat4 view;
 uniform mat4 proj;
-uniform mat4 lightSpaceMatrix;  // 추가
+uniform mat4 lightSpaceMatrix;
 uniform vec3 eyePos;
-uniform vec3 lightDir;
+uniform vec3 lightPos;
+uniform vec3 lightDir;          // 방향광원의 방향 추가
 
 out vec2 UV;
-out vec3 v_lightTs;
+out vec3 v_worldPos;
+out vec3 v_worldNormal;
+out vec3 v_lightDirTS;          // Tangent space light direction
 out vec3 v_viewTS;
 out vec4 vertexColor;
-out vec4 FragPosLightSpace;  // 추가
+out vec4 FragPosLightSpace;
 
 void main() {
-    gl_Position = proj * view * model * vec4(aPos, 1.0);
+    vec3 worldPos = (model * vec4(aPos, 1.0)).xyz;
+    v_worldPos = worldPos;
+    
+    gl_Position = proj * view * vec4(worldPos, 1.0);
     
     UV = aUV;
     vertexColor = aColor;
     
-    // Shadow mapping용 좌표 계산
-    FragPosLightSpace = lightSpaceMatrix * model * vec4(aPos, 1.0);
+    // Light Space 좌표 계산
+    FragPosLightSpace = lightSpaceMatrix * vec4(worldPos, 1.0);
     
     if (aColor.a > 0.0) {
         gl_PointSize = 80.0;
@@ -34,7 +40,6 @@ void main() {
         gl_PointSize = 1.0;
     }
 
-    vec3 worldPos = (model * vec4(aPos, 1.0)).xyz;
     mat3 normalMatrix = transpose(inverse(mat3(model)));
     
     vec3 N = normalize(normalMatrix * aNormal);
@@ -42,12 +47,16 @@ void main() {
     T = normalize(T - dot(T, N) * N);
     vec3 B = cross(N, T);
     
+    // 월드 노말 출력
+    v_worldNormal = N;
+    
     mat3 TBN = transpose(mat3(T, B, N));
     
-    // lightDir은 태양에서 지면으로 향하는 방향이므로 -lightDir이 라이트에서 오는 방향
-    vec3 worldLightDir = normalize(-lightDir);
+    // 방향광원: 모든 지점에서 동일한 방향
+    vec3 worldLightDirection = normalize(lightDir);
     vec3 worldViewDir = normalize(eyePos - worldPos);
     
-    v_lightTs = TBN * worldLightDir;
+    // Tangent Space로 변환 (빛의 방향)
+    v_lightDirTS = TBN * worldLightDirection;
     v_viewTS = TBN * worldViewDir;
 }

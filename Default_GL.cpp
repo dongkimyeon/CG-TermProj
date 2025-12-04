@@ -85,13 +85,18 @@ GLuint depthMap;
 const unsigned int SHADOW_WIDTH = 4096, SHADOW_HEIGHT = 4096;
 
 // 라이트 설정 추가
-glm::vec3 lightPosition = glm::vec3(500.0f, 1000.0f, 500.0f);
+glm::vec3 lightPosition = glm::vec3(0.0f, 1000.0f, 0.0f);
 glm::vec3 lightDirection = glm::vec3(-0.5f, -1.0f, -0.5f);
 bool enableShadows = true;
 float sunRotationSpeed = 10.0f; // 태양 회전 속도 (도/초)
 bool rotateSun = true; // 태양 자동 회전 여부
 
-int main(int argc, char** argv) {
+
+float lightIntensity = 3.0f;        // 광원 강도 (1.0 = 기본, 높을수록 밝음)
+float ambientStrength = 0.2f;       // 주변광 강도
+float specularStrength = 1.0f;      // 반사광 강도
+
+int main(int argc, char** argv) { 
 	glutInit(&argc, argv);
 
 	glutInitContextVersion(3, 3);
@@ -312,14 +317,27 @@ GLvoid DrawScene()
 	glm::mat4 lightSpaceMatrix;
 
 	if (enableShadows) {
-		// 라이트 뷰 & 프로젝션 매트릭스 계산
-		float nearPlane = 1.0f, farPlane = 5000.0f;
-		glm::mat4 lightProjection = glm::ortho(-2000.0f, 2000.0f, -2000.0f, 2000.0f, nearPlane, farPlane);
+		// 방향광원을 위한 Orthographic Projection 사용
+		float orthoSize = 1500.0f;  // 그림자 범위
+		float nearPlane = 100.0f;
+		float farPlane = 3000.0f;
 
-		// 헬리콥터 위치를 중심으로 라이트 위치 설정 (더 나은 그림자 커버리지)
+		glm::mat4 lightProjection = glm::ortho(
+			-orthoSize, orthoSize,
+			-orthoSize, orthoSize,
+			nearPlane, farPlane
+		);
+
+		// 헬리콥터 위치를 중심으로 광원 설정
 		glm::vec3 heliPos = helicopter ? helicopter->GetPosition() : glm::vec3(0.0f);
-		glm::vec3 lightPos = heliPos - glm::normalize(lightDirection) * 1500.0f;
-		glm::mat4 lightView = glm::lookAt(lightPos, heliPos, glm::vec3(0.0f, 1.0f, 0.0f));
+
+		// 방향광원은 헬리콥터를 따라가며 빛의 방향을 유지
+		glm::vec3 normalizedLightDir = glm::normalize(lightDirection);
+		glm::vec3 lightPos = heliPos - normalizedLightDir * (nearPlane + farPlane) * 0.5f;
+		glm::vec3 lightTarget = heliPos;
+
+		// 라이트 뷰 매트릭스 (방향광원은 위치가 무한대이지만 편의상 먼 거리에 배치)
+		glm::mat4 lightView = glm::lookAt(lightPos, lightTarget, glm::vec3(0.0f, 1.0f, 0.0f));
 		lightSpaceMatrix = lightProjection * lightView;
 
 		// Depth map FBO에 바인딩
@@ -328,6 +346,7 @@ GLvoid DrawScene()
 		glClear(GL_DEPTH_BUFFER_BIT);
 
 		// 그림자 생성 렌더링
+		glEnable(GL_DEPTH_TEST);
 		glCullFace(GL_FRONT); // Peter panning 방지
 		RenderShadowPass(lightSpaceMatrix);
 		glCullFace(GL_BACK);
@@ -363,27 +382,45 @@ GLvoid DrawScene()
 	glDepthFunc(GL_LESS);
 	glDepthMask(GL_TRUE);
 
-	// --- 1-2. 기본 3D 객체들 (깊이 테스트 활성화, 블렌딩은 필요시만) ---
+
+
+	// DrawScene() 함수의 광원 설정 부분 (약 380번째 줄)
+
+	// --- 1-2. 기본 3D 객체들 ---
 	glUseProgram(shaderProgramID);
 	glUniformMatrix4fv(glGetUniformLocation(shaderProgramID, "view"), 1, GL_FALSE, glm::value_ptr(view));
 	glUniformMatrix4fv(glGetUniformLocation(shaderProgramID, "proj"), 1, GL_FALSE, glm::value_ptr(proj));
 	glUniform3fv(glGetUniformLocation(shaderProgramID, "eyePos"), 1, glm::value_ptr(camera->GetPosition()));
 
-	// 라이트 방향 normalize
+	// 태양 광원 설정 (강한 빛)
+	glm::vec3 spotLightPos = lightPosition;
 	glm::vec3 normalizedLightDir = glm::normalize(lightDirection);
-	// 빛의 입사 방향 (incident direction)으로 반전
-	glm::vec3 incidentLightDir = -normalizedLightDir;
-	glUniform3fv(glGetUniformLocation(shaderProgramID, "lightDir"), 1, glm::value_ptr(incidentLightDir));
-	glUniform3f(glGetUniformLocation(shaderProgramID, "lightColor"), 1.0f, 1.0f, 1.0f);
-	glUniform1f(glGetUniformLocation(shaderProgramID, "ambientStrength"), 0.3f);
-	glUniform1f(glGetUniformLocation(shaderProgramID, "specularStrength"), 0.5f);
+
+	glUniform3fv(glGetUniformLocation(shaderProgramID, "lightPos"), 1, glm::value_ptr(spotLightPos));
+	glUniform3fv(glGetUniformLocation(shaderProgramID, "lightDir"), 1, glm::value_ptr(normalizedLightDir));
+
+	// 강한 태양빛 색상 (intensity 적용)
+	glm::vec3 sunColor = glm::vec3(1.0f, 0.98f, 0.9f) * lightIntensity;  // 약간 따뜻한 색조
+	glUniform3fv(glGetUniformLocation(shaderProgramID, "lightColor"), 1, glm::value_ptr(sunColor));
+
+	// 감쇠 파라미터 - 태양처럼 넓은 범위 조명
+	glUniform1f(glGetUniformLocation(shaderProgramID, "lightConstant"), 1.0f);
+	glUniform1f(glGetUniformLocation(shaderProgramID, "lightLinear"), 0.00007f);      // 매우 작은 감쇠
+	glUniform1f(glGetUniformLocation(shaderProgramID, "lightQuadratic"), 0.000001f);  // 매우 작은 감쇠
+
+	// 스포트라이트 각도 - 넓은 범위
+	glUniform1f(glGetUniformLocation(shaderProgramID, "spotCutoff"), glm::cos(glm::radians(60.0f)));        // 내부 각도
+	glUniform1f(glGetUniformLocation(shaderProgramID, "spotOuterCutoff"), glm::cos(glm::radians(75.0f)));   // 외부 각도
+
+	glUniform1f(glGetUniformLocation(shaderProgramID, "ambientStrength"), ambientStrength);
+	glUniform1f(glGetUniformLocation(shaderProgramID, "specularStrength"), specularStrength);
 	glUniform1f(glGetUniformLocation(shaderProgramID, "shininess"), 32.0f);
 	glUniform1f(glGetUniformLocation(shaderProgramID, "useTexture"), 1.0f);
 
 	// 그림자맵 전달
 	if (enableShadows) {
 		glUniformMatrix4fv(glGetUniformLocation(shaderProgramID, "lightSpaceMatrix"), 1, GL_FALSE, glm::value_ptr(lightSpaceMatrix));
-		glActiveTexture(GL_TEXTURE2); // shadowMap을 texture unit 2에 바인딩
+		glActiveTexture(GL_TEXTURE2);
 		glBindTexture(GL_TEXTURE_2D, depthMap);
 		glUniform1i(glGetUniformLocation(shaderProgramID, "shadowMap"), 2);
 	}
@@ -392,16 +429,16 @@ GLvoid DrawScene()
 	glDisable(GL_BLEND);
 	if (mGround) mGround->Render(shaderProgramID, view, proj);
 	glEnable(GL_BLEND);
-	if (helicopter) helicopter->Render(shaderProgramID, wireframeMode, glassAlpha, modelScale);  // 헬리콥터에만 glassAlpha 적용
+	if (helicopter) helicopter->Render(shaderProgramID, wireframeMode, glassAlpha, modelScale);
 	glDisable(GL_BLEND);
 	if (aaUnits) {
 		for (int i = 0; i < NUM_AA_UNITS; ++i)
-			if (aaUnits[i]) aaUnits[i]->Render(shaderProgramID, wireframeMode, 1.0f, modelScale);  // aaUnits에는 1.0f (불투명) 적용
+			if (aaUnits[i]) aaUnits[i]->Render(shaderProgramID, wireframeMode, 1.0f, modelScale);
 	}
-	// 반투명/파티클은 나중에 (블렌딩 ON)
+	// 반투명/파티클은 나중에
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	glDepthMask(GL_FALSE); // 반투명은 깊이 쓰기 비활성화 (정렬 문제 방지)
+	glDepthMask(GL_FALSE);
 	if (helicopter) {
 		helicopter->RenderMissiles(shaderProgramID, view, proj);
 		helicopter->RenderCannonBullets(view, proj);
@@ -519,13 +556,22 @@ GLvoid DrawScene()
 		ImGui::Separator();
 	}
 
-	// Shadow Controls
+	// ImGui UI 부분에 라이트 컨트롤 추가 (약 540번째 줄, Shadow Controls 섹션 수정)
+
+	// Shadow & Light Controls
 	ImGui::Separator();
-	ImGui::Text("Shadow Settings");
+	ImGui::Text("Light & Shadow Settings");
 	ImGui::Checkbox("Enable Shadows", &enableShadows);
+	
+	// 광원 강도 조절
+	ImGui::SliderFloat("Light Intensity", &lightIntensity, 0.5f, 10.0f);
+	ImGui::SliderFloat("Ambient Strength", &ambientStrength, 0.0f, 1.0f);
+	ImGui::SliderFloat("Specular Strength", &specularStrength, 0.0f, 2.0f);
+	
 	if (enableShadows) {
 		ImGui::Checkbox("Rotate Sun", &rotateSun);
 		ImGui::SliderFloat("Sun Speed", &sunRotationSpeed, 1.0f, 50.0f);
+		ImGui::SliderFloat3("Light Position", glm::value_ptr(lightPosition), -2000.0f, 2000.0f);
 		ImGui::SliderFloat3("Light Direction", glm::value_ptr(lightDirection), -1.0f, 1.0f);
 	}
 	ImGui::Separator();
