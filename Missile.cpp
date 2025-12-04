@@ -302,16 +302,33 @@ void Missile::Update(float deltaTime)
 		// 파티클 시스템 업데이트
 		smokeTrail.update(deltaTime);
 
-		// 충돌 검사: 지형과 충돌하거나 범위를 벗어나면 비활성화
-		float groundHeight = 0.0f;
+		// 충돌 검사: 지형과 충돌 또는 범위를 벗어나면 비활성화
+		float groundHeight = -2.0f; // Default ground level (accounting for -2.0f translation in Ground::Render)
+		
 		if (mGround)
 		{
+			// Get accurate terrain height at missile position
 			groundHeight = mGround->GetHeightAt(position.x, position.z);
+			
+			// Debug output (optional, can be removed later)
+			// std::cout << "Missile at (" << position.x << ", " << position.y << ", " << position.z 
+			//           << ") - Ground height: " << groundHeight << std::endl;
 		}
 		
-		if (position.y <= groundHeight || glm::length(position) > 2000.0f)
+		// Check collision with terrain
+		// Add small margin (1.0f) to prevent missile from going slightly below ground before detecting
+		if (position.y <= (groundHeight + 1.0f))
 		{
-			// explode at impact point and deactivate
+			// Snap to exact collision point before exploding
+			position.y = groundHeight;
+			
+			// Trigger explosion at collision point and deactivate
+			Deactivate();
+		}
+		
+		// Check if missile is out of bounds (too far from origin)
+		if (glm::length(position) > 5000.0f)
+		{
 			Deactivate();
 		}
 	}
