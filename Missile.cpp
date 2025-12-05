@@ -256,19 +256,19 @@ void Missile::Update(float deltaTime)
 {
 	if (isActive)
 	{
-		// 현재 위치를 이전 위치로 저장
+		// 현재 위치와 이전 위치를 저장
 		glm::vec3 previousPosition = position;
 		
-		// 미사일 이동 - 중력 없이 일정 방향 이동
+		// 미사일 이동 - 중력 없이 직선 방향 이동
 		velocity = direction * speed;
 		position += velocity * deltaTime;
 
-		// 펄스 효과 제거 - 일정한 조명 밝기 유지
-		lightIntensity = 4.0f; // 고정된 밝기
+		// 빛 효과 설정 - 엔진에 불이 붙은 것처럼
+		lightIntensity = 4.0f; // 고정된 강도
 
-		// 연기 파티클 생성 - 경로를 따라 생성
+		// 연기 파티클 발사 - 매끄럽게 이어진 궤적
 		particleEmissionTimer += deltaTime;
-		float emissionInterval = 0.01f; // 간격 늘림 (더 균등한 선형 궤적)
+		float emissionInterval = 0.01f; // 발사 주기 (더 짧을수록 부드러움)
 		
 		while (particleEmissionTimer >= emissionInterval)
 		{
@@ -276,21 +276,21 @@ void Missile::Update(float deltaTime)
 			float movementDistance = glm::length(movementVector);
 			glm::vec3 moveDir = movementDistance > 0.0f ? movementVector / movementDistance : direction;
 			
-			// 이동 거리 기준으로 일정 간격으로 파티클 배치
-			float spacing = trailSpacing; // 헤더에 정의된 선형 간격
+			// 이동 거리 기반으로 여러 지점에서 파티클 생성
+			float spacing = trailSpacing; // 헤더에 정의된 간격 사용
 			int numTrailPoints = (movementDistance > 0.0f) ? std::max(1, (int)(movementDistance / spacing) + 1) : 1;
 			
 			for (int i = 0; i < numTrailPoints; ++i)
 			{
 				float t = (numTrailPoints > 1) ? float(i) / float(numTrailPoints - 1) : 0.0f;
 				glm::vec3 interpolatedPos = glm::mix(previousPosition, position, t);
-				// 미사일 뒤쪽(방향 반대로 height 일부)으로 오프셋
+				// 미사일 후면(현재 반대인 height 부분)에서 나오도록
 				glm::vec3 smokePosition = interpolatedPos - direction * (height * 0.6f);
-				// 선형 궤적: 난수 오프셋 제거, 약간 위로 뜨는 느낌만 추가
-				glm::vec3 smokeVelocity = glm::vec3(0.0f, 5.0f, 0.0f); // 약간 상승
+				// 연기 속도: 약간 위로만 움직임, 중력 등은 따로 없고 페이드만 추가
+				glm::vec3 smokeVelocity = glm::vec3(0.0f, 5.0f, 0.0f); // 중력 없음
 				
 				
-				glm::vec4 smokeColor = glm::vec4(0.5f, 0.5f, 0.5f, 0.8f); // 연기 색상
+				glm::vec4 smokeColor = glm::vec4(0.5f, 0.5f, 0.5f, 0.8f); // 회색 연기
 				float particleSize = 6.0f;
 				float lifeTime = 2.0f; // 연기 지속 시간
 				
@@ -302,39 +302,51 @@ void Missile::Update(float deltaTime)
 		// 파티클 시스템 업데이트
 		smokeTrail.update(deltaTime);
 
-		// 충돌 검사: 지형과 충돌 또는 범위를 벗어나면 비활성화
+		// 충돌 검사: 지면과 충돌 또는 경계를 벗어남 비활성화
 		float groundHeight = -2.0f; // Default ground level (accounting for -2.0f translation in Ground::Render)
 		
 		if (mGround)
 		{
-			// Get accurate terrain height at missile position
+			// 미사일 위치에서 정밀한 지형 높이 가져오기
 			groundHeight = mGround->GetHeightAt(position.x, position.z);
-			
-			// Debug output (optional, can be removed later)
-			// std::cout << "Missile at (" << position.x << ", " << position.y << ", " << position.z 
-			//           << ") - Ground height: " << groundHeight << std::endl;
 		}
 		
-		// Check collision with terrain
-		// Add small margin (1.0f) to prevent missile from going slightly below ground before detecting
+		// 지형과 충돌 검사
+		// 추가 마진 (1.0f)을 두어 미사일이 지면 아래로 잠기기 전에 감지
 		if (position.y <= (groundHeight + 1.0f))
 		{
-			// Snap to exact collision point before exploding
+			// 폭발 전 정확한 충돌 지점에 스냅
 			position.y = groundHeight;
 			
-			// Trigger explosion at collision point and deactivate
+			// 충돌 지점에서 폭발 트리거 및 비활성화
 			Deactivate();
 		}
 		
-		// Check if missile is out of bounds (too far from origin)
-		if (glm::length(position) > 5000.0f)
+		// 지형 크기를 사용하여 미사일이 경계를 초과했는지 확인
+		if (mGround)
 		{
-			Deactivate();
+			glm::vec2 worldSize = mGround->GetWorldSize();
+			float maxDistanceFromCenter = glm::max(worldSize.x, worldSize.y);
+			
+			// 미사일이 지형 경계를 초과했는지 확인
+			if (std::abs(position.x) > maxDistanceFromCenter || 
+			    std::abs(position.z) > maxDistanceFromCenter)
+			{
+				Deactivate();
+			}
+		}
+		else
+		{
+			// 폴백: 지면 참조가 없을 경우 원점에서 거리 사용
+			if (glm::length(position) > 10000.0f)
+			{
+				Deactivate();
+			}
 		}
 	}
 	else
 	{
-		// 미사일이 비활성화되어도 파티클만 계속 업데이트
+		// 미사일이 비활성화되어 파티클만 계속 업데이트
 		smokeTrail.update(deltaTime);
 		
 		// 파티클이 모두 사라지면 남은 파티클을 persistent 시스템으로 이동
@@ -449,13 +461,13 @@ void Missile::RenderMissileLight(GLuint shaderProgramID, const glm::mat4& view, 
 	// 밝은 중심 색상 (노란색-주황색)
 	glm::vec3 brightLightColor = glm::vec3(1.0f, 0.7f, 0.2f) * lightIntensity;
 
-	// Set states for additive light rendering
+	// Additive light rendering을 위한 상태 설정
 	if (!depthTestEnabled) glEnable(GL_DEPTH_TEST);
 	glDepthMask(GL_FALSE); // 깊이 쓰기 비활성화
 	if (!blendEnabled) glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE); // additive blending for glow
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE); // glow 효과를 위한 additive blending
 
-	// Render light mesh with transparency
+	// 투명도로 조명 메시 렌더링
 	glUseProgram(shaderProgramID);
 	glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(lightModel));
 	glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
@@ -468,11 +480,11 @@ void Missile::RenderMissileLight(GLuint shaderProgramID, const glm::mat4& view, 
 	glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(lightIndices.size()), GL_UNSIGNED_INT, 0);
 	glBindVertexArray(0);
 
-	// Restore GL state
+	// GL 상태 복원
 	glDepthMask(depthWriteMask ? GL_TRUE : GL_FALSE);
 	if (!blendEnabled) glDisable(GL_BLEND);
 	else {
-		// restore to standard alpha blending used elsewhere
+		// 다른 곳에서 사용되는 표준 알파 블렌딩으로 복원
 		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	}
 	if (!depthTestEnabled) glDisable(GL_DEPTH_TEST);

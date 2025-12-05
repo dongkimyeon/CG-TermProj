@@ -30,7 +30,7 @@ void CannonBullet::Update(float dt)
 	position += -direction * speed * dt;
 	life += dt;
 
-	// trail 생성 (선형 궤적만 남김)
+	// trail 생성 (프레임 독립적)
 	float dist = glm::length(position - prevPos);
 	int nTrail = std::max(1, (int)(dist / trailSpacing));
 
@@ -41,7 +41,7 @@ void CannonBullet::Update(float dt)
 	}
 	smokeTrail.update(dt);
 	
-	// 지형 충돌 검사
+	// 지면 충돌 검사
 	float groundHeight = -2.0f; // Default ground level
 	
 	if (mGround)
@@ -62,8 +62,8 @@ void CannonBullet::Update(float dt)
 		active = false;
 	}
 	
-	// Check if bullet exceeded max life time or is out of bounds
-	if (life > maxLife || glm::length(position) > 5000.0f)
+	// Check if bullet exceeded max life time or is out of terrain bounds
+	if (life > maxLife)
 	{
 		// Transfer remaining particles before deactivating
 		EnsurePersistentParticles();
@@ -72,6 +72,39 @@ void CannonBullet::Update(float dt)
 			s_persistentParticles->addParticles(std::move(stolen));
 		}
 		active = false;
+	}
+	
+	// Check if bullet is out of terrain bounds
+	if (mGround)
+	{
+		glm::vec2 worldSize = mGround->GetWorldSize();
+		float maxDistanceFromCenter = glm::max(worldSize.x, worldSize.y);
+		
+		// Check if bullet exceeded terrain boundaries
+		if (std::abs(position.x) > maxDistanceFromCenter || 
+		    std::abs(position.z) > maxDistanceFromCenter)
+		{
+			// Transfer remaining particles before deactivating
+			EnsurePersistentParticles();
+			std::vector<Particle> stolen = smokeTrail.stealParticles();
+			if (!stolen.empty()) {
+				s_persistentParticles->addParticles(std::move(stolen));
+			}
+			active = false;
+		}
+	}
+	else
+	{
+		// Fallback: use distance from origin if no ground reference
+		if (glm::length(position) > 10000.0f)
+		{
+			EnsurePersistentParticles();
+			std::vector<Particle> stolen = smokeTrail.stealParticles();
+			if (!stolen.empty()) {
+				s_persistentParticles->addParticles(std::move(stolen));
+			}
+			active = false;
+		}
 	}
 }
 
