@@ -24,8 +24,8 @@ public:
 	glm::vec3& GetGunnerOffset() { return gunnerOffset; }
     // Setter
     void SetCameraMode(int mode) { 
-		targetCameraXAngle = 0.0f;
-		targetCameraYAngle = 0.0f;
+        targetCameraXAngle = 0.0f;
+        targetCameraYAngle = 0.0f;
         cameraMode = mode; 
     }
     void SetPosition(const glm::vec3& pos) { position = pos; }

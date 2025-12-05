@@ -610,6 +610,11 @@ GLvoid DrawScene()
 		int currentMode = camera->GetCameraMode();
 
 		if (ImGui::Combo("View Mode", &currentMode, modes, IM_ARRAYSIZE(modes))) {
+			// 거너 뷰에서 다른 모드로 전환할 때 기관포 각도 리셋
+			if (camera->GetCameraMode() == 2 && currentMode != 2 && helicopter) {
+				helicopter->SetCannonYaw(0.0f);
+				helicopter->SetCannonPitch(0.0f);
+			}
 			camera->SetCameraMode(currentMode);
 		}
 
