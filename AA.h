@@ -57,7 +57,11 @@ private:
 	float smokeEmitTimer = 0.0f;
 	float smokeDuration = 0.0f; // 연기가 지속되는 시간 (무한히 나오도록 설정)
 	const float smokeEmitInterval = 0.05f; // 연기 방출 간격
-
+	
+	// 연기 업데이트 FPS 제한 (새로 추가)
+	float smokeUpdateTimer = 0.0f;
+	const float smokeUpdateInterval = 1.0f / 30.0f; // 30 FPS로 제한 (약 0.033초)
+	
 	// 바운딩 박스 데이터
 	glm::vec3 boundingBoxMin;
 	glm::vec3 boundingBoxMax;

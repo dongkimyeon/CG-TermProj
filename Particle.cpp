@@ -1,5 +1,6 @@
 #include "Particle.h"
 #include <cmath>
+#include <iostream> // Debugging 추가
 
 Particle::Particle()
 	: pos(0.0f), vel(0.0f), color(1.0f), 
@@ -32,17 +33,30 @@ void Particle::update(GLfloat deltaTime)
 
 	float lifeRatio = age / life;
 
-	// Buoyancy: gentle upward acceleration (smoke rises)
-	vel.y +=0.25f * deltaTime;
+	// Store old position for debugging
+	glm::vec3 oldPos = pos;
+
+	// Buoyancy: very strong upward acceleration for smoke
+	vel.y += 8.0f * deltaTime; // 더욱 강력하게 증가
 
 	// Small turbulence so particles don't move in straight lines
-	float jitterX = std::sin(age *10.0f + pos.z *0.5f) *0.15f;
-	float jitterZ = std::cos(age *8.0f + pos.x *0.4f) *0.15f;
+	float jitterX = std::sin(age *10.0f + pos.z *0.5f) *0.1f;
+	float jitterZ = std::cos(age *8.0f + pos.x *0.4f) *0.1f;
 	vel.x += jitterX * deltaTime;
 	vel.z += jitterZ * deltaTime;
 
-	// Apply velocity
+	// Apply velocity - 이것이 핵심!
 	pos += vel * deltaTime;
+
+	// Debug output (first few frames only)
+	static int debugCount = 0;
+	if (debugCount < 5 && age < 0.5f) {
+		std::cout << "Particle Update - Delta: " << deltaTime 
+				  << " Old Y: " << oldPos.y 
+				  << " New Y: " << pos.y 
+				  << " Vel Y: " << vel.y << std::endl;
+		debugCount++;
+	}
 
 	// Rotation
 	rot += angularVel * deltaTime;
@@ -62,6 +76,6 @@ void Particle::update(GLfloat deltaTime)
 	color.g = color.g * (1.0f - t) + target.g * t;
 	color.b = color.b * (1.0f - t) + target.b * t;
 
-	// Dampen velocity a bit (air resistance)
-	vel *=0.99f;
+	// Minimal damping for smoke to rise freely
+	vel *= 0.99f; // 감쇠를 약간 증가시켜 안정성 확보
 }

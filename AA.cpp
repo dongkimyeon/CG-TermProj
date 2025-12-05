@@ -21,6 +21,7 @@ AA::AA()
 	, smokeSystem(nullptr)
 	, smokeEmitTimer(0.0f)
 	, smokeDuration(0.0f)
+	, smokeUpdateTimer(0.0f) // 연기 업데이트 타이머 초기화
 {
 	// 연기 파티클 시스템 초기화
 	smokeSystem = new ParticleSystem(1000); // 최대 1000개의 파티클
@@ -320,8 +321,16 @@ void AA::Update(float deltaTime)
 {
 	// 파괴된 AA는 연기만 방출
 	if (isDestroyed && smokeSystem) {
+		// 연기 방출은 매 프레임 체크
 		EmitSmokeParticles(deltaTime);
-		smokeSystem->update(deltaTime);
+		
+		// 연기 업데이트는 제한된 FPS로 실행 (30 FPS)
+		smokeUpdateTimer += deltaTime;
+		if (smokeUpdateTimer >= smokeUpdateInterval) {
+			// 누적된 시간만큼 업데이트
+			smokeSystem->update(smokeUpdateTimer);
+			smokeUpdateTimer = 0.0f;
+		}
 	}
 }
 
@@ -396,8 +405,8 @@ void AA::EmitSmokeParticles(float deltaTime)
 	if (smokeEmitTimer >= smokeEmitInterval) {
 		smokeEmitTimer = 0.0f;
 		
-		// AA 위치에서 더 높은 위치에서 연기 방출 (25m 위)
-		glm::vec3 smokeOrigin = position + glm::vec3(0.0f, 25.0f, 0.0f);
+		// AA 위치에서 약간 위쪽에서 연기 방출 (모델 바로 위 5m)
+		glm::vec3 smokeOrigin = position + glm::vec3(0.0f, 5.0f, 0.0f);
 		
 		// 약간의 랜덤성을 추가하여 자연스러운 연기 효과
 		float randX = ((rand() % 200) - 100) / 100.0f * 2.0f;
@@ -405,11 +414,12 @@ void AA::EmitSmokeParticles(float deltaTime)
 		smokeOrigin.x += randX;
 		smokeOrigin.z += randZ;
 		
-		// 위쪽으로 훨씬 더 빠르게 올라가는 속도
+		// 초기 속도를 조절하여 약 20m 더 올라가도록 설정 (5m + 20m = 25m)
+		// 부력(8.0f)과 감쇠(0.99f)를 고려한 초기 속도
 		glm::vec3 vel(
-			((rand() % 200) - 100) / 100.0f * 1.0f, // 수평 이동 최소화
-			15.0f + ((rand() % 100) / 100.0f * 8.0f), // 15~23의 강한 수직 속도
-			((rand() % 200) - 100) / 100.0f * 1.0f
+			((rand() % 200) - 100) / 100.0f * 0.3f, // 수평 이동 최소화
+			25.0f + ((rand() % 100) / 100.0f * 10.0f), // 25~35의 초기 수직 속도 (20m 상승)
+			((rand() % 200) - 100) / 100.0f * 0.3f
 		);
 		
 		// 진한 회색/검은색 연기
@@ -417,7 +427,19 @@ void AA::EmitSmokeParticles(float deltaTime)
 		
 		// 파티클 크기를 30% 증가
 		float particleSize = (8.0f + ((rand() % 100) / 100.0f * 4.0f)) * 1.3f;
-		float lifeTime = 8.0f + ((rand() % 100) / 100.0f * 4.0f); // 수명도 증가
+		// 수명을 3초로 줄여서 25m 도달 후 소멸
+		float lifeTime = 3.0f + ((rand() % 100) / 100.0f * 1.0f);
+		
+		// Debug output
+		static int emitCount = 0;
+		if (emitCount < 3) {
+			std::cout << "=== Smoke Emitted ===" << std::endl;
+			std::cout << "Position: (" << smokeOrigin.x << ", " << smokeOrigin.y << ", " << smokeOrigin.z << ")" << std::endl;
+			std::cout << "Velocity: (" << vel.x << ", " << vel.y << ", " << vel.z << ")" << std::endl;
+			std::cout << "Size: " << particleSize << ", Life: " << lifeTime << std::endl;
+			std::cout << "Expected max height: ~" << (smokeOrigin.y + 20.0f) << "m" << std::endl;
+			emitCount++;
+		}
 		
 		smokeSystem->emitParticle(smokeOrigin, vel, smokeColor, particleSize, lifeTime);
 	}
