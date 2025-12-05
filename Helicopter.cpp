@@ -5,6 +5,7 @@
 #include "Camera.h"
 #include "CannonBullet.h"
 #include "SoundManager.h"
+#include "Ground.h"
 
 Helicopter::Helicopter()
 	: position(glm::vec3(0.0f, 180.0f, 0.0f))
@@ -541,17 +542,59 @@ void Helicopter::FireMissileFromCamera(const Camera* camera, float crosshairDist
 {
 	if (!camera) return;
 
-	// Compute crosshair center in world space based on helicopter forward vector
+	
 	glm::vec3 heliPos = GetPosition();
 	glm::mat4 heliTransform = GetHelicopterTransform();
 	glm::vec3 forwardWorld = glm::normalize(glm::vec3(heliTransform * glm::vec4(-1, 0, 0, 0)));
-	glm::vec3 center = heliPos - forwardWorld * crosshairDistance;
+	glm::vec3 crosshairCenter = heliPos - forwardWorld * crosshairDistance;
 
-	// Use missile attachment position as launch position (so alternating lateral offset applies)
+	
 	glm::vec3 launchPos = GetMissileAttachmentPosition();
 
-	// Desired direction: from launch position toward crosshair center
-	glm::vec3 desiredDir = center - launchPos;
+	
+	glm::vec3 targetPos = crosshairCenter;
+	
+	if (mGround) {
+		
+		glm::vec3 rayOrigin = heliPos;
+		glm::vec3 rayDir = glm::normalize(crosshairCenter - rayOrigin);
+		
+		
+		float maxRayDistance = 10000.0f;
+		
+		
+		for (float t = 0.0f; t < maxRayDistance; t += 10.0f) {
+			glm::vec3 testPos = rayOrigin + rayDir * t;
+			float groundHeight = mGround->GetHeightAt(testPos.x, testPos.z);
+			
+			
+			if (testPos.y <= groundHeight) {
+				
+				float tStart = t - 10.0f;
+				float tEnd = t;
+				
+				
+				for (int i = 0; i < 10; ++i) {
+					float tMid = (tStart + tEnd) * 0.5f;
+					glm::vec3 midPos = rayOrigin + rayDir * tMid;
+					float midGroundHeight = mGround->GetHeightAt(midPos.x, midPos.z);
+					
+					if (midPos.y > midGroundHeight) {
+						tStart = tMid;
+					} else {
+						tEnd = tMid;
+					}
+				}
+				
+				targetPos = rayOrigin + rayDir * tEnd;
+				targetPos.y = mGround->GetHeightAt(targetPos.x, targetPos.z);
+				break;
+			}
+		}
+	}
+
+	
+	glm::vec3 desiredDir = targetPos - launchPos;
 	if (glm::length(desiredDir) < 0.001f) return;
 	desiredDir = glm::normalize(desiredDir);
 
