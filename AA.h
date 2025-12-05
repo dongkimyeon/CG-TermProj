@@ -11,23 +11,55 @@ public:
 	void InitBuffers();	
 	void Update(float deltaTime);
 	void Render(GLuint shaderID, bool wireframeMode, float glassAlpha, float modelScale);
+	void RenderBoundingBox(GLuint shaderID, const glm::mat4& view, const glm::mat4& proj, float modelScale);
 	
 	void SetPosition(const glm::vec3& pos) { position = pos; }
+	glm::vec3 GetPosition() const { return position; }
+	glm::vec3 GetBoundingBoxMin() const { return boundingBoxMin; }
+	glm::vec3 GetBoundingBoxMax() const { return boundingBoxMax; }
 	
-	// 정적 메서드: 모든 AA 인스턴스가 공유하는 모델 로드
+	// 체력 및 피해 시스템
+	void TakeDamage(float damage);
+	float GetHealth() const { return health; }
+	float GetMaxHealth() const { return maxHealth; }
+	bool IsAlive() const { return health > 0.0f; }
+	bool IsDestroyed() const { return health <= 0.0f; }
+	
+	// 충돌 검사
+	bool CheckCollision(const glm::vec3& point, float modelScale) const;
+	bool CheckSphereCollision(const glm::vec3& center, float radius, float modelScale) const;
+	
+	// 공유 메서드: 모든 AA 인스턴스가 공유하는 한 번 로드
 	static void LoadSharedModel();
 	static void CleanupSharedModel();
 
 private:
-	// 인스턴스별 버퍼 (각 AA는 자신의 VAO/VBO/EBO 필요)
+	void CalculateBoundingBox(float modelScale);
+	void InitBoundingBoxBuffers();
+
+	// 인스턴스 버퍼 (각 AA가 자신의 VAO/VBO/EBO 필요)
 	GLuint vaoAA, vboAA, eboAA;
 	glm::vec3 position;
 	bool isDamaged = false;
-
-
 	
-	// 정적 공유 변수 (모든 AA 인스턴스가 공유)
+	// 체력 시스템
+	float health;
+	float maxHealth;
+
+	// 바운딩 박스 데이터
+	glm::vec3 boundingBoxMin;
+	glm::vec3 boundingBoxMax;
+	GLuint boundingBoxVAO, boundingBoxVBO;
+	bool boundingBoxCalculated;
+	float cachedModelScale;
+	
+	// 공유 모델 데이터 (모든 AA 인스턴스가 공유)
 	static FBXModel sharedModel;
 	static bool modelLoaded;
+	
+	// 공유 바운딩 박스 데이터 (모든 AA가 같은 모델이므로)
+	static glm::vec3 sharedBBoxMin;
+	static glm::vec3 sharedBBoxMax;
+	static bool sharedBBoxCalculated;
 };
 

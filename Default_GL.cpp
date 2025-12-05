@@ -71,6 +71,7 @@ bool wireframeMode = false;
 float glassAlpha = 0.5f;
 float crosshairSize = 22.0f;
 float crosshairDistance = 315.0f;
+bool showAABoundingBoxes = true; // 바운딩 박스 표시 여부
 
 //디버그 회전 
 float xModelRotation = 0.0f;
@@ -312,6 +313,11 @@ GLvoid DrawScene()
 			helicopter->GetRoll(),
 			helicopter->GetCannonWorldPosition());
 	}
+	
+	// AA 충돌 검사
+	if (helicopter && aaUnits) {
+		helicopter->CheckAACollisions(aaUnits, NUM_AA_UNITS, modelScale);
+	}
 
 	// ===================== 0. 그림자 패스 (Light Space에서 Depth Map 생성) =====================
 	glm::mat4 lightSpaceMatrix;
@@ -435,6 +441,26 @@ GLvoid DrawScene()
 		for (int i = 0; i < NUM_AA_UNITS; ++i)
 			if (aaUnits[i]) aaUnits[i]->Render(shaderProgramID, wireframeMode, 1.0f, modelScale);
 	}
+	
+	// AA 바운딩 박스 렌더링 (최적화: 한 번에 셰이더 설정)
+	if (showAABoundingBoxes && aaUnits) {
+		glDisable(GL_DEPTH_TEST);
+		glUseProgram(crosshairShaderProgramID);
+		
+		// 공통 유니폼 한 번만 설정
+		glUniformMatrix4fv(glGetUniformLocation(crosshairShaderProgramID, "view"), 1, GL_FALSE, glm::value_ptr(view));
+		glUniformMatrix4fv(glGetUniformLocation(crosshairShaderProgramID, "proj"), 1, GL_FALSE, glm::value_ptr(proj));
+		glUniform3f(glGetUniformLocation(crosshairShaderProgramID, "crosshairColor"), 1.0f, 0.0f, 0.0f);
+		
+		// 각 AA 유닛 렌더링 (모델 매트릭스만 변경)
+		for (int i = 0; i < NUM_AA_UNITS; ++i) {
+			if (aaUnits[i]) {
+				aaUnits[i]->RenderBoundingBox(crosshairShaderProgramID, view, proj, modelScale);
+			}
+		}
+		glEnable(GL_DEPTH_TEST);
+	}
+	
 	// 반투명/파티클은 나중에
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -640,6 +666,11 @@ GLvoid DrawScene()
 
 	ImGui::DragFloat("crosshair size", &crosshairSize, 0.1f, 1.0f, 100.0f);
 	ImGui::DragFloat("crosshair distance", &crosshairDistance, 1.0f, -200.0f, 400.0f);
+	ImGui::Separator();
+	
+	// AA 바운딩 박스 토글
+	ImGui::Text("AA Debug");
+	ImGui::Checkbox("Show AA Bounding Boxes", &showAABoundingBoxes);
 	ImGui::Separator();
 
 	if (ImGui::Button("wired frame"))
@@ -991,8 +1022,7 @@ void InitializeAAUnits()
 	std::random_device rd;
 	std::mt19937 gen(rd());
 
-	// 맵 크기 기준 (Ground 크기 참고: -5000 ~5000)
-
+	// 맵 크기 기준
 	float worldMaxX = mGround->GetWorldSize().x;
 	std::cout << "World Max X: " << worldMaxX << std::endl;
 	float worldMaxZ = mGround->GetWorldSize().y;

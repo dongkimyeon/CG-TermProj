@@ -47,14 +47,16 @@ public:
     void FireMissileFromCamera(const Camera* camera, float crosshairDistance);
  
     // 기관포 발사 관련
-
     void FireCannon();
-  // 새 오버로드: 월드 공간 방향으로 기관포 발사
+    // 새 오버로드: 월드 공간 방향으로 기관포 발사
     void FireCannon(const glm::vec3& dir);
     // 새 오버로드: 카메라 모드에 따라 발사 위치를 조정
     void FireCannon(const Camera* camera, const glm::vec3& targetPos);
     void UpdateCannonBullets(float dt);
     void RenderCannonBullets(const glm::mat4& view, const glm::mat4& proj);
+    
+    // AA 충돌 검사
+    void CheckAACollisions(class AA** aaUnits, int numUnits, float modelScale);
     
     // Setter
     void SetDebugRotation(float x, float y, float z) {

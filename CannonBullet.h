@@ -11,6 +11,8 @@ public:
  void Update(float dt);
  void Render(const glm::mat4& view, const glm::mat4& proj);
  bool IsActive() const { return active; }
+ glm::vec3 GetPosition() const { return position; }
+ void Deactivate() { active = false; }
  
  // Set ground reference for terrain collision
  void SetGround(class Ground* ground) { mGround = ground; }

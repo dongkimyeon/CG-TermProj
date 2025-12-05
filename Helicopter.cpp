@@ -956,3 +956,55 @@ void Helicopter::RenderCannonBullets(const glm::mat4& view, const glm::mat4& pro
 		}
 	}
 }
+
+void Helicopter::CheckAACollisions(AA** aaUnits, int numUnits, float modelScale)
+{
+	if (!aaUnits) return;
+	
+	const float MISSILE_DAMAGE = 50.0f;
+	const float CANNON_DAMAGE = 20.0f;
+	const float MISSILE_COLLISION_RADIUS = 10.0f;
+	const float CANNON_COLLISION_RADIUS = 2.0f;
+	
+	// 미사일 충돌 검사
+	for (auto* missile : missiles) {
+		if (!missile || !missile->IsActive()) continue;
+		
+		glm::vec3 missilePos = missile->GetPosition();
+		
+		for (int i = 0; i < numUnits; ++i) {
+			if (!aaUnits[i] || !aaUnits[i]->IsAlive()) continue;
+			
+			// 구 충돌 검사
+			if (aaUnits[i]->CheckSphereCollision(missilePos, MISSILE_COLLISION_RADIUS, modelScale)) {
+				// 충돌 발생!
+				aaUnits[i]->TakeDamage(MISSILE_DAMAGE);
+				missile->Deactivate(); // 미사일 비활성화 (폭발 이펙트 발생)
+				
+				std::cout << "미사일이 AA에 명중! (데미지: " << MISSILE_DAMAGE << ")" << std::endl;
+				break; // 하나의 미사일은 한 번만 충돌
+			}
+		}
+	}
+	
+	// 기관포 충돌 검사
+	for (auto* bullet : cannonBullets) {
+		if (!bullet || !bullet->IsActive()) continue;
+		
+		glm::vec3 bulletPos = bullet->GetPosition();
+		
+		for (int i = 0; i < numUnits; ++i) {
+			if (!aaUnits[i] || !aaUnits[i]->IsAlive()) continue;
+			
+			// 점 충돌 검사 (기관포는 작으니까 점으로 간주)
+			if (aaUnits[i]->CheckCollision(bulletPos, modelScale)) {
+				// 충돌 발생!
+				aaUnits[i]->TakeDamage(CANNON_DAMAGE);
+				bullet->Deactivate(); // 총알 비활성화
+				
+				std::cout << "기관포 명중! (데미지: " << CANNON_DAMAGE << ")" << std::endl;
+				break; // 하나의 총알은 한 번만 충돌
+			}
+		}
+	}
+}
