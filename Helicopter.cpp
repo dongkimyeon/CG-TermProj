@@ -542,37 +542,66 @@ void Helicopter::FireMissileFromCamera(const Camera* camera, float crosshairDist
 {
 	if (!camera) return;
 
-	
 	glm::vec3 heliPos = GetPosition();
 	glm::mat4 heliTransform = GetHelicopterTransform();
 	glm::vec3 forwardWorld = glm::normalize(glm::vec3(heliTransform * glm::vec4(-1, 0, 0, 0)));
 	glm::vec3 crosshairCenter = heliPos - forwardWorld * crosshairDistance;
 
-	
+	// Default launch position (3rd person view)
 	glm::vec3 launchPos = GetMissileAttachmentPosition();
-
 	
+	// Adjust launch position based on camera mode
+	int cameraMode = camera->GetCameraMode();
+	
+	if (cameraMode == 1) {
+		// Cockpit View: Launch from sides of camera (outside view), much lower
+		glm::vec3 cameraPos = camera->GetPosition();
+		glm::vec3 rightWorld = glm::normalize(glm::vec3(heliTransform * glm::vec4(0, 0, 1, 0)));
+		glm::vec3 downWorld = -glm::normalize(glm::vec3(heliTransform * glm::vec4(0, 1, 0, 0)));
+		
+		// Offset to the side (alternating left/right) and much lower
+		float sideOffset = 25.0f; // Distance from camera center
+		float downOffset = 15.0f; // Much lower position
+		
+		if (nextMissileLeft) {
+			launchPos = cameraPos - rightWorld * sideOffset + downWorld * downOffset;
+		} else {
+			launchPos = cameraPos + rightWorld * sideOffset + downWorld * downOffset;
+		}
+	}
+	else if (cameraMode == 2) {
+		// Gunner View: Launch from sides, slightly above
+		glm::vec3 cameraPos = camera->GetPosition();
+		glm::vec3 rightWorld = glm::normalize(glm::vec3(heliTransform * glm::vec4(0, 0, 1, 0)));
+		glm::vec3 upWorld = glm::normalize(glm::vec3(heliTransform * glm::vec4(0, 1, 0, 0)));
+		
+		// Offset to the side and slightly up
+		float sideOffset = 30.0f;
+		float upOffset = 5.0f;
+		
+		if (nextMissileLeft) {
+			launchPos = cameraPos - rightWorld * sideOffset + upWorld * upOffset;
+		} else {
+			launchPos = cameraPos + rightWorld * sideOffset + upWorld * upOffset;
+		}
+	}
+
+	// Raycast to find ground target position
 	glm::vec3 targetPos = crosshairCenter;
 	
 	if (mGround) {
-		
 		glm::vec3 rayOrigin = heliPos;
 		glm::vec3 rayDir = glm::normalize(crosshairCenter - rayOrigin);
 		
-		
 		float maxRayDistance = 10000.0f;
-		
 		
 		for (float t = 0.0f; t < maxRayDistance; t += 10.0f) {
 			glm::vec3 testPos = rayOrigin + rayDir * t;
 			float groundHeight = mGround->GetHeightAt(testPos.x, testPos.z);
 			
-			
 			if (testPos.y <= groundHeight) {
-				
 				float tStart = t - 10.0f;
 				float tEnd = t;
-				
 				
 				for (int i = 0; i < 10; ++i) {
 					float tMid = (tStart + tEnd) * 0.5f;
@@ -593,7 +622,6 @@ void Helicopter::FireMissileFromCamera(const Camera* camera, float crosshairDist
 		}
 	}
 
-	
 	glm::vec3 desiredDir = targetPos - launchPos;
 	if (glm::length(desiredDir) < 0.001f) return;
 	desiredDir = glm::normalize(desiredDir);
@@ -633,6 +661,46 @@ void Helicopter::FireCannon(const glm::vec3& dir)
 	bullet->SetGround(mGround);
 	
 	bullet->Launch(startPos, nDir, 2500.0f);
+	cannonBullets.push_back(bullet);
+
+	// 기관포 발사 사운드 재생
+	SoundManager::GetInstance()->mPlaySound("Cannon", false);
+}
+
+// 새 오버로드: 카메라 모드에 따라 기관포 발사
+void Helicopter::FireCannon(const Camera* camera, const glm::vec3& targetPos)
+{
+	if (!camera) return;
+	
+	int cameraMode = camera->GetCameraMode();
+	glm::vec3 startPos;
+	
+	// 카메라 모드에 따라 발사 위치 조정
+	if (cameraMode == 1) {
+		// Cockpit View: 카메라 아래에서 발사
+		glm::vec3 cameraPos = camera->GetPosition();
+		glm::mat4 heliTransform = GetHelicopterTransform();
+		glm::vec3 downWorld = -glm::normalize(glm::vec3(heliTransform * glm::vec4(0, 1, 0, 0)));
+		
+		float downOffset = 10.0f; // Increased for lower position
+		startPos = cameraPos + downWorld * downOffset;
+	}
+	else if (cameraMode == 2) {
+		// Gunner View: 총구에서 크로스헤어 방향으로 발사
+		startPos = GetCannonWorldPosition();
+	}
+	else {
+		// 3rd Person View: 기본 총구 위치에서 발사
+		startPos = GetCannonWorldPosition();
+	}
+	
+	// 목표 지점을 향한 방향 계산
+	glm::vec3 direction = glm::normalize(targetPos - startPos);
+	if (glm::length(direction) < 0.001f) return;
+	
+	CannonBullet* bullet = new CannonBullet();
+	bullet->SetGround(mGround);
+	bullet->Launch(startPos, direction, 2500.0f);
 	cannonBullets.push_back(bullet);
 
 	// 기관포 발사 사운드 재생

@@ -33,6 +33,7 @@ public:
     float GetRoll() const { return currentRoll; }
 	float GetCannonPitch() const { return cannonPitch; }
 	float GetCannonYaw() const { return cannonYaw; }
+    glm::mat4 GetHelicopterTransform() const;
 
     
     // 무기 관련
@@ -48,8 +49,10 @@ public:
     // 기관포 발사 관련
 
     void FireCannon();
-    // 새 오버로드: 월드 방향으로 기관포 발사
+  // 새 오버로드: 월드 공간 방향으로 기관포 발사
     void FireCannon(const glm::vec3& dir);
+    // 새 오버로드: 카메라 모드에 따라 발사 위치를 조정
+    void FireCannon(const Camera* camera, const glm::vec3& targetPos);
     void UpdateCannonBullets(float dt);
     void RenderCannonBullets(const glm::mat4& view, const glm::mat4& proj);
     
@@ -82,7 +85,6 @@ private:
  void UpdateOrientation(float deltaTime);
  void UpdateMissilePositions();
  glm::vec3 GetMissileAttachmentPosition() const;
- glm::mat4 GetHelicopterTransform() const;
  void InitBuffers(); // 버퍼 초기화
  void CleanupBuffers(); // 버퍼 정리
  
