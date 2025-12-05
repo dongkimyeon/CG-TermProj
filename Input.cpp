@@ -3,6 +3,9 @@
 std::vector<Input::Key> Input::Keys = {};
 std::wstring Input::mInputText;
 
+// F1 key toggle state for bounding box visibility
+static bool lastF1State = false;
+
 int ASCII[(UINT)eKeyCode::End] =
 {
     'Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P',
@@ -10,7 +13,7 @@ int ASCII[(UINT)eKeyCode::End] =
     'Z', 'X', 'C', 'V', 'B', 'N', 'M',
     VK_LEFT, VK_RIGHT, VK_DOWN, VK_UP,
     VK_LBUTTON, VK_MBUTTON, VK_RBUTTON, VK_SPACE, VK_ESCAPE, VK_BACK,
-    VK_SHIFT,
+    VK_SHIFT, VK_F1
 };
 
 void Input::ProcessChar(WPARAM wParam)

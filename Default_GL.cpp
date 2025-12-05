@@ -71,7 +71,7 @@ bool wireframeMode = false;
 float glassAlpha = 0.5f;
 float crosshairSize = 22.0f;
 float crosshairDistance = 315.0f;
-bool showAABoundingBoxes = true; // 바운딩 박스 표시 여부
+bool showAABoundingBoxes = false; // 바운딩 박스 표시 여부 (초기값: 꺼짐)
 
 //디버그 회전 
 float xModelRotation = 0.0f;
@@ -497,7 +497,7 @@ GLvoid DrawScene()
 		glEnable(GL_BLEND);
 		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-		// 헬리콥터 방향 기준으로 3D 공간에 십자선 그리기
+		// 헬리콥터 방향 기준으로 3D 공간에 십자선 그림
 		glm::vec3 heliPos = helicopter->GetPosition();
 		float yaw = helicopter->GetYaw();
 		float pitch = helicopter->GetPitch();
@@ -764,6 +764,11 @@ void Timer(int value) {
 		exit(0);
 	}
 
+	// F1 키로 AA 바운딩 박스 토글
+	if (Input::GetKeyDown(eKeyCode::F1))
+	{
+		showAABoundingBoxes = !showAABoundingBoxes;
+	}
 
 	if (Input::GetKeyDown(eKeyCode::F) && helicopter && camera) {
 		helicopter->FireMissileFromCamera(camera, crosshairDistance);
