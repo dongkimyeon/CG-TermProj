@@ -1,6 +1,7 @@
 #pragma once
 #include "CommonInclude.h"
 #include "FBXModel.h"
+#include "ParticleSystem.h"
 
 class AA
 {
@@ -12,6 +13,9 @@ public:
 	void Update(float deltaTime);
 	void Render(GLuint shaderID, bool wireframeMode, float glassAlpha, float modelScale);
 	void RenderBoundingBox(GLuint shaderID, const glm::mat4& view, const glm::mat4& proj, float modelScale);
+	
+	// 연기 파티클 렌더링 (모델과 별도로)
+	void RenderSmoke(const glm::mat4& view, const glm::mat4& proj);
 	
 	void SetPosition(const glm::vec3& pos) { position = pos; }
 	glm::vec3 GetPosition() const { return position; }
@@ -36,6 +40,7 @@ public:
 private:
 	void CalculateBoundingBox(float modelScale);
 	void InitBoundingBoxBuffers();
+	void EmitSmokeParticles(float deltaTime);
 
 	// 인스턴스 버퍼 (각 AA가 자신의 VAO/VBO/EBO 필요)
 	GLuint vaoAA, vboAA, eboAA;
@@ -45,6 +50,13 @@ private:
 	// 체력 시스템
 	float health;
 	float maxHealth;
+	
+	// 파괴 상태 및 연기 시스템
+	bool isDestroyed = false;
+	ParticleSystem* smokeSystem;
+	float smokeEmitTimer = 0.0f;
+	float smokeDuration = 0.0f; // 연기가 지속되는 시간 (무한히 나오도록 설정)
+	const float smokeEmitInterval = 0.05f; // 연기 방출 간격
 
 	// 바운딩 박스 데이터
 	glm::vec3 boundingBoxMin;

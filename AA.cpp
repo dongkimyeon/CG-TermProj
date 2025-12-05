@@ -17,7 +17,14 @@ AA::AA()
 	, cachedModelScale(-1.0f)
 	, health(100.0f)
 	, maxHealth(100.0f)
+	, isDestroyed(false)
+	, smokeSystem(nullptr)
+	, smokeEmitTimer(0.0f)
+	, smokeDuration(0.0f)
 {
+	// 연기 파티클 시스템 초기화
+	smokeSystem = new ParticleSystem(1000); // 최대 1000개의 파티클
+	smokeSystem->initialize();
 }
 
 AA::~AA()
@@ -30,6 +37,12 @@ AA::~AA()
 	// 바운딩 박스 버퍼 정리
 	if (boundingBoxVBO != 0) glDeleteBuffers(1, &boundingBoxVBO);
 	if (boundingBoxVAO != 0) glDeleteVertexArrays(1, &boundingBoxVAO);
+	
+	// 연기 파티클 시스템 정리
+	if (smokeSystem) {
+		delete smokeSystem;
+		smokeSystem = nullptr;
+	}
 }
 
 void AA::Initialize()
@@ -249,11 +262,6 @@ void AA::Render(GLuint shaderID, bool wireframeMode, float glassAlpha, float mod
 		return;
 	}
 	
-	// 파괴된 AA는 렌더링하지 않음
-	if (health <= 0.0f) {
-		return;
-	}
-
 	GLint modelLoc = glGetUniformLocation(shaderID, "model");
 	GLint textureLoc = glGetUniformLocation(shaderID, "textureSampler");
 	GLint normalMapLoc = glGetUniformLocation(shaderID, "normalMap");
@@ -310,7 +318,11 @@ void AA::Render(GLuint shaderID, bool wireframeMode, float glassAlpha, float mod
 
 void AA::Update(float deltaTime)
 {
-	// 업데이트 로직 추가 가능
+	// 파괴된 AA는 연기만 방출
+	if (isDestroyed && smokeSystem) {
+		EmitSmokeParticles(deltaTime);
+		smokeSystem->update(deltaTime);
+	}
 }
 
 void AA::TakeDamage(float damage)
@@ -327,7 +339,8 @@ void AA::TakeDamage(float damage)
 	
 	if (health <= 0.0f) {
 		health = 0.0f;
-		std::cout << "AA 유닛 파괴됨!" << std::endl;
+		isDestroyed = true; // 파괴 상태 설정
+		std::cout << "AA 유닛 파괴됨! 연기 방출 시작..." << std::endl;
 	}
 	else {
 		std::cout << "AA 피격! 남은 체력: " << health << "/" << maxHealth << std::endl;
@@ -371,4 +384,48 @@ bool AA::CheckSphereCollision(const glm::vec3& center, float radius, float model
 	float distanceSquared = diff.x * diff.x + diff.y * diff.y + diff.z * diff.z;
 	
 	return distanceSquared <= (radius * radius);
+}
+
+void AA::EmitSmokeParticles(float deltaTime)
+{
+	if (!smokeSystem) return;
+	
+	smokeEmitTimer += deltaTime;
+	
+	// 일정 간격으로 연기 파티클 방출
+	if (smokeEmitTimer >= smokeEmitInterval) {
+		smokeEmitTimer = 0.0f;
+		
+		// AA 위치에서 더 높은 위치에서 연기 방출 (25m 위)
+		glm::vec3 smokeOrigin = position + glm::vec3(0.0f, 25.0f, 0.0f);
+		
+		// 약간의 랜덤성을 추가하여 자연스러운 연기 효과
+		float randX = ((rand() % 200) - 100) / 100.0f * 2.0f;
+		float randZ = ((rand() % 200) - 100) / 100.0f * 2.0f;
+		smokeOrigin.x += randX;
+		smokeOrigin.z += randZ;
+		
+		// 위쪽으로 훨씬 더 빠르게 올라가는 속도
+		glm::vec3 vel(
+			((rand() % 200) - 100) / 100.0f * 1.0f, // 수평 이동 최소화
+			15.0f + ((rand() % 100) / 100.0f * 8.0f), // 15~23의 강한 수직 속도
+			((rand() % 200) - 100) / 100.0f * 1.0f
+		);
+		
+		// 진한 회색/검은색 연기
+		glm::vec4 smokeColor(0.3f, 0.3f, 0.3f, 0.9f);
+		
+		// 파티클 크기를 30% 증가
+		float particleSize = (8.0f + ((rand() % 100) / 100.0f * 4.0f)) * 1.3f;
+		float lifeTime = 8.0f + ((rand() % 100) / 100.0f * 4.0f); // 수명도 증가
+		
+		smokeSystem->emitParticle(smokeOrigin, vel, smokeColor, particleSize, lifeTime);
+	}
+}
+
+void AA::RenderSmoke(const glm::mat4& view, const glm::mat4& proj)
+{
+	if (isDestroyed && smokeSystem) {
+		smokeSystem->render(view, proj);
+	}
 }

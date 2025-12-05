@@ -442,6 +442,15 @@ GLvoid DrawScene()
 			if (aaUnits[i]) aaUnits[i]->Render(shaderProgramID, wireframeMode, 1.0f, modelScale);
 	}
 	
+	// AA Units Update (for smoke particles)
+	if (aaUnits) {
+		for (int i = 0; i < NUM_AA_UNITS; ++i) {
+			if (aaUnits[i]) {
+				aaUnits[i]->Update(Time::DeltaTime());
+			}
+		}
+	}
+	
 	// AA 바운딩 박스 렌더링 (최적화: 한 번에 셰이더 설정)
 	if (showAABoundingBoxes && aaUnits) {
 		glDisable(GL_DEPTH_TEST);
@@ -469,6 +478,16 @@ GLvoid DrawScene()
 		helicopter->RenderMissiles(shaderProgramID, view, proj);
 		helicopter->RenderCannonBullets(view, proj);
 	}
+	
+	// AA 연기 파티클 렌더링 (파괴된 AA 유닛들의 연기)
+	if (aaUnits) {
+		for (int i = 0; i < NUM_AA_UNITS; ++i) {
+			if (aaUnits[i]) {
+				aaUnits[i]->RenderSmoke(view, proj);
+			}
+		}
+	}
+	
 	RenderPersistentParticles(view, proj);
 	glDepthMask(GL_TRUE);
 
