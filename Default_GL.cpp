@@ -137,6 +137,8 @@ float lightIntensity = 3.0f;
 float ambientStrength = 0.2f;
 float specularStrength = 1.0f;
 
+
+bool helicopterInGround = true;
 int main(int argc, char** argv) {
 	glutInit(&argc, argv);
 
@@ -569,6 +571,20 @@ void UpdatePlayScene()
 				aaUnits[i]->Update(Time::DeltaTime());
 			}
 		}
+	}
+
+	//헬기 맵 벗어나면 플래그 활성화
+	if (helicopter) {
+		glm::vec3 heliPos = helicopter->GetPosition();
+		float groundWidth = mGround->GetWorldSize().x;
+		if (heliPos.x < -groundWidth || heliPos.x > groundWidth || heliPos.z < -groundWidth || heliPos.z > groundWidth) {
+			helicopterInGround = false;
+			//std::cout << "헬기 맵 벗어남" << std::endl;
+		}
+		else {
+			helicopterInGround = true;
+		}
+	
 	}
 }
 
