@@ -13,6 +13,15 @@
 #include "ParticleManager.h"
 #include <random>
 
+enum SceneType {
+	TITLE_SCENE,
+	PLAY_SCENE,
+	END_SCENE
+};
+
+// 현재 씬
+SceneType currentScene = TITLE_SCENE;
+
 // 함수 선언
 void InitBuffers();
 GLvoid DrawScene();
@@ -23,8 +32,21 @@ int main(int argc, char** argv);
 void WhellFunc(int whell, int dir, int x, int y);
 void Motion(int x, int y);
 void Timer(int value);
+
+// 씬별 함수
+void InitTitleScene();
+void UpdateTitleScene();
+void RenderTitleScene();
+void CleanupTitleScene();
+
+void InitPlayScene();
+void UpdatePlayScene();
+void RenderPlayScene();
+void CleanupPlayScene();
 void InitializeAAUnits();
-void RenderShadowPass(const glm::mat4& lightSpaceMatrix);  // 추가
+void RenderShadowPass(const glm::mat4& lightSpaceMatrix);
+
+void ChangeScene(SceneType newScene);
 
 // 전역 변수
 GLint width = 1280, height = 720;
@@ -47,12 +69,17 @@ GLuint rbo;
 GLuint quadVAO, quadVBO;
 bool enableNightVision = false;
 
-// 객체
+// 타이틀 씬 변수
+GLuint titleTextureID = 0;
+GLuint titleVAO = 0, titleVBO = 0;
+float titleAlpha = 0.0f;
+bool titleFadingIn = true;
+
+// 플레이 씬 객체
 Camera* camera = nullptr;
 Helicopter* helicopter = nullptr;
 AA** aaUnits = nullptr;
 const int NUM_AA_UNITS = 30;
-
 Ground* mGround = nullptr;
 
 // 마우스 입력
@@ -61,8 +88,8 @@ int lastMouseX = 0;
 int lastMouseY = 0;
 
 // 좌클릭(기관포 지속 발사) 관련
-int lastCannonFireTimeMs = 0; // 마지막 발사 시각(밀리초)
-const int CANNON_FIRE_INTERVAL_MS = 100; //0.3초
+int lastCannonFireTimeMs = 0;
+const int CANNON_FIRE_INTERVAL_MS = 100;
 
 //imgui 관련 변수
 float modelScale = 0.1f;
@@ -71,7 +98,7 @@ bool wireframeMode = false;
 float glassAlpha = 0.5f;
 float crosshairSize = 22.0f;
 float crosshairDistance = 315.0f;
-bool showAABoundingBoxes = false; // 바운딩 박스 표시 여부 (초기값: 꺼짐)
+bool showAABoundingBoxes = false;
 
 //디버그 회전 
 float xModelRotation = 0.0f;
@@ -85,19 +112,17 @@ GLuint depthMapFBO;
 GLuint depthMap;
 const unsigned int SHADOW_WIDTH = 4096, SHADOW_HEIGHT = 4096;
 
-// 라이트 설정 추가
+// 라이트 설정
 glm::vec3 lightPosition = glm::vec3(0.0f, 1000.0f, 0.0f);
 glm::vec3 lightDirection = glm::vec3(-0.5f, -1.0f, -0.5f);
 bool enableShadows = true;
-float sunRotationSpeed = 10.0f; // 태양 회전 속도 (도/초)
-bool rotateSun = true; // 태양 자동 회전 여부
+float sunRotationSpeed = 10.0f;
+bool rotateSun = true;
+float lightIntensity = 3.0f;
+float ambientStrength = 0.2f;
+float specularStrength = 1.0f;
 
-
-float lightIntensity = 3.0f;        // 광원 강도 (1.0 = 기본, 높을수록 밝음)
-float ambientStrength = 0.2f;       // 주변광 강도
-float specularStrength = 1.0f;      // 반사광 강도
-
-int main(int argc, char** argv) { 
+int main(int argc, char** argv) {
 	glutInit(&argc, argv);
 
 	glutInitContextVersion(3, 3);
@@ -127,7 +152,7 @@ int main(int argc, char** argv) {
 	// SoundManager 초기화
 	SoundManager::GetInstance()->Initialize();
 
-	// 셰이더 생성
+	// 공통 셰이더 생성
 	shaderProgramID = ShaderManager::CreateShaderProgram("vertex3D.glsl", "fragment.glsl");
 	if (shaderProgramID == 0) {
 		std::cerr << "셰이더 프로그램 생성 실패" << std::endl;
@@ -140,21 +165,182 @@ int main(int argc, char** argv) {
 		return -1;
 	}
 
-	// Shadow 셰이더 생성
 	shadowShaderID = ShaderManager::CreateShaderProgram("shadow_vertex.glsl", "shadow_fragment.glsl");
 	if (shadowShaderID == 0) {
 		std::cerr << "그림자 셰이더 프로그램 생성 실패" << std::endl;
 		return -1;
 	}
 
+	postprocessShaderID = ShaderManager::CreateShaderProgram("postprocess_vertex.glsl", "postprocess_fragment.glsl");
+	if (postprocessShaderID == 0) {
+		std::cerr << "후처리 셰이더 프로그램 생성 실패" << std::endl;
+		return -1;
+	}
+
+	crosshairShaderProgramID = ShaderManager::CreateShaderProgram("crosshair_vertex.glsl", "crosshair_fragment.glsl");
+	if (crosshairShaderProgramID == 0) {
+		std::cerr << "크로스헤어 셰이더 로드 실패" << std::endl;
+	}
+
+	InitBuffers();
+	Time::Initialize();
+
+	// 타이틀 씬 초기화
+	InitTitleScene();
+
+	glutDisplayFunc(DrawScene);
+	glutReshapeFunc(Reshape);
+	glutTimerFunc(targetFrameDelay, Timer, 0);
+	glutMouseFunc(Mouse);
+	glutMotionFunc(Motion);
+	glutSpecialFunc(SpecialKeyboard);
+	glutMouseWheelFunc(WhellFunc);
+
+	glutMainLoop();
+
+	// 정리
+	CleanupTitleScene();
+	CleanupPlayScene();
+
+	return 0;
+}
+
+// ============ 타이틀 씬 ============
+void InitTitleScene()
+{
+	std::cout << "=== 타이틀 씬 초기화 ===" << std::endl;
+
+	// 타이틀 화면용 쿼드 버퍼 생성
+	float titleQuadVertices[] = {
+		-1.0f,  1.0f, 0.0f, 1.0f,
+		-1.0f, -1.0f, 0.0f, 0.0f,
+		 1.0f, -1.0f, 1.0f, 0.0f,
+		-1.0f,  1.0f, 0.0f, 1.0f,
+		 1.0f, -1.0f, 1.0f, 0.0f,
+		 1.0f,  1.0f, 1.0f, 1.0f
+	};
+
+	glGenVertexArrays(1, &titleVAO);
+	glGenBuffers(1, &titleVBO);
+	glBindVertexArray(titleVAO);
+	glBindBuffer(GL_ARRAY_BUFFER, titleVBO);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(titleQuadVertices), titleQuadVertices, GL_STATIC_DRAW);
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
+	glEnableVertexAttribArray(1);
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
+	glBindVertexArray(0);
+
+	// 타이틀 텍스처 로드 (필요시)
+	// titleTextureID = Texture::LoadTexture("title_background.png");
+
+	titleAlpha = 0.0f;
+	titleFadingIn = true;
+}
+
+void UpdateTitleScene()
+{
+	// 페이드 인 효과
+	if (titleFadingIn) {
+		titleAlpha += Time::DeltaTime() * 0.5f;
+		if (titleAlpha >= 1.0f) {
+			titleAlpha = 1.0f;
+			titleFadingIn = false;
+		}
+	}
+
+	// Enter 키로 플레이 씬으로 전환
+	if (Input::GetKeyDown(eKeyCode::SPACE)) {
+		ChangeScene(PLAY_SCENE);
+	}
+}
+
+void RenderTitleScene()
+{
+	glClearColor(0.1f, 0.1f, 0.15f, 1.0f);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	glDisable(GL_DEPTH_TEST);
+
+	// 타이틀 화면 렌더링 (단순 배경색 + 텍스트)
+	glUseProgram(postprocessShaderID);
+	glBindVertexArray(titleVAO);
+
+	if (titleTextureID != 0) {
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, titleTextureID);
+	}
+
+	glUniform1i(glGetUniformLocation(postprocessShaderID, "enableNightVision"), 0);
+	glUniform1i(glGetUniformLocation(postprocessShaderID, "gunnerview"), 0);
+	glDrawArrays(GL_TRIANGLES, 0, 6);
+
+	// ImGui로 타이틀 텍스트 표시
+	ImGui_ImplOpenGL3_NewFrame();
+	ImGui_ImplGLUT_NewFrame();
+	ImGui::NewFrame();
+
+	ImGui::SetNextWindowPos(ImVec2(width * 0.5f, height * 0.3f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+	ImGui::SetNextWindowBgAlpha(0.0f);
+	ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0, 0, 0, 0));
+	ImGui::Begin("Title", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_AlwaysAutoResize);
+
+	ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, titleAlpha));
+	ImGui::SetWindowFontScale(3.0f);
+	ImGui::Text("HELICOPTER SIMULATOR");
+	ImGui::SetWindowFontScale(1.0f);
+	ImGui::PopStyleColor();
+
+	ImGui::End();
+	ImGui::PopStyleColor();
+
+	// Press Enter 메시지
+	if (titleAlpha >= 1.0f) {
+		ImGui::SetNextWindowPos(ImVec2(width * 0.5f, height * 0.7f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+		ImGui::SetNextWindowBgAlpha(0.0f);
+		ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0, 0, 0, 0));
+		ImGui::Begin("PressEnter", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_AlwaysAutoResize);
+
+		float blinkAlpha = (sin((float)glutGet(GLUT_ELAPSED_TIME) * 0.003f) + 1.0f) * 0.5f;
+		ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 0.0f, blinkAlpha));
+		ImGui::SetWindowFontScale(1.5f);
+		ImGui::Text("PRESS ENTER TO START");
+		ImGui::SetWindowFontScale(1.0f);
+		ImGui::PopStyleColor();
+
+		ImGui::End();
+		ImGui::PopStyleColor();
+	}
+
+	ImGui::Render();
+	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+}
+
+void CleanupTitleScene()
+{
+	if (titleVAO != 0) {
+		glDeleteVertexArrays(1, &titleVAO);
+		titleVAO = 0;
+	}
+	if (titleVBO != 0) {
+		glDeleteBuffers(1, &titleVBO);
+		titleVBO = 0;
+	}
+	if (titleTextureID != 0) {
+		glDeleteTextures(1, &titleTextureID);
+		titleTextureID = 0;
+	}
+}
+
+// ============ 플레이 씬 ============
+void InitPlayScene()
+{
+	std::cout << "=== 플레이 씬 초기화 ===" << std::endl;
+
 	// Depth map FBO 생성
 	glGenFramebuffers(1, &depthMapFBO);
-
-	// Depth texture 생성
 	glGenTextures(1, &depthMap);
 	glBindTexture(GL_TEXTURE_2D, depthMap);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT,
-		SHADOW_WIDTH, SHADOW_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, SHADOW_WIDTH, SHADOW_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
@@ -162,27 +348,11 @@ int main(int argc, char** argv) {
 	float borderColor[] = { 1.0f, 1.0f, 1.0f, 1.0f };
 	glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
 
-	// FBO에 depth texture 연결
 	glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthMap, 0);
 	glDrawBuffer(GL_NONE);
 	glReadBuffer(GL_NONE);
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-	// 후처리 셰이더 생성
-	postprocessShaderID = ShaderManager::CreateShaderProgram("postprocess_vertex.glsl", "postprocess_fragment.glsl");
-	if (postprocessShaderID == 0) {
-		std::cerr << "후처리 셰이더 프로그램 생성 실패" << std::endl;
-		return -1;
-	}
-
-	crosshairShaderProgramID = ShaderManager::CreateShaderProgram(
-		"crosshair_vertex.glsl", "crosshair_fragment.glsl");
-	if (crosshairShaderProgramID == 0) {
-		std::cerr << "크로스헤어 셰이더 로드 실패" << std::endl;
-	}
-
-	InitBuffers();
 
 	// 카메라 초기화
 	camera = new Camera();
@@ -196,103 +366,33 @@ int main(int argc, char** argv) {
 	// 땅 초기화
 	mGround = new Ground();
 	mGround->Initialize();
-
-	// 헬리콥터에 지형 참조 설정
 	helicopter->SetGround(mGround);
 
-	// AA 유닛 초기화 (10대)
+	// AA 유닛 초기화
 	InitializeAAUnits();
 
 	// 스카이박스 큐브맵 로드
 	std::vector<std::string> faces = {
-	"SkyBox-Texture/px.png",
-	"SkyBox-Texture/nx.png",
-	"SkyBox-Texture/py.png",
-	"SkyBox-Texture/ny.png",
-	"SkyBox-Texture/pz.png",
-	"SkyBox-Texture/nz.png"
+		"SkyBox-Texture/px.png",
+		"SkyBox-Texture/nx.png",
+		"SkyBox-Texture/py.png",
+		"SkyBox-Texture/ny.png",
+		"SkyBox-Texture/pz.png",
+		"SkyBox-Texture/nz.png"
 	};
 	cubemapTexture = ShaderManager::LoadCubemap(faces);
 	if (cubemapTexture == 0) {
 		std::cerr << "스카이박스 큐브맵 로드 실패" << std::endl;
 	}
 
-	Time::Initialize();
-
 	SoundManager::GetInstance()->mPlaySound("Helicopter", true);
-
-	// Ensure persistent particle system exists for sharing trails from short-lived systems
 	EnsurePersistentParticles();
 
-	glutDisplayFunc(DrawScene);
-	glutReshapeFunc(Reshape);
-	glutTimerFunc(targetFrameDelay, Timer, 0);
-	glutMouseFunc(Mouse);
-	glutMotionFunc(Motion);
-	glutSpecialFunc(SpecialKeyboard);
-	glutMouseWheelFunc(WhellFunc);
-
-	glutMainLoop();
-
-	// 정리
-	delete camera;
-	delete helicopter;
-	delete mGround;
-
-	if (aaUnits) {
-		for (int i = 0; i < NUM_AA_UNITS; ++i) {
-			delete aaUnits[i];
-		}
-		delete[] aaUnits;
-
-		// 공유 모델 정리
-		AA::CleanupSharedModel();
-	}
-
-
-
-	return 0;
+	std::cout << "=== 플레이 씬 초기화 완료 ===" << std::endl;
 }
 
-void WhellFunc(int wheel, int dir, int x, int y)
+void UpdatePlayScene()
 {
-	if (camera) {
-		camera->Zoom(dir);
-		glutPostRedisplay(); // 화면 갱신
-	}
-}
-
-// 그림자 패스 렌더링 함수
-void RenderShadowPass(const glm::mat4& lightSpaceMatrix)
-{
-	glUseProgram(shadowShaderID);
-	glUniformMatrix4fv(glGetUniformLocation(shadowShaderID, "lightSpaceMatrix"), 1, GL_FALSE, glm::value_ptr(lightSpaceMatrix));
-
-	// Ground 렌더링 (model 매트릭스를 명시적으로 설정)
-	if (mGround) {
-		glm::mat4 groundModel = glm::mat4(1.0f);
-		glUniformMatrix4fv(glGetUniformLocation(shadowShaderID, "model"), 1, GL_FALSE, glm::value_ptr(groundModel));
-		mGround->Render(shadowShaderID, glm::mat4(1.0f), glm::mat4(1.0f));
-	}
-
-	// Helicopter 렌더링
-	if (helicopter) {
-		helicopter->Render(shadowShaderID, false, 1.0f, modelScale);
-	}
-
-	// AA Units 렌더링
-	if (aaUnits) {
-		for (int i = 0; i < NUM_AA_UNITS; ++i) {
-			if (aaUnits[i]) {
-				aaUnits[i]->Render(shadowShaderID, false, 1.0f, modelScale);
-			}
-		}
-	}
-}
-
-GLvoid DrawScene()
-{
-	Time::Update();
 	UpdatePersistentParticles(Time::DeltaTime());
 
 	// 태양 회전 업데이트
@@ -313,55 +413,53 @@ GLvoid DrawScene()
 			helicopter->GetRoll(),
 			helicopter->GetCannonWorldPosition());
 	}
-	
+
 	// AA 충돌 검사
 	if (helicopter && aaUnits) {
 		helicopter->CheckAACollisions(aaUnits, NUM_AA_UNITS, modelScale);
 	}
 
-	// ===================== 0. 그림자 패스 (Light Space에서 Depth Map 생성) =====================
+	// AA Units Update
+	if (aaUnits) {
+		for (int i = 0; i < NUM_AA_UNITS; ++i) {
+			if (aaUnits[i]) {
+				aaUnits[i]->Update(Time::DeltaTime());
+			}
+		}
+	}
+}
+
+void RenderPlayScene()
+{
+	// ===================== 0. 그림자 패스 =====================
 	glm::mat4 lightSpaceMatrix;
 
 	if (enableShadows) {
-		// 방향광원을 위한 Orthographic Projection 사용
-		float orthoSize = 1500.0f;  // 그림자 범위
+		float orthoSize = 1500.0f;
 		float nearPlane = 100.0f;
 		float farPlane = 3000.0f;
 
-		glm::mat4 lightProjection = glm::ortho(
-			-orthoSize, orthoSize,
-			-orthoSize, orthoSize,
-			nearPlane, farPlane
-		);
-
-		// 헬리콥터 위치를 중심으로 광원 설정
+		glm::mat4 lightProjection = glm::ortho(-orthoSize, orthoSize, -orthoSize, orthoSize, nearPlane, farPlane);
 		glm::vec3 heliPos = helicopter ? helicopter->GetPosition() : glm::vec3(0.0f);
-
-		// 방향광원은 헬리콥터를 따라가며 빛의 방향을 유지
 		glm::vec3 normalizedLightDir = glm::normalize(lightDirection);
 		glm::vec3 lightPos = heliPos - normalizedLightDir * (nearPlane + farPlane) * 0.5f;
 		glm::vec3 lightTarget = heliPos;
 
-		// 라이트 뷰 매트릭스 (방향광원은 위치가 무한대이지만 편의상 먼 거리에 배치)
 		glm::mat4 lightView = glm::lookAt(lightPos, lightTarget, glm::vec3(0.0f, 1.0f, 0.0f));
 		lightSpaceMatrix = lightProjection * lightView;
 
-		// Depth map FBO에 바인딩
 		glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
 		glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
 		glClear(GL_DEPTH_BUFFER_BIT);
-
-		// 그림자 생성 렌더링
 		glEnable(GL_DEPTH_TEST);
-		glCullFace(GL_FRONT); // Peter panning 방지
+		glCullFace(GL_FRONT);
 		RenderShadowPass(lightSpaceMatrix);
 		glCullFace(GL_BACK);
-
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 		glViewport(0, 0, width, height);
 	}
 
-	// ===================== 1. 오프스크린 프레임버퍼에 3D 씬 전체 그리기 =====================
+	// ===================== 1. 오프스크린 프레임버퍼에 3D 씬 그리기 =====================
 	glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_CULL_FACE);
@@ -372,7 +470,7 @@ GLvoid DrawScene()
 	glm::mat4 view = camera->GetViewMatrix();
 	glm::mat4 proj = camera->GetProjectionMatrix((float)width / (float)height);
 
-	// --- 1-1. 스카이박스 (깊이 함수 LEQUAL, 깊이 쓰기 비활성화) ---
+	// 스카이박스
 	glDepthFunc(GL_LEQUAL);
 	glDepthMask(GL_FALSE);
 	glUseProgram(skyboxShaderProgramID);
@@ -388,42 +486,29 @@ GLvoid DrawScene()
 	glDepthFunc(GL_LESS);
 	glDepthMask(GL_TRUE);
 
-
-
-	// DrawScene() 함수의 광원 설정 부분 (약 380번째 줄)
-
-	// --- 1-2. 기본 3D 객체들 ---
+	// 기본 3D 객체들
 	glUseProgram(shaderProgramID);
 	glUniformMatrix4fv(glGetUniformLocation(shaderProgramID, "view"), 1, GL_FALSE, glm::value_ptr(view));
 	glUniformMatrix4fv(glGetUniformLocation(shaderProgramID, "proj"), 1, GL_FALSE, glm::value_ptr(proj));
 	glUniform3fv(glGetUniformLocation(shaderProgramID, "eyePos"), 1, glm::value_ptr(camera->GetPosition()));
 
-	// 태양 광원 설정 (강한 빛)
 	glm::vec3 spotLightPos = lightPosition;
 	glm::vec3 normalizedLightDir = glm::normalize(lightDirection);
-
 	glUniform3fv(glGetUniformLocation(shaderProgramID, "lightPos"), 1, glm::value_ptr(spotLightPos));
 	glUniform3fv(glGetUniformLocation(shaderProgramID, "lightDir"), 1, glm::value_ptr(normalizedLightDir));
 
-	// 강한 태양빛 색상 (intensity 적용)
-	glm::vec3 sunColor = glm::vec3(1.0f, 0.98f, 0.9f) * lightIntensity;  // 약간 따뜻한 색조
+	glm::vec3 sunColor = glm::vec3(1.0f, 0.98f, 0.9f) * lightIntensity;
 	glUniform3fv(glGetUniformLocation(shaderProgramID, "lightColor"), 1, glm::value_ptr(sunColor));
-
-	// 감쇠 파라미터 - 태양처럼 넓은 범위 조명
 	glUniform1f(glGetUniformLocation(shaderProgramID, "lightConstant"), 1.0f);
-	glUniform1f(glGetUniformLocation(shaderProgramID, "lightLinear"), 0.00007f);      // 매우 작은 감쇠
-	glUniform1f(glGetUniformLocation(shaderProgramID, "lightQuadratic"), 0.000001f);  // 매우 작은 감쇠
-
-	// 스포트라이트 각도 - 넓은 범위
-	glUniform1f(glGetUniformLocation(shaderProgramID, "spotCutoff"), glm::cos(glm::radians(60.0f)));        // 내부 각도
-	glUniform1f(glGetUniformLocation(shaderProgramID, "spotOuterCutoff"), glm::cos(glm::radians(75.0f)));   // 외부 각도
-
+	glUniform1f(glGetUniformLocation(shaderProgramID, "lightLinear"), 0.00007f);
+	glUniform1f(glGetUniformLocation(shaderProgramID, "lightQuadratic"), 0.000001f);
+	glUniform1f(glGetUniformLocation(shaderProgramID, "spotCutoff"), glm::cos(glm::radians(60.0f)));
+	glUniform1f(glGetUniformLocation(shaderProgramID, "spotOuterCutoff"), glm::cos(glm::radians(75.0f)));
 	glUniform1f(glGetUniformLocation(shaderProgramID, "ambientStrength"), ambientStrength);
 	glUniform1f(glGetUniformLocation(shaderProgramID, "specularStrength"), specularStrength);
 	glUniform1f(glGetUniformLocation(shaderProgramID, "shininess"), 32.0f);
 	glUniform1f(glGetUniformLocation(shaderProgramID, "useTexture"), 1.0f);
 
-	// 그림자맵 전달
 	if (enableShadows) {
 		glUniformMatrix4fv(glGetUniformLocation(shaderProgramID, "lightSpaceMatrix"), 1, GL_FALSE, glm::value_ptr(lightSpaceMatrix));
 		glActiveTexture(GL_TEXTURE2);
@@ -431,7 +516,6 @@ GLvoid DrawScene()
 		glUniform1i(glGetUniformLocation(shaderProgramID, "shadowMap"), 2);
 	}
 
-	// 불투명 객체들 먼저 (깊이 쓰기 ON, 블렌딩 OFF)
 	glDisable(GL_BLEND);
 	if (mGround) mGround->Render(shaderProgramID, view, proj);
 	glEnable(GL_BLEND);
@@ -441,27 +525,14 @@ GLvoid DrawScene()
 		for (int i = 0; i < NUM_AA_UNITS; ++i)
 			if (aaUnits[i]) aaUnits[i]->Render(shaderProgramID, wireframeMode, 1.0f, modelScale);
 	}
-	
-	// AA Units Update (for smoke particles)
-	if (aaUnits) {
-		for (int i = 0; i < NUM_AA_UNITS; ++i) {
-			if (aaUnits[i]) {
-				aaUnits[i]->Update(Time::DeltaTime());
-			}
-		}
-	}
-	
-	// AA 바운딩 박스 렌더링 (최적화: 한 번에 셰이더 설정)
+
+	// AA 바운딩 박스
 	if (showAABoundingBoxes && aaUnits) {
 		glDisable(GL_DEPTH_TEST);
 		glUseProgram(crosshairShaderProgramID);
-		
-		// 공통 유니폼 한 번만 설정
 		glUniformMatrix4fv(glGetUniformLocation(crosshairShaderProgramID, "view"), 1, GL_FALSE, glm::value_ptr(view));
 		glUniformMatrix4fv(glGetUniformLocation(crosshairShaderProgramID, "proj"), 1, GL_FALSE, glm::value_ptr(proj));
 		glUniform3f(glGetUniformLocation(crosshairShaderProgramID, "crosshairColor"), 1.0f, 0.0f, 0.0f);
-		
-		// 각 AA 유닛 렌더링 (모델 매트릭스만 변경)
 		for (int i = 0; i < NUM_AA_UNITS; ++i) {
 			if (aaUnits[i]) {
 				aaUnits[i]->RenderBoundingBox(crosshairShaderProgramID, view, proj, modelScale);
@@ -469,8 +540,8 @@ GLvoid DrawScene()
 		}
 		glEnable(GL_DEPTH_TEST);
 	}
-	
-	// 반투명/파티클은 나중에
+
+	// 반투명/파티클
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glDepthMask(GL_FALSE);
@@ -478,8 +549,6 @@ GLvoid DrawScene()
 		helicopter->RenderMissiles(shaderProgramID, view, proj);
 		helicopter->RenderCannonBullets(view, proj);
 	}
-	
-	// AA 연기 파티클 렌더링 (파괴된 AA 유닛들의 연기)
 	if (aaUnits) {
 		for (int i = 0; i < NUM_AA_UNITS; ++i) {
 			if (aaUnits[i]) {
@@ -487,17 +556,15 @@ GLvoid DrawScene()
 			}
 		}
 	}
-	
 	RenderPersistentParticles(view, proj);
 	glDepthMask(GL_TRUE);
 
-	// --- 1-3. 3D 크로스헤어 (Gunner/Cockpit 모드에서만, 프레임버퍼에 그려야 함) ---
+	// 3D 크로스헤어
 	if (camera && (camera->GetCameraMode() == 0 || camera->GetCameraMode() == 1) && helicopter) {
 		glDisable(GL_DEPTH_TEST);
 		glEnable(GL_BLEND);
 		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-		// 헬리콥터 방향 기준으로 3D 공간에 십자선 그림
 		glm::vec3 heliPos = helicopter->GetPosition();
 		float yaw = helicopter->GetYaw();
 		float pitch = helicopter->GetPitch();
@@ -544,7 +611,7 @@ GLvoid DrawScene()
 		glEnable(GL_DEPTH_TEST);
 	}
 
-	// ===================== 2. 기본 프레임버퍼로 전환 → 후처리 =====================
+	// ===================== 2. 후처리 =====================
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	glDisable(GL_DEPTH_TEST);
 	glClear(GL_COLOR_BUFFER_BIT);
@@ -569,11 +636,7 @@ GLvoid DrawScene()
 	ImGui_ImplGLUT_NewFrame();
 	ImGui::NewFrame();
 
-	ImGui::SetNextWindowPos(
-		ImVec2((float)width - 10.0f, 10.0f),  // 오른쪽 위에서 약간 안쪽
-		ImGuiCond_FirstUseEver,
-		ImVec2(1.0f, 0.0f)   // pivot은 유지 (오른쪽 위 기준)
-	);
+	ImGui::SetNextWindowPos(ImVec2((float)width - 10.0f, 10.0f), ImGuiCond_FirstUseEver, ImVec2(1.0f, 0.0f));
 	ImGui::SetNextWindowSize(ImVec2(250, 150), ImGuiCond_FirstUseEver);
 
 	ImGui::Begin("Debug Controls");
@@ -581,7 +644,6 @@ GLvoid DrawScene()
 	float fps = 1.0f / Time::DeltaTime();
 	ImGui::Text("FPS: %.1f", fps);
 
-	// 카메라 정보
 	if (camera) {
 		ImGui::Separator();
 		ImGui::Text("Camera");
@@ -590,29 +652,22 @@ GLvoid DrawScene()
 		ImGui::Separator();
 	}
 
-	// Ground HeightMap Control
 	if (mGround) {
 		ImGui::Separator();
 		ImGui::Text("Terrain Controls");
-
 		if (ImGui::SliderFloat("Height Scale", &currentScale, 0.0f, 1000.0f)) {
 			mGround->ControlHeightmap(currentScale);
 		}
 		ImGui::Separator();
 	}
 
-	// ImGui UI 부분에 라이트 컨트롤 추가 (약 540번째 줄, Shadow Controls 섹션 수정)
-
-	// Shadow & Light Controls
 	ImGui::Separator();
 	ImGui::Text("Light & Shadow Settings");
 	ImGui::Checkbox("Enable Shadows", &enableShadows);
-	
-	// 광원 강도 조절
 	ImGui::SliderFloat("Light Intensity", &lightIntensity, 0.5f, 10.0f);
 	ImGui::SliderFloat("Ambient Strength", &ambientStrength, 0.0f, 1.0f);
 	ImGui::SliderFloat("Specular Strength", &specularStrength, 0.0f, 2.0f);
-	
+
 	if (enableShadows) {
 		ImGui::Checkbox("Rotate Sun", &rotateSun);
 		ImGui::SliderFloat("Sun Speed", &sunRotationSpeed, 1.0f, 50.0f);
@@ -631,31 +686,24 @@ GLvoid DrawScene()
 		ImGui::Separator();
 		ImGui::Text("Pitch: %.1f", helicopter->GetPitch());
 		ImGui::Text("Roll: %.1f", helicopter->GetRoll());
-
 		ImGui::Separator();
-
 		ImGui::SliderFloat("Model RotationX", &xModelRotation, -180.0f, 180.0f);
 		ImGui::SliderFloat("Model RotationY", &yModelRotation, -180.0f, 180.0f);
 		ImGui::SliderFloat("Model RotationZ", &zModelRotation, -180.0f, 180.0f);
 		helicopter->SetDebugRotation(xModelRotation, yModelRotation, zModelRotation);
 		ImGui::Separator();
-
 		ImGui::SliderFloat("Max Speed", &helicopter->GetMaxSpeed(), 10.0f, 200.0f);
 		ImGui::SliderFloat("Acceleration", &helicopter->GetAccelerationRate(), 10.0f, 100.0f);
 		ImGui::SliderFloat("Max Tilt", &helicopter->GetMaxTiltAngle(), 10.0f, 60.0f);
 		ImGui::Separator();
 	}
 
-	// 카메라 모드 전환
 	if (camera) {
 		ImGui::Separator();
 		ImGui::Text("Camera");
-
 		const char* modes[] = { "3rd Person", "Cockpit View", "Gunner View" };
 		int currentMode = camera->GetCameraMode();
-
 		if (ImGui::Combo("View Mode", &currentMode, modes, IM_ARRAYSIZE(modes))) {
-			// 거너 뷰에서 다른 모드로 전환할 때 기관포 각도 리셋
 			if (camera->GetCameraMode() == 2 && currentMode != 2 && helicopter) {
 				helicopter->SetCannonYaw(0.0f);
 				helicopter->SetCannonPitch(0.0f);
@@ -663,12 +711,10 @@ GLvoid DrawScene()
 			camera->SetCameraMode(currentMode);
 		}
 
-		// Gunner View 모드일 때만 오프셋 조정 가능
 		if (currentMode == 2) {
 			ImGui::Separator();
 			ImGui::Text("Gunner Offset");
 			glm::vec3& offset = camera->GetGunnerOffset();
-
 			if (ImGui::SliderFloat("Forward/Back", &offset.x, -50.0f, 50.0f)) {
 				camera->SetGunnerOffset(offset);
 			}
@@ -679,27 +725,22 @@ GLvoid DrawScene()
 				camera->SetGunnerOffset(offset);
 			}
 		}
-
 		ImGui::Separator();
 	}
 
 	ImGui::DragFloat("crosshair size", &crosshairSize, 0.1f, 1.0f, 100.0f);
 	ImGui::DragFloat("crosshair distance", &crosshairDistance, 1.0f, -200.0f, 400.0f);
 	ImGui::Separator();
-	
-	// AA 바운딩 박스 토글
+
 	ImGui::Text("AA Debug");
 	ImGui::Checkbox("Show AA Bounding Boxes", &showAABoundingBoxes);
 	ImGui::Separator();
 
-	if (ImGui::Button("wired frame"))
-	{
+	if (ImGui::Button("wired frame")) {
 		wireframeMode = !wireframeMode;
 	}
-
 	ImGui::Separator();
 
-	// 야간투시 토글 (거너뷰일 때만 활성화)
 	if (camera && camera->GetCameraMode() == 2) {
 		ImGui::Text("Night Vision (Gunner View)");
 		if (ImGui::Checkbox("Enable Night Vision", &enableNightVision)) {
@@ -714,17 +755,118 @@ GLvoid DrawScene()
 
 	ImGui::Render();
 	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+}
+
+void CleanupPlayScene()
+{
+	delete camera;
+	camera = nullptr;
+
+	delete helicopter;
+	helicopter = nullptr;
+
+	delete mGround;
+	mGround = nullptr;
+
+	if (aaUnits) {
+		for (int i = 0; i < NUM_AA_UNITS; ++i) {
+			delete aaUnits[i];
+		}
+		delete[] aaUnits;
+		aaUnits = nullptr;
+		AA::CleanupSharedModel();
+	}
+
+	if (depthMapFBO != 0) {
+		glDeleteFramebuffers(1, &depthMapFBO);
+		depthMapFBO = 0;
+	}
+	if (depthMap != 0) {
+		glDeleteTextures(1, &depthMap);
+		depthMap = 0;
+	}
+
+	//SoundManager::GetInstance()->StopAllSounds();
+}
+
+// ============ 씬 전환 ============
+void ChangeScene(SceneType newScene)
+{
+	std::cout << "씬 전환: " << currentScene << " -> " << newScene << std::endl;
+
+	// 현재 씬 정리
+	if (currentScene == TITLE_SCENE) {
+		CleanupTitleScene();
+	}
+	else if (currentScene == PLAY_SCENE) {
+		CleanupPlayScene();
+	}
+
+	// 새 씬 초기화
+	currentScene = newScene;
+
+	if (currentScene == TITLE_SCENE) {
+		InitTitleScene();
+	}
+	else if (currentScene == PLAY_SCENE) {
+		InitPlayScene();
+	}
+}
+
+// ============ 공통 렌더링/업데이트 ============
+GLvoid DrawScene()
+{
+	Time::Update();
+
+	if (currentScene == TITLE_SCENE) {
+		UpdateTitleScene();
+		RenderTitleScene();
+	}
+	else if (currentScene == PLAY_SCENE) {
+		UpdatePlayScene();
+		RenderPlayScene();
+	}
 
 	glutSwapBuffers();
 }
 
+void WhellFunc(int wheel, int dir, int x, int y)
+{
+	if (currentScene == PLAY_SCENE && camera) {
+		camera->Zoom(dir);
+		glutPostRedisplay();
+	}
+}
+
+void RenderShadowPass(const glm::mat4& lightSpaceMatrix)
+{
+	glUseProgram(shadowShaderID);
+	glUniformMatrix4fv(glGetUniformLocation(shadowShaderID, "lightSpaceMatrix"), 1, GL_FALSE, glm::value_ptr(lightSpaceMatrix));
+
+	if (mGround) {
+		glm::mat4 groundModel = glm::mat4(1.0f);
+		glUniformMatrix4fv(glGetUniformLocation(shadowShaderID, "model"), 1, GL_FALSE, glm::value_ptr(groundModel));
+		mGround->Render(shadowShaderID, glm::mat4(1.0f), glm::mat4(1.0f));
+	}
+
+	if (helicopter) {
+		helicopter->Render(shadowShaderID, false, 1.0f, modelScale);
+	}
+
+	if (aaUnits) {
+		for (int i = 0; i < NUM_AA_UNITS; ++i) {
+			if (aaUnits[i]) {
+				aaUnits[i]->Render(shadowShaderID, false, 1.0f, modelScale);
+			}
+		}
+	}
+}
 
 void Reshape(int w, int h) {
 	glViewport(0, 0, w, h);
 	width = w;
 	height = h;
 
-	// 프레임버퍼 텍스처 크기 재조정
 	glBindTexture(GL_TEXTURE_2D, textureColorbuffer);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
 
@@ -736,7 +878,7 @@ void Reshape(int w, int h) {
 
 void SpecialKeyboard(int key, int x, int y)
 {
-	if (!helicopter) return;
+	if (currentScene != PLAY_SCENE || !helicopter) return;
 
 	glm::vec3 pos = helicopter->GetPosition();
 	switch (key)
@@ -759,72 +901,45 @@ void SpecialKeyboard(int key, int x, int y)
 void Timer(int value) {
 	Input::Update();
 
-	if (Input::GetKey(eKeyCode::ESC))
-	{
+	if (Input::GetKey(eKeyCode::ESC)) {
 		exit(0);
 	}
 
-	// F1 키로 AA 바운딩 박스 토글
-	if (Input::GetKeyDown(eKeyCode::F1))
-	{
-		showAABoundingBoxes = !showAABoundingBoxes;
-	}
-
-	if (Input::GetKeyDown(eKeyCode::F) && helicopter && camera) {
-		helicopter->FireMissileFromCamera(camera, crosshairDistance);
-	}
-
-	// 좌클릭 키다운
-	if (rightClickDown && helicopter && camera) {
-		int nowMs = glutGet(GLUT_ELAPSED_TIME);
-		if (lastCannonFireTimeMs == 0) {
-			// 초기값이0이면 즉시 발사하고 타이머 설정
-			// Calculate cannon direction in world space using cannon's yaw and pitch
-			glm::mat4 heliTransform = helicopter->GetHelicopterTransform();
-			
-			// Apply cannon rotation (yaw and pitch)
-			glm::mat4 cannonRotation = glm::mat4(1.0f);
-			cannonRotation = glm::rotate(cannonRotation, glm::radians(helicopter->GetCannonYaw()), glm::vec3(0, 1, 0));
-			cannonRotation = glm::rotate(cannonRotation, glm::radians(helicopter->GetCannonPitch()), glm::vec3(0, 0, 1));
-			
-			// Cannon's forward direction in local space
-			glm::vec3 cannonLocalForward = glm::vec3(-1, 0, 0);
-			
-			// Transform to world space
-			glm::vec3 cannonWorldForward = glm::normalize(glm::vec3(heliTransform * cannonRotation * glm::vec4(cannonLocalForward, 0.0f)));
-			
-			// Calculate target position along cannon direction
-			glm::vec3 cannonPos = helicopter->GetCannonWorldPosition();
-			glm::vec3 crosshairTarget = cannonPos + cannonWorldForward * crosshairDistance;
-
-			// Use new overload that accepts camera and target position
-			helicopter->FireCannon(camera, crosshairTarget);
-
-			// 마지막 발사 시각 초기화하여 타이머와 간격을 맞춤
-			lastCannonFireTimeMs = glutGet(GLUT_ELAPSED_TIME);
+	if (currentScene == PLAY_SCENE) {
+		if (Input::GetKeyDown(eKeyCode::F1)) {
+			showAABoundingBoxes = !showAABoundingBoxes;
 		}
-		else if (nowMs - lastCannonFireTimeMs >= CANNON_FIRE_INTERVAL_MS) {
-			// Calculate cannon direction in world space using cannon's yaw and pitch
-			glm::mat4 heliTransform = helicopter->GetHelicopterTransform();
-			
-			// Apply cannon rotation (yaw and pitch)
-			glm::mat4 cannonRotation = glm::mat4(1.0f);
-			cannonRotation = glm::rotate(cannonRotation, glm::radians(helicopter->GetCannonYaw()), glm::vec3(0, 1, 0));
-			cannonRotation = glm::rotate(cannonRotation, glm::radians(helicopter->GetCannonPitch()), glm::vec3(0, 0, 1));
-			
-			// Cannon's forward direction in local space
-			glm::vec3 cannonLocalForward = glm::vec3(-1, 0, 0);
-			
-			// Transform to world space
-			glm::vec3 cannonWorldForward = glm::normalize(glm::vec3(heliTransform * cannonRotation * glm::vec4(cannonLocalForward, 0.0f)));
-			
-			// Calculate target position along cannon direction
-			glm::vec3 cannonPos = helicopter->GetCannonWorldPosition();
-			glm::vec3 crosshairTarget = cannonPos + cannonWorldForward * crosshairDistance;
 
-			// Use new overload that accepts camera and target position
-			helicopter->FireCannon(camera, crosshairTarget);
-			lastCannonFireTimeMs = nowMs;
+		if (Input::GetKeyDown(eKeyCode::F) && helicopter && camera) {
+			helicopter->FireMissileFromCamera(camera, crosshairDistance);
+		}
+
+		if (rightClickDown && helicopter && camera) {
+			int nowMs = glutGet(GLUT_ELAPSED_TIME);
+			if (lastCannonFireTimeMs == 0) {
+				glm::mat4 heliTransform = helicopter->GetHelicopterTransform();
+				glm::mat4 cannonRotation = glm::mat4(1.0f);
+				cannonRotation = glm::rotate(cannonRotation, glm::radians(helicopter->GetCannonYaw()), glm::vec3(0, 1, 0));
+				cannonRotation = glm::rotate(cannonRotation, glm::radians(helicopter->GetCannonPitch()), glm::vec3(0, 0, 1));
+				glm::vec3 cannonLocalForward = glm::vec3(-1, 0, 0);
+				glm::vec3 cannonWorldForward = glm::normalize(glm::vec3(heliTransform * cannonRotation * glm::vec4(cannonLocalForward, 0.0f)));
+				glm::vec3 cannonPos = helicopter->GetCannonWorldPosition();
+				glm::vec3 crosshairTarget = cannonPos + cannonWorldForward * crosshairDistance;
+				helicopter->FireCannon(camera, crosshairTarget);
+				lastCannonFireTimeMs = glutGet(GLUT_ELAPSED_TIME);
+			}
+			else if (nowMs - lastCannonFireTimeMs >= CANNON_FIRE_INTERVAL_MS) {
+				glm::mat4 heliTransform = helicopter->GetHelicopterTransform();
+				glm::mat4 cannonRotation = glm::mat4(1.0f);
+				cannonRotation = glm::rotate(cannonRotation, glm::radians(helicopter->GetCannonYaw()), glm::vec3(0, 1, 0));
+				cannonRotation = glm::rotate(cannonRotation, glm::radians(helicopter->GetCannonPitch()), glm::vec3(0, 0, 1));
+				glm::vec3 cannonLocalForward = glm::vec3(-1, 0, 0);
+				glm::vec3 cannonWorldForward = glm::normalize(glm::vec3(heliTransform * cannonRotation * glm::vec4(cannonLocalForward, 0.0f)));
+				glm::vec3 cannonPos = helicopter->GetCannonWorldPosition();
+				glm::vec3 crosshairTarget = cannonPos + cannonWorldForward * crosshairDistance;
+				helicopter->FireCannon(camera, crosshairTarget);
+				lastCannonFireTimeMs = nowMs;
+			}
 		}
 	}
 
@@ -838,36 +953,23 @@ void Mouse(int button, int state, int x, int y) {
 	ImGui_ImplGLUT_MouseFunc(button, state, x, y);
 
 	ImGuiIO& io = ImGui::GetIO();
-	if (!io.WantCaptureMouse)
+	if (!io.WantCaptureMouse && currentScene == PLAY_SCENE)
 	{
 		if (button == GLUT_LEFT_BUTTON) {
 			if (state == GLUT_DOWN) {
 				rightClickDown = true;
 				lastMouseX = x;
 				lastMouseY = y;
-				// 기관포 발사
 				if (helicopter && camera) {
-					// Calculate cannon direction in world space using cannon's yaw and pitch
 					glm::mat4 heliTransform = helicopter->GetHelicopterTransform();
-					
-					// Apply cannon rotation (yaw and pitch)
 					glm::mat4 cannonRotation = glm::mat4(1.0f);
 					cannonRotation = glm::rotate(cannonRotation, glm::radians(helicopter->GetCannonYaw()), glm::vec3(0, 1, 0));
 					cannonRotation = glm::rotate(cannonRotation, glm::radians(helicopter->GetCannonPitch()), glm::vec3(0, 0, 1));
-					
-					// Cannon's forward direction in local space
 					glm::vec3 cannonLocalForward = glm::vec3(-1, 0, 0);
-					
-					// Transform to world space
 					glm::vec3 cannonWorldForward = glm::normalize(glm::vec3(heliTransform * cannonRotation * glm::vec4(cannonLocalForward, 0.0f)));
-					
-					// Calculate target position along cannon direction
 					glm::vec3 cannonPos = helicopter->GetCannonWorldPosition();
 					glm::vec3 crosshairTarget = cannonPos + cannonWorldForward * crosshairDistance;
-
-					// Use new overload that accepts camera and target position
 					helicopter->FireCannon(camera, crosshairTarget);
-
 					lastCannonFireTimeMs = glutGet(GLUT_ELAPSED_TIME);
 				}
 			}
@@ -889,7 +991,7 @@ void Motion(int x, int y) {
 	ImGui_ImplGLUT_MotionFunc(x, y);
 
 	ImGuiIO& io = ImGui::GetIO();
-	if (!io.WantCaptureMouse && camera && helicopter)
+	if (!io.WantCaptureMouse && currentScene == PLAY_SCENE && camera && helicopter)
 	{
 		if (rightClickDown) {
 			int deltaX = x - lastMouseX;
@@ -916,7 +1018,6 @@ void InitBuffers() {
 	glGenFramebuffers(1, &framebuffer);
 	glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
 
-	// 텍스처 생성 (컬러 버퍼)
 	glGenTextures(1, &textureColorbuffer);
 	glBindTexture(GL_TEXTURE_2D, textureColorbuffer);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
@@ -924,13 +1025,11 @@ void InitBuffers() {
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textureColorbuffer, 0);
 
-	// 렌더버퍼 생성 (깊이/스텐실)
 	glGenRenderbuffers(1, &rbo);
 	glBindRenderbuffer(GL_RENDERBUFFER, rbo);
 	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width, height);
 	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, rbo);
 
-	// 프레임버퍼 완성 확인
 	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
 		std::cerr << "프레임버퍼 생성 실패!" << std::endl;
 	}
@@ -938,14 +1037,12 @@ void InitBuffers() {
 
 	// 전체 화면 쿼드 생성
 	float quadVertices[] = {
-		// 위치 // 텍스처 좌표
-		-1.0f,1.0f,0.0f,1.0f,
-		-1.0f, -1.0f,0.0f,0.0f,
-	   1.0f, -1.0f,1.0f,0.0f,
-
-		-1.0f,1.0f,0.0f,1.0f,
-	   1.0f, -1.0f,1.0f,0.0f,
-	   1.0f,1.0f,1.0f,1.0f
+		-1.0f, 1.0f, 0.0f, 1.0f,
+		-1.0f, -1.0f, 0.0f, 0.0f,
+		 1.0f, -1.0f, 1.0f, 0.0f,
+		-1.0f, 1.0f, 0.0f, 1.0f,
+		 1.0f, -1.0f, 1.0f, 0.0f,
+		 1.0f, 1.0f, 1.0f, 1.0f
 	};
 
 	glGenVertexArrays(1, &quadVAO);
@@ -961,47 +1058,47 @@ void InitBuffers() {
 
 	// 스카이박스 버텍스
 	float skyboxVertices[] = {
-	-1.0f,1.0f, -1.0f,
-	-1.0f, -1.0f, -1.0f,
-   1.0f, -1.0f, -1.0f,
-   1.0f, -1.0f, -1.0f,
-   1.0f,1.0f, -1.0f,
-	-1.0f,1.0f, -1.0f,
+		-1.0f,  1.0f, -1.0f,
+		-1.0f, -1.0f, -1.0f,
+		 1.0f, -1.0f, -1.0f,
+		 1.0f, -1.0f, -1.0f,
+		 1.0f,  1.0f, -1.0f,
+		-1.0f,  1.0f, -1.0f,
 
-	-1.0f, -1.0f,1.0f,
-	-1.0f, -1.0f, -1.0f,
-	-1.0f,1.0f, -1.0f,
-	-1.0f,1.0f, -1.0f,
-	-1.0f,1.0f,1.0f,
-	-1.0f, -1.0f,1.0f,
+		-1.0f, -1.0f,  1.0f,
+		-1.0f, -1.0f, -1.0f,
+		-1.0f,  1.0f, -1.0f,
+		-1.0f,  1.0f, -1.0f,
+		-1.0f,  1.0f,  1.0f,
+		-1.0f, -1.0f,  1.0f,
 
-   1.0f, -1.0f, -1.0f,
-   1.0f, -1.0f,1.0f,
-   1.0f,1.0f,1.0f,
-   1.0f,1.0f,1.0f,
-   1.0f,1.0f, -1.0f,
-   1.0f, -1.0f, -1.0f,
+		 1.0f, -1.0f, -1.0f,
+		 1.0f, -1.0f,  1.0f,
+		 1.0f,  1.0f,  1.0f,
+		 1.0f,  1.0f,  1.0f,
+		 1.0f,  1.0f, -1.0f,
+		 1.0f, -1.0f, -1.0f,
 
-	-1.0f, -1.0f,1.0f,
-	-1.0f,1.0f,1.0f,
-   1.0f,1.0f,1.0f,
-   1.0f,1.0f,1.0f,
-   1.0f, -1.0f,1.0f,
-	-1.0f, -1.0f,1.0f,
+		-1.0f, -1.0f,  1.0f,
+		-1.0f,  1.0f,  1.0f,
+		 1.0f,  1.0f,  1.0f,
+		 1.0f,  1.0f,  1.0f,
+		 1.0f, -1.0f,  1.0f,
+		-1.0f, -1.0f,  1.0f,
 
-	-1.0f,1.0f, -1.0f,
-   1.0f,1.0f, -1.0f,
-   1.0f,1.0f,1.0f,
-   1.0f,1.0f,1.0f,
-	-1.0f,1.0f,1.0f,
-	-1.0f,1.0f, -1.0f,
+		-1.0f,  1.0f, -1.0f,
+		 1.0f,  1.0f, -1.0f,
+		 1.0f,  1.0f,  1.0f,
+		 1.0f,  1.0f,  1.0f,
+		-1.0f,  1.0f,  1.0f,
+		-1.0f,  1.0f, -1.0f,
 
-	-1.0f, -1.0f, -1.0f,
-	-1.0f, -1.0f,1.0f,
-   1.0f, -1.0f, -1.0f,
-   1.0f, -1.0f, -1.0f,
-	-1.0f, -1.0f,1.0f,
-   1.0f, -1.0f,1.0f
+		-1.0f, -1.0f, -1.0f,
+		-1.0f, -1.0f,  1.0f,
+		 1.0f, -1.0f, -1.0f,
+		 1.0f, -1.0f, -1.0f,
+		-1.0f, -1.0f,  1.0f,
+		 1.0f, -1.0f,  1.0f
 	};
 
 	glGenVertexArrays(1, &skyboxVAO);
@@ -1009,48 +1106,21 @@ void InitBuffers() {
 	glBindVertexArray(skyboxVAO);
 	glBindBuffer(GL_ARRAY_BUFFER, skyboxVBO);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(skyboxVertices), &skyboxVertices, GL_STATIC_DRAW);
-
 	glEnableVertexAttribArray(0);
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
-
-	glBindVertexArray(0);
-
-	//크로스헤어 버퍼 생성
-	float crosshairVertices[] = {
-		// 위치 (십자가 모양)
-		-1.0f, -1.0f,
-		-1.0f,1.0f,
-	   1.0f,1.0f,
-	   1.0f, -1.0f
-	};
-
-	glGenVertexArrays(1, &crosshairVAO);
-	glGenBuffers(1, &crosshairVBO);
-	glBindVertexArray(crosshairVAO);
-	glBindBuffer(GL_ARRAY_BUFFER, crosshairVBO);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(crosshairVertices), crosshairVertices, GL_STATIC_DRAW);
-
-	glEnableVertexAttribArray(0);
-	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
-
 	glBindVertexArray(0);
 }
 
 void InitializeAAUnits()
 {
 	aaUnits = new AA * [NUM_AA_UNITS];
-
 	AA::LoadSharedModel();
 
-	// 랜덤 생성기 초기화
 	std::random_device rd;
 	std::mt19937 gen(rd());
 
-	// 맵 크기 기준
 	float worldMaxX = mGround->GetWorldSize().x;
-	std::cout << "World Max X: " << worldMaxX << std::endl;
 	float worldMaxZ = mGround->GetWorldSize().y;
-	std::cout << "World Max Z: " << worldMaxZ << std::endl;
 	std::uniform_real_distribution<float> distX(-worldMaxX, worldMaxX);
 	std::uniform_real_distribution<float> distZ(-worldMaxZ, worldMaxZ);
 
@@ -1059,13 +1129,11 @@ void InitializeAAUnits()
 	for (int i = 0; i < NUM_AA_UNITS; ++i) {
 		aaUnits[i] = new AA();
 		aaUnits[i]->Initialize();
-		aaUnits[i]->InitBuffers(); // LoadModel() 대신 InitBuffers()만 호출
+		aaUnits[i]->InitBuffers();
 
-		// 랜덤 위치 생성
 		float randomX = distX(gen);
 		float randomZ = distZ(gen);
-
-		float aa_YOFFSET = 5.0f; // 지면에서 약간 띄우기 위한 오프셋
+		float aa_YOFFSET = 5.0f;
 		float y = mGround->GetHeightAt(randomX, randomZ) + aa_YOFFSET;
 
 		glm::vec3 randomPos(randomX, y, randomZ);
