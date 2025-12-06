@@ -19,7 +19,7 @@ enum SceneType {
 };
 
 // 현재 씬
-SceneType currentScene = TITLE_SCENE;
+SceneType currentScene = PLAY_SCENE;
 
 // 함수 선언
 void InitBuffers();
@@ -94,10 +94,14 @@ bool titleAnimationFinished = false;  // 애니메이션 종료 여부
 Camera* camera = nullptr;
 Helicopter* helicopter = nullptr;
 AA** aaUnits = nullptr;
-const int NUM_AA_UNITS = 30;
+const int NUM_AA_UNITS = 1;
 Ground* mGround = nullptr;
 
-
+// 마우스 입력
+bool rightClickDown = false;
+bool leftClickDown = false;
+int lastMouseX = 0;
+int lastMouseY = 0;
 
 // 좌클릭(기관포 지속 발사) 관련
 int lastCannonFireTimeMs = 0;
@@ -136,25 +140,17 @@ float specularStrength = 1.0f;
 
 
 bool helicopterInGround = true;
-
-
-// 마우스 입력
-bool leftClickDown = false; 
-int lastMouseX = width / 2;  
-int lastMouseY = height / 2;  
-bool firstMouseMove = true; 
-
 int main(int argc, char** argv) {
 	glutInit(&argc, argv);
 
 	glutInitContextVersion(3, 3);
 	glutInitContextProfile(GLUT_CORE_PROFILE);
-
+	
 	glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA | GLUT_DEPTH);
 	glutInitWindowPosition(100, 100);
 	glutInitWindowSize(width, height);
 	glutCreateWindow("HeliProj");
-
+	glutSetCursor(GLUT_CURSOR_NONE); // 마우스 커서 숨기기
 	glewExperimental = GL_TRUE;
 	if (glewInit() != GLEW_OK) {
 		std::cerr << "GLEW 초기화 실패" << std::endl;
@@ -208,8 +204,8 @@ int main(int argc, char** argv) {
 	Time::Initialize();
 
 	// 타이틀 씬 초기화
-	InitTitleScene();
-	//InitPlayScene();
+	//InitTitleScene();
+	InitPlayScene();
 	glutDisplayFunc(DrawScene);
 	glutReshapeFunc(Reshape);
 	glutTimerFunc(targetFrameDelay, Timer, 0);
@@ -292,7 +288,7 @@ void ShowLoadingScreen(const char* imagePath)
 void InitTitleScene()
 {
 	std::cout << "=== 타이틀 씬 초기화 ===" << std::endl;
-	
+
 	ShowLoadingScreen("LoadingScene.png");
 
 	// 타이틀 화면용 쿼드 버퍼 생성
@@ -483,19 +479,13 @@ void CleanupTitleScene()
 		glDeleteTextures(1, &titleTextureID);
 		titleTextureID = 0;
 	}
-	
+
 }
 
 // ============ 플레이 씬 ============
 void InitPlayScene()
 {
 	std::cout << "=== 플레이 씬 초기화 ===" << std::endl;
-	// 마우스 커서 숨기고 중앙 고정
-	glutSetCursor(GLUT_CURSOR_NONE);
-	glutWarpPointer(width / 2, height / 2);
-	lastMouseX = width / 2;
-	lastMouseY = height / 2;
-	firstMouseMove = true;
 
 	ShowLoadingScreen("LoadingScene.png");
 
@@ -609,12 +599,12 @@ void UpdatePlayScene()
 		else {
 			helicopterInGround = true;
 		}
-	
+
 	}
 
-	if (!helicopterInGround) 
+	if (!helicopterInGround)
 	{
-		if (mapOutTimer <= 0.0f) 
+		if (mapOutTimer <= 0.0f)
 		{
 			std::cout << "헬기 맵 벗어남 - 초기 위치로 리셋" << std::endl;
 			helicopter->SetPosition(glm::vec3(0.0f, 900.0f, 0.0f));
@@ -1172,13 +1162,14 @@ void Timer(int value) {
 			helicopter->SetCannonPitch(0.0f);
 		}
 
-		if(Input::GetKeyUp(eKeyCode::N) && camera->GetCameraMode() == 2)
+		if (Input::GetKeyUp(eKeyCode::N) && camera->GetCameraMode() == 2)
 		{
 			enableNightVision = !enableNightVision;
 			std::cout << "Night Vision: " << (enableNightVision ? "ON" : "OFF") << std::endl;
 		}
 
-		if (leftClickDown && helicopter && camera) {
+		// 마우스 왼쪽 버튼 눌린 상태로 유지 시, 일정 간격으로 포탄 발사
+		if (rightClickDown && helicopter && camera) {
 			int nowMs = glutGet(GLUT_ELAPSED_TIME);
 			if (lastCannonFireTimeMs == 0) {
 				glm::mat4 heliTransform = helicopter->GetHelicopterTransform();
@@ -1208,7 +1199,7 @@ void Timer(int value) {
 	}
 
 	SoundManager::GetInstance()->Update();
-	
+
 	glutPostRedisplay();
 	glutTimerFunc(targetFrameDelay, Timer, 0);
 }
@@ -1221,9 +1212,12 @@ void Mouse(int button, int state, int x, int y) {
 	{
 		if (button == GLUT_LEFT_BUTTON) {
 			if (state == GLUT_DOWN) {
-				leftClickDown = true;
+				//커서 숨기기
+				
 
-				// 즉시 한 발 발사
+				leftClickDown = true;
+				lastMouseX = x;
+				lastMouseY = y;
 				if (helicopter && camera) {
 					glm::mat4 heliTransform = helicopter->GetHelicopterTransform();
 					glm::mat4 cannonRotation = glm::mat4(1.0f);
@@ -1242,6 +1236,14 @@ void Mouse(int button, int state, int x, int y) {
 				lastCannonFireTimeMs = 0;
 			}
 		}
+		else if (button == GLUT_RIGHT_BUTTON) {
+			if (state == GLUT_DOWN) {
+				rightClickDown = true;
+			}
+			else if (state == GLUT_UP) {
+				rightClickDown = false;
+			}
+		}
 	}
 }
 
@@ -1254,35 +1256,23 @@ void Motion(int x, int y) {
 		int centerX = width / 2;
 		int centerY = height / 2;
 
-		// 첫 마우스 이동은 무시 (워프 후 발생하는 이벤트 방지)
-		if (firstMouseMove) {
-			lastMouseX = centerX;
-			lastMouseY = centerY;
-			firstMouseMove = false;
-			return;
+		if (leftClickDown) {
+			// 중앙으로부터의 마우스 이동량 계산
+			int deltaX = x - centerX;
+			int deltaY = y - centerY;
+			float yaw = helicopter->GetYaw();
+			float cannonYaw = helicopter->GetCannonYaw();
+			float cannonPitch = helicopter->GetCannonPitch();
+			camera->ProcessMouseDrag(deltaX, deltaY, yaw, cannonYaw, cannonPitch);
+			helicopter->SetYaw(yaw);
+			helicopter->SetCannonYaw(cannonYaw);
+			helicopter->SetCannonPitch(cannonPitch);
+
+			lastMouseX = x;
+			lastMouseY = y;
+			glutWarpPointer(centerX, centerY);
+			glutPostRedisplay();
 		}
-
-		// 중앙으로부터의 델타 계산
-		int deltaX = x - centerX;
-		int deltaY = y - centerY;
-
-		// 델타가 너무 작으면 무시 (미세한 떨림 방지)
-		if (abs(deltaX) < 2 && abs(deltaY) < 2) {
-			return;
-		}
-
-		float yaw = helicopter->GetYaw();
-		float cannonYaw = helicopter->GetCannonYaw();
-		float cannonPitch = helicopter->GetCannonPitch();
-		camera->ProcessMouseDrag(deltaX, deltaY, yaw, cannonYaw, cannonPitch);
-		helicopter->SetYaw(yaw);
-		helicopter->SetCannonYaw(cannonYaw);
-		helicopter->SetCannonPitch(cannonPitch);
-
-		// 마우스를 다시 중앙으로 이동
-		glutWarpPointer(centerX, centerY);
-
-		glutPostRedisplay();
 	}
 }
 
