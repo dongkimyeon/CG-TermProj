@@ -70,6 +70,16 @@ void SoundManager::Initialize() {
         std::cout << "Failed to load Helicopter sound: " << result << std::endl;
     }
 
+    result = mSystem->createSound("Sound/TitleBgm.wav", FMOD_DEFAULT, 0, &mBGM[1]);
+    if (result == FMOD_OK) {
+        mSoundMap["TitleBgm"] = mBGM[1];
+        std::cout << "TitleBgm sound loaded successfully" << std::endl;
+    }
+    else {
+        std::cout << "Failed to load TitleBgm sound: " << result << std::endl;
+    }
+
+
     // Set default volumes (FIXED: SE gets mSEVolume, BGM gets mBGMVolume)
     if (mSEGroup) mSEGroup->setVolume(mSEVolume);
     if (mBGMGroup) mBGMGroup->setVolume(mBGMVolume);
@@ -111,7 +121,7 @@ void SoundManager::mPlaySound(const std::string& SoundName, bool loop) {
             std::cout << "Failed to play BGM: " << SoundName << ", error: " << result << std::endl;
             return;
         }
-        std::cout << "Playing BGM: " << SoundName << std::endl;
+        //std::cout << "Playing BGM: " << SoundName << std::endl;
     }
     else {
         FMOD_MODE mode = FMOD_DEFAULT;

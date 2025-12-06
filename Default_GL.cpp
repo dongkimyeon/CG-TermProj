@@ -261,6 +261,8 @@ void RenderTitleScene()
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glDisable(GL_DEPTH_TEST);
 
+	SoundManager::GetInstance()->mPlaySound("TitleBgm", true);
+
 	// 타이틀 화면 렌더링 (단순 배경색 + 텍스트)
 	glUseProgram(postprocessShaderID);
 	glBindVertexArray(titleVAO);
@@ -298,12 +300,12 @@ void RenderTitleScene()
 		ImGui::SetNextWindowPos(ImVec2(width * 0.5f, height * 0.7f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
 		ImGui::SetNextWindowBgAlpha(0.0f);
 		ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0, 0, 0, 0));
-		ImGui::Begin("PressEnter", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_AlwaysAutoResize);
+		ImGui::Begin("PressSpace", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_AlwaysAutoResize);
 
 		float blinkAlpha = (sin((float)glutGet(GLUT_ELAPSED_TIME) * 0.003f) + 1.0f) * 0.5f;
 		ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 0.0f, blinkAlpha));
 		ImGui::SetWindowFontScale(1.5f);
-		ImGui::Text("PRESS ENTER TO START");
+		ImGui::Text("PRESS SPACE TO START");
 		ImGui::SetWindowFontScale(1.0f);
 		ImGui::PopStyleColor();
 
@@ -329,6 +331,7 @@ void CleanupTitleScene()
 		glDeleteTextures(1, &titleTextureID);
 		titleTextureID = 0;
 	}
+	
 }
 
 // ============ 플레이 씬 ============
@@ -813,7 +816,7 @@ void ChangeScene(SceneType newScene)
 	}
 }
 
-// ============ 공통 렌더링/업데이트 ============
+
 GLvoid DrawScene()
 {
 	Time::Update();
