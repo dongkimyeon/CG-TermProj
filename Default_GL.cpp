@@ -129,10 +129,10 @@ const unsigned int SHADOW_WIDTH = 4096, SHADOW_HEIGHT = 4096;
 
 // 라이트 설정
 glm::vec3 lightPosition = glm::vec3(0.0f, 1000.0f, 0.0f);
-glm::vec3 lightDirection = glm::vec3(-0.5f, -1.0f, -0.5f);
+glm::vec3 lightDirection = glm::vec3(-0.75, -0.521, -0.408);
 bool enableShadows = true;
 float sunRotationSpeed = 10.0f;
-bool rotateSun = true;
+bool rotateSun = false;
 float lightIntensity = 3.0f;
 float ambientStrength = 0.2f;
 float specularStrength = 1.0f;
