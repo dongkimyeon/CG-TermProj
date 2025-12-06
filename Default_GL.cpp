@@ -15,8 +15,7 @@
 
 enum SceneType {
 	TITLE_SCENE,
-	PLAY_SCENE,
-	END_SCENE
+	PLAY_SCENE
 };
 
 // 현재 씬
@@ -33,7 +32,15 @@ void WhellFunc(int whell, int dir, int x, int y);
 void Motion(int x, int y);
 void Timer(int value);
 
-// 씬별 함수
+
+// 로딩 화면 관련
+GLuint loadingVAO = 0, loadingVBO = 0;
+GLuint loadingTextureID = 0;
+
+void ShowLoadingScreen(const char* imagePath);
+
+
+//타이틀 씬
 void InitTitleScene();
 void UpdateTitleScene();
 void RenderTitleScene();
@@ -213,11 +220,68 @@ int main(int argc, char** argv) {
 	return 0;
 }
 
+
+
+
+
+void ShowLoadingScreen(const char* imagePath)
+{
+	// 로딩 이미지 로드
+	int imgWidth, imgHeight, channels;
+	stbi_set_flip_vertically_on_load(true);
+	unsigned char* data = stbi_load(imagePath, &imgWidth, &imgHeight, &channels, 0);
+
+	if (data) {
+		if (loadingTextureID != 0) {
+			glDeleteTextures(1, &loadingTextureID);
+		}
+
+		glGenTextures(1, &loadingTextureID);
+		glBindTexture(GL_TEXTURE_2D, loadingTextureID);
+
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+		if (channels == 4) {
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, imgWidth, imgHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+		}
+		else {
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, imgWidth, imgHeight, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+		}
+
+		stbi_image_free(data);
+
+		// 로딩 화면 렌더링
+		glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		glDisable(GL_DEPTH_TEST);
+
+		glUseProgram(postprocessShaderID);
+		glBindVertexArray(loadingVAO);
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, loadingTextureID);
+		glUniform1i(glGetUniformLocation(postprocessShaderID, "screenTexture"), 0);
+		glUniform1i(glGetUniformLocation(postprocessShaderID, "enableNightVision"), 0);
+		glUniform1i(glGetUniformLocation(postprocessShaderID, "gunnerview"), 0);
+		glDrawArrays(GL_TRIANGLES, 0, 6);
+
+		glutSwapBuffers();
+		std::cout << imagePath << " 로딩 화면 표시 완료" << std::endl;
+	}
+	else {
+		std::cerr << imagePath << " 로드 실패" << std::endl;
+	}
+}
+
 // ============ 타이틀 씬 ============
 void InitTitleScene()
 {
 	std::cout << "=== 타이틀 씬 초기화 ===" << std::endl;
 	
+	ShowLoadingScreen("LoadingScene.png");
+
 	// 타이틀 화면용 쿼드 버퍼 생성
 	float titleQuadVertices[] = {
 		-1.0f,  1.0f, 0.0f, 1.0f,
@@ -408,6 +472,8 @@ void CleanupTitleScene()
 void InitPlayScene()
 {
 	std::cout << "=== 플레이 씬 초기화 ===" << std::endl;
+
+	ShowLoadingScreen("LoadingScene.png");
 
 	// Depth map FBO 생성
 	glGenFramebuffers(1, &depthMapFBO);
@@ -1182,6 +1248,28 @@ void InitBuffers() {
 	glEnableVertexAttribArray(0);
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
 	glBindVertexArray(0);
+
+	// 로딩 화면용 쿼드 버퍼 생성
+	float loadingQuadVertices[] = {
+		-1.0f,  1.0f, 0.0f, 1.0f,
+		-1.0f, -1.0f, 0.0f, 0.0f,
+		 1.0f, -1.0f, 1.0f, 0.0f,
+		-1.0f,  1.0f, 0.0f, 1.0f,
+		 1.0f, -1.0f, 1.0f, 0.0f,
+		 1.0f,  1.0f, 1.0f, 1.0f
+	};
+
+	glGenVertexArrays(1, &loadingVAO);
+	glGenBuffers(1, &loadingVBO);
+	glBindVertexArray(loadingVAO);
+	glBindBuffer(GL_ARRAY_BUFFER, loadingVBO);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(loadingQuadVertices), loadingQuadVertices, GL_STATIC_DRAW);
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
+	glEnableVertexAttribArray(1);
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
+	glBindVertexArray(0);
+
 }
 
 void InitializeAAUnits()
