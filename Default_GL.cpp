@@ -97,10 +97,7 @@ AA** aaUnits = nullptr;
 const int NUM_AA_UNITS = 30;
 Ground* mGround = nullptr;
 
-// 마우스 입력
-bool rightClickDown = false;
-int lastMouseX = 0;
-int lastMouseY = 0;
+
 
 // 좌클릭(기관포 지속 발사) 관련
 int lastCannonFireTimeMs = 0;
@@ -139,6 +136,14 @@ float specularStrength = 1.0f;
 
 
 bool helicopterInGround = true;
+
+
+// 마우스 입력
+bool leftClickDown = false; 
+int lastMouseX = width / 2;  
+int lastMouseY = height / 2;  
+bool firstMouseMove = true; 
+
 int main(int argc, char** argv) {
 	glutInit(&argc, argv);
 
@@ -210,6 +215,7 @@ int main(int argc, char** argv) {
 	glutTimerFunc(targetFrameDelay, Timer, 0);
 	glutMouseFunc(Mouse);
 	glutMotionFunc(Motion);
+	glutPassiveMotionFunc(Motion);
 	glutSpecialFunc(SpecialKeyboard);
 	glutMouseWheelFunc(WhellFunc);
 
@@ -484,6 +490,12 @@ void CleanupTitleScene()
 void InitPlayScene()
 {
 	std::cout << "=== 플레이 씬 초기화 ===" << std::endl;
+	// 마우스 커서 숨기고 중앙 고정
+	glutSetCursor(GLUT_CURSOR_NONE);
+	glutWarpPointer(width / 2, height / 2);
+	lastMouseX = width / 2;
+	lastMouseY = height / 2;
+	firstMouseMove = true;
 
 	ShowLoadingScreen("LoadingScene.png");
 
@@ -1166,7 +1178,7 @@ void Timer(int value) {
 			std::cout << "Night Vision: " << (enableNightVision ? "ON" : "OFF") << std::endl;
 		}
 
-		if (rightClickDown && helicopter && camera) {
+		if (leftClickDown && helicopter && camera) {
 			int nowMs = glutGet(GLUT_ELAPSED_TIME);
 			if (lastCannonFireTimeMs == 0) {
 				glm::mat4 heliTransform = helicopter->GetHelicopterTransform();
@@ -1196,7 +1208,7 @@ void Timer(int value) {
 	}
 
 	SoundManager::GetInstance()->Update();
-
+	
 	glutPostRedisplay();
 	glutTimerFunc(targetFrameDelay, Timer, 0);
 }
@@ -1209,9 +1221,9 @@ void Mouse(int button, int state, int x, int y) {
 	{
 		if (button == GLUT_LEFT_BUTTON) {
 			if (state == GLUT_DOWN) {
-				rightClickDown = true;
-				lastMouseX = x;
-				lastMouseY = y;
+				leftClickDown = true;
+
+				// 즉시 한 발 발사
 				if (helicopter && camera) {
 					glm::mat4 heliTransform = helicopter->GetHelicopterTransform();
 					glm::mat4 cannonRotation = glm::mat4(1.0f);
@@ -1226,14 +1238,8 @@ void Mouse(int button, int state, int x, int y) {
 				}
 			}
 			else if (state == GLUT_UP) {
-				rightClickDown = false;
+				leftClickDown = false;
 				lastCannonFireTimeMs = 0;
-			}
-		}
-		else if (button == GLUT_RIGHT_BUTTON) {
-			if (state == GLUT_DOWN) {
-				lastMouseX = x;
-				lastMouseY = y;
 			}
 		}
 	}
@@ -1245,23 +1251,38 @@ void Motion(int x, int y) {
 	ImGuiIO& io = ImGui::GetIO();
 	if (!io.WantCaptureMouse && currentScene == PLAY_SCENE && camera && helicopter)
 	{
-		if (rightClickDown) {
-			int deltaX = x - lastMouseX;
-			int deltaY = y - lastMouseY;
+		int centerX = width / 2;
+		int centerY = height / 2;
 
-			float yaw = helicopter->GetYaw();
-			float cannonYaw = helicopter->GetCannonYaw();
-			float cannonPitch = helicopter->GetCannonPitch();
-			camera->ProcessMouseDrag(deltaX, deltaY, yaw, cannonYaw, cannonPitch);
-			helicopter->SetYaw(yaw);
-			helicopter->SetCannonYaw(cannonYaw);
-			helicopter->SetCannonPitch(cannonPitch);
-
-			lastMouseX = x;
-			lastMouseY = y;
-
-			glutPostRedisplay();
+		// 첫 마우스 이동은 무시 (워프 후 발생하는 이벤트 방지)
+		if (firstMouseMove) {
+			lastMouseX = centerX;
+			lastMouseY = centerY;
+			firstMouseMove = false;
+			return;
 		}
+
+		// 중앙으로부터의 델타 계산
+		int deltaX = x - centerX;
+		int deltaY = y - centerY;
+
+		// 델타가 너무 작으면 무시 (미세한 떨림 방지)
+		if (abs(deltaX) < 2 && abs(deltaY) < 2) {
+			return;
+		}
+
+		float yaw = helicopter->GetYaw();
+		float cannonYaw = helicopter->GetCannonYaw();
+		float cannonPitch = helicopter->GetCannonPitch();
+		camera->ProcessMouseDrag(deltaX, deltaY, yaw, cannonYaw, cannonPitch);
+		helicopter->SetYaw(yaw);
+		helicopter->SetCannonYaw(cannonYaw);
+		helicopter->SetCannonPitch(cannonPitch);
+
+		// 마우스를 다시 중앙으로 이동
+		glutWarpPointer(centerX, centerY);
+
+		glutPostRedisplay();
 	}
 }
 
