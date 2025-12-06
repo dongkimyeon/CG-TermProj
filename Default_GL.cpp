@@ -226,6 +226,8 @@ int main(int argc, char** argv) {
 
 float mapOutTimer = 10.0f;
 
+int damaged_AA_count = 0;
+int AACount = NUM_AA_UNITS;
 
 void ShowLoadingScreen(const char* imagePath)
 {
@@ -576,6 +578,13 @@ void UpdatePlayScene()
 			}
 		}
 	}
+	// AA 파괴 개수 계산 
+	damaged_AA_count = 0;
+	for (int i = 0; i < NUM_AA_UNITS; ++i) {
+		if (aaUnits[i] && !aaUnits[i]->IsAlive()) {
+			damaged_AA_count++;
+		}
+	}
 
 	//헬기 맵 벗어나면 플래그 활성화
 	if (helicopter) {
@@ -606,6 +615,7 @@ void UpdatePlayScene()
 	{
 		mapOutTimer = 10.0f;
 	}
+
 }
 
 void RenderPlayScene()
@@ -816,6 +826,19 @@ void RenderPlayScene()
 	ImGui_ImplGLUT_NewFrame();
 	ImGui::NewFrame();
 
+	// ========== AA 카운터 표시 (좌측 상단) ==========
+	ImGui::SetNextWindowPos(ImVec2(10.0f, 10.0f), ImGuiCond_Always);
+	ImGui::SetNextWindowBgAlpha(0.3f);
+	ImGui::Begin("AA Counter", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_AlwaysAutoResize);
+
+	int remainingAA = NUM_AA_UNITS - damaged_AA_count;
+	ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
+	ImGui::SetWindowFontScale(2.0f);
+	ImGui::Text("AA UNITS: %d / %d", remainingAA, NUM_AA_UNITS);
+	ImGui::SetWindowFontScale(2.0f);
+	ImGui::PopStyleColor();
+
+	ImGui::End();
 
 	if (!helicopterInGround && mapOutTimer > 0.0f) {
 		ImGui::SetNextWindowPos(ImVec2(width * 0.5f, height * 0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
