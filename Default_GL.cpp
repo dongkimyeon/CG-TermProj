@@ -202,7 +202,7 @@ int main(int argc, char** argv) {
 
 	// 타이틀 씬 초기화
 	InitTitleScene();
-
+	//InitPlayScene();
 	glutDisplayFunc(DrawScene);
 	glutReshapeFunc(Reshape);
 	glutTimerFunc(targetFrameDelay, Timer, 0);
@@ -273,6 +273,8 @@ void ShowLoadingScreen(const char* imagePath)
 	else {
 		std::cerr << imagePath << " 로드 실패" << std::endl;
 	}
+	stbi_set_flip_vertically_on_load(false);
+
 }
 
 // ============ 타이틀 씬 ============
@@ -346,6 +348,8 @@ void InitTitleScene()
 		}
 	}
 	std::cout << "타이틀 이미지 로딩 완료!" << std::endl;
+	stbi_set_flip_vertically_on_load(false);
+
 	SoundManager::GetInstance()->mPlaySound("TitleBgm", true);
 
 	currentTitleFrame = 0;
@@ -420,7 +424,7 @@ void RenderTitleScene()
 	ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0, 0, 0, 0));
 	ImGui::Begin("Title", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_AlwaysAutoResize);
 
-	ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, titleAlpha));
+	ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.0f, 0.0f, 0.0f, titleAlpha));
 	ImGui::SetWindowFontScale(3.0f);
 	ImGui::Text("HELICOPTER SIMULATOR");
 	ImGui::SetWindowFontScale(1.0f);
