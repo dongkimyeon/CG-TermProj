@@ -393,7 +393,7 @@ void UpdateTitleScene()
 	}
 
 	// Space 키로 플레이 씬으로 전환
-	if (Input::GetKeyDown(eKeyCode::SPACE)) {
+	if (Input::GetKeyDown(eKeyCode::SPACE) && titleAnimationFinished) {
 		ChangeScene(PLAY_SCENE);
 	}
 }
@@ -1150,6 +1150,20 @@ void Timer(int value) {
 
 		if (Input::GetKeyDown(eKeyCode::F) && helicopter && camera) {
 			helicopter->FireMissileFromCamera(camera, crosshairDistance);
+		}
+
+
+		if (Input::GetKeyDown(eKeyCode::V) && camera)
+		{
+			camera->SetCameraMode((camera->GetCameraMode() + 1) % 3);
+			helicopter->SetCannonYaw(0.0f);
+			helicopter->SetCannonPitch(0.0f);
+		}
+
+		if(Input::GetKeyUp(eKeyCode::N) && camera->GetCameraMode() == 2)
+		{
+			enableNightVision = !enableNightVision;
+			std::cout << "Night Vision: " << (enableNightVision ? "ON" : "OFF") << std::endl;
 		}
 
 		if (rightClickDown && helicopter && camera) {
