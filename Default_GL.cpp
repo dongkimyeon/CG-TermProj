@@ -75,6 +75,14 @@ GLuint titleVAO = 0, titleVBO = 0;
 float titleAlpha = 0.0f;
 bool titleFadingIn = true;
 
+std::vector<GLuint> titleTextures;  // 456장의 텍스처 ID 저장
+int currentTitleFrame = 0;          // 현재 프레임 인덱스
+const int TOTAL_TITLE_FRAMES = 456; // 총 프레임 수
+float titleFrameTime = 0.0f;        // 프레임 타이머
+const float TITLE_FRAME_INTERVAL = 1.0f / 30.0f;  // 30fps (초당 30프레임)
+bool titleAnimationFinished = false;  // 애니메이션 종료 여부
+
+
 // 플레이 씬 객체
 Camera* camera = nullptr;
 Helicopter* helicopter = nullptr;
@@ -209,7 +217,7 @@ int main(int argc, char** argv) {
 void InitTitleScene()
 {
 	std::cout << "=== 타이틀 씬 초기화 ===" << std::endl;
-
+	
 	// 타이틀 화면용 쿼드 버퍼 생성
 	float titleQuadVertices[] = {
 		-1.0f,  1.0f, 0.0f, 1.0f,
@@ -231,9 +239,54 @@ void InitTitleScene()
 	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
 	glBindVertexArray(0);
 
-	// 타이틀 텍스처 로드 (필요시)
-	// titleTextureID = Texture::LoadTexture("title_background.png");
+	// 456장의 타이틀 이미지 로드
+	titleTextures.clear();
+	titleTextures.resize(TOTAL_TITLE_FRAMES);
 
+	std::cout << "타이틀 이미지 로딩 시작..." << std::endl;
+	for (int i = 0; i < TOTAL_TITLE_FRAMES; ++i) {
+		// 파일 경로 생성 (tigerMafia (1).jpg, tigerMafia (2).jpg, ...)
+		std::stringstream ss;
+		ss << "title_umjjal/tigerMafia (" << (i + 1) << ").jpg";
+		std::string filepath = ss.str();
+		// stb_image로 이미지 로드
+		int width, height, channels;
+		stbi_set_flip_vertically_on_load(true);
+		unsigned char* data = stbi_load(filepath.c_str(), &width, &height, &channels, 0);
+
+		if (data) {
+			glGenTextures(1, &titleTextures[i]);
+			glBindTexture(GL_TEXTURE_2D, titleTextures[i]);
+
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+			if (channels == 4) {
+				glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+			}
+			else {
+				glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+			}
+
+			stbi_image_free(data);
+
+			if ((i + 1) % 50 == 0) {
+				std::cout << "로드 완료: " << (i + 1) << "/" << TOTAL_TITLE_FRAMES << std::endl;
+			}
+		}
+		else {
+			std::cerr << "이미지 로드 실패: " << filepath << std::endl;
+			titleTextures[i] = 0;
+		}
+	}
+	std::cout << "타이틀 이미지 로딩 완료!" << std::endl;
+	SoundManager::GetInstance()->mPlaySound("TitleBgm", true);
+
+	currentTitleFrame = 0;
+	titleFrameTime = 0.0f;
+	titleAnimationFinished = false;
 	titleAlpha = 0.0f;
 	titleFadingIn = true;
 }
@@ -249,7 +302,24 @@ void UpdateTitleScene()
 		}
 	}
 
-	// Enter 키로 플레이 씬으로 전환
+	// 타이틀 애니메이션 업데이트
+	if (!titleAnimationFinished) {
+		titleFrameTime += Time::DeltaTime();
+
+		if (titleFrameTime >= TITLE_FRAME_INTERVAL) {
+			titleFrameTime = 0.0f;
+			currentTitleFrame++;
+
+			// 마지막 프레임에 도달하면 멈춤
+			if (currentTitleFrame >= TOTAL_TITLE_FRAMES) {
+				currentTitleFrame = TOTAL_TITLE_FRAMES - 1;
+				titleAnimationFinished = true;
+				std::cout << "타이틀 애니메이션 종료" << std::endl;
+			}
+		}
+	}
+
+	// Space 키로 플레이 씬으로 전환
 	if (Input::GetKeyDown(eKeyCode::SPACE)) {
 		ChangeScene(PLAY_SCENE);
 	}
@@ -257,19 +327,19 @@ void UpdateTitleScene()
 
 void RenderTitleScene()
 {
-	glClearColor(0.1f, 0.1f, 0.15f, 1.0f);
+	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glDisable(GL_DEPTH_TEST);
 
-	SoundManager::GetInstance()->mPlaySound("TitleBgm", true);
-
-	// 타이틀 화면 렌더링 (단순 배경색 + 텍스트)
+	// 타이틀 애니메이션 렌더링
 	glUseProgram(postprocessShaderID);
 	glBindVertexArray(titleVAO);
 
-	if (titleTextureID != 0) {
+	// 현재 프레임의 텍스처 바인딩
+	if (currentTitleFrame < titleTextures.size() && titleTextures[currentTitleFrame] != 0) {
 		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, titleTextureID);
+		glBindTexture(GL_TEXTURE_2D, titleTextures[currentTitleFrame]);
+		glUniform1i(glGetUniformLocation(postprocessShaderID, "screenTexture"), 0);
 	}
 
 	glUniform1i(glGetUniformLocation(postprocessShaderID, "enableNightVision"), 0);
@@ -295,8 +365,8 @@ void RenderTitleScene()
 	ImGui::End();
 	ImGui::PopStyleColor();
 
-	// Press Enter 메시지
-	if (titleAlpha >= 1.0f) {
+	// 애니메이션이 끝나면 "Press Space" 메시지 표시
+	if (titleAnimationFinished && titleAlpha >= 1.0f) {
 		ImGui::SetNextWindowPos(ImVec2(width * 0.5f, height * 0.7f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
 		ImGui::SetNextWindowBgAlpha(0.0f);
 		ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0, 0, 0, 0));
