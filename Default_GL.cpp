@@ -19,7 +19,7 @@ enum SceneType {
 };
 
 // 현재 씬
-SceneType currentScene = PLAY_SCENE;
+SceneType currentScene = TITLE_SCENE;
 
 // 함수 선언
 void InitBuffers();
@@ -56,7 +56,7 @@ void RenderShadowPass(const glm::mat4& lightSpaceMatrix);
 void ChangeScene(SceneType newScene);
 
 // 전역 변수
-GLint width = 1280, height = 720;
+GLint width = 1920, height = 1080;
 GLuint shaderProgramID;
 
 //스카이박스 관련
@@ -204,8 +204,8 @@ int main(int argc, char** argv) {
 	Time::Initialize();
 
 	// 타이틀 씬 초기화
-	//InitTitleScene();
-	InitPlayScene();
+	InitTitleScene();
+	//InitPlayScene();
 	glutDisplayFunc(DrawScene);
 	glutReshapeFunc(Reshape);
 	glutTimerFunc(targetFrameDelay, Timer, 0);
