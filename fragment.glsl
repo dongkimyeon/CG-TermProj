@@ -143,10 +143,10 @@ void main()
     // Ambient
     vec3 ambient = ambientStrength * matDiff;
     
-    // Shadow 계산 (방향광원 사용)
+    // Shadow 계산 
     float shadow = ShadowCalculation(FragPosLightSpace, worldNormal, lightDirection);
     
-    // 최종 색상 (방향광원은 감쇠와 스포트라이트 강도 적용 안 함)
+    // 최종 색상 
     vec3 lighting = ambient + (1.0 - shadow) * (diffuse + specular);
     
     color = vec4(lighting, texColor.a * alphaValue);

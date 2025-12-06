@@ -133,7 +133,7 @@ glm::vec3 lightDirection = glm::vec3(-0.75, -0.521, -0.408);
 bool enableShadows = true;
 float sunRotationSpeed = 10.0f;
 bool rotateSun = false;
-float lightIntensity = 3.0f;
+float lightIntensity = 1.0f;
 float ambientStrength = 0.2f;
 float specularStrength = 1.0f;
 
