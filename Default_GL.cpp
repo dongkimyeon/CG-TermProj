@@ -224,6 +224,7 @@ int main(int argc, char** argv) {
 
 
 
+float mapOutTimer = 10.0f;
 
 
 void ShowLoadingScreen(const char* imagePath)
@@ -414,7 +415,10 @@ void RenderTitleScene()
 
 	glUniform1i(glGetUniformLocation(postprocessShaderID, "enableNightVision"), 0);
 	glUniform1i(glGetUniformLocation(postprocessShaderID, "gunnerview"), 0);
+	glUniform1i(glGetUniformLocation(postprocessShaderID, "enableGrayScreen"), 0);
 	glDrawArrays(GL_TRIANGLES, 0, 6);
+
+
 
 	// ImGui로 타이틀 텍스트 표시
 	ImGui_ImplOpenGL3_NewFrame();
@@ -585,6 +589,22 @@ void UpdatePlayScene()
 			helicopterInGround = true;
 		}
 	
+	}
+
+	if (!helicopterInGround) 
+	{
+		if (mapOutTimer <= 0.0f) 
+		{
+			std::cout << "헬기 맵 벗어남 - 초기 위치로 리셋" << std::endl;
+			helicopter->SetPosition(glm::vec3(0.0f, 900.0f, 0.0f));
+			helicopterInGround = true;
+		}
+		mapOutTimer -= Time::DeltaTime();
+		//std::cout << "맵 벗어남 타이머: " << mapOutTimer << "초" << std::endl;
+	}
+	else
+	{
+		mapOutTimer = 10.0f;
 	}
 }
 
@@ -786,6 +806,7 @@ void RenderPlayScene()
 	glUniform1i(glGetUniformLocation(postprocessShaderID, "screenTexture"), 0);
 	glUniform1i(glGetUniformLocation(postprocessShaderID, "enableNightVision"), nightVisionOn);
 	glUniform1i(glGetUniformLocation(postprocessShaderID, "gunnerview"), gunnerView);
+	glUniform1i(glGetUniformLocation(postprocessShaderID, "enableGrayScreen"), !helicopterInGround);
 	glUniform1f(glGetUniformLocation(postprocessShaderID, "time"), (float)glutGet(GLUT_ELAPSED_TIME) / 1000.0f);
 
 	glDrawArrays(GL_TRIANGLES, 0, 6);
@@ -794,6 +815,41 @@ void RenderPlayScene()
 	ImGui_ImplOpenGL3_NewFrame();
 	ImGui_ImplGLUT_NewFrame();
 	ImGui::NewFrame();
+
+
+	if (!helicopterInGround && mapOutTimer > 0.0f) {
+		ImGui::SetNextWindowPos(ImVec2(width * 0.5f, height * 0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+		ImGui::SetNextWindowBgAlpha(0.0f);
+		ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0, 0, 0, 0));
+		ImGui::Begin("OutOfBounds", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_AlwaysAutoResize);
+
+		// 깜박이는 효과
+		float blinkAlpha = (sin((float)glutGet(GLUT_ELAPSED_TIME) * 0.005f) + 1.0f) * 0.5f;
+		blinkAlpha = glm::max(0.5f, blinkAlpha);
+
+		ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.0f, 0.0f, blinkAlpha));
+
+		// WARNING 텍스트 중앙 정렬
+		ImGui::SetWindowFontScale(4.0f);
+		const char* warningText = "WARNING: OUT OF BOUNDS";
+		ImVec2 warningTextSize = ImGui::CalcTextSize(warningText);
+		ImGui::SetCursorPosX((ImGui::GetWindowSize().x - warningTextSize.x) * 0.5f);
+		ImGui::Text("%s", warningText);
+
+		// 타이머 텍스트 중앙 정렬
+		ImGui::SetWindowFontScale(6.0f);
+		char timerBuffer[32];
+		sprintf(timerBuffer, "%.1f", mapOutTimer);
+		ImVec2 timerTextSize = ImGui::CalcTextSize(timerBuffer);
+		ImGui::SetCursorPosX((ImGui::GetWindowSize().x - timerTextSize.x) * 0.5f);
+		ImGui::Text("%s", timerBuffer);
+
+		ImGui::SetWindowFontScale(1.0f);
+		ImGui::PopStyleColor();
+
+		ImGui::End();
+		ImGui::PopStyleColor();
+	}
 
 	ImGui::SetNextWindowPos(ImVec2((float)width - 10.0f, 10.0f), ImGuiCond_FirstUseEver, ImVec2(1.0f, 0.0f));
 	ImGui::SetNextWindowSize(ImVec2(250, 150), ImGuiCond_FirstUseEver);

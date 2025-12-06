@@ -6,6 +6,8 @@ out vec4 FragColor;
 uniform bool gunnerview;
 uniform sampler2D screenTexture;
 uniform bool enableNightVision;
+uniform bool enableGrayScreen;
+
 uniform float time;
 
 void main()
@@ -52,6 +54,10 @@ void main()
             (crosshair.y < 0.001 && crosshair.x < 0.02)) {
             color = vec3(1.0, 1.0, 1.0);
         }
+    }
+    if (enableGrayScreen) {
+        float gray = dot(color, vec3(0.299, 0.587, 0.114));
+        color = vec3(gray);
     }
     FragColor = vec4(color, 1.0);
 }

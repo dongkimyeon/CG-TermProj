@@ -8,7 +8,7 @@
 #include "Ground.h"
 
 Helicopter::Helicopter()
-	: position(glm::vec3(0.0f, 180.0f, 0.0f))
+	: position(glm::vec3(0.0f, 900.0f, 0.0f))
 	, velocity(glm::vec3(0.0f))
 	, acceleration(glm::vec3(0.0f))
 	, forward(glm::vec3(0.0f, 0.0f, 1.0f))
